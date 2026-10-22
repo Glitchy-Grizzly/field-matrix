@@ -36,13 +36,13 @@ const ETSY_BENCH_URL = "https://www.etsy.com/shop/GlitchyGrizzly";
 const ETSY_CARGO_URL = "https://www.etsy.com/shop/GlitchyGrizzly";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDummyKeyForTemplate12345",
-  authDomain: "glitchygrizzly-matrix.firebaseapp.com",
-  projectId: "glitchygrizzly-matrix",
-  storageBucket: "glitchygrizzly-matrix.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abcdef"
-};
+            apiKey: "AIzaSyB1aOZeIwyhVEb4D2sRimetbjDJhbeZRqI",
+            authDomain: "print-in-place-boxes.firebaseapp.com",
+            projectId: "print-in-place-boxes",
+            storageBucket: "print-in-place-boxes.firebasestorage.app",
+            messagingSenderId: "282832338212",
+            appId: "1:282832338212:web:817f6b6906ca93aafa87b1"
+        };
 
 let db = null;
 let auth = null;
