@@ -32,28 +32,29 @@ import {
 // FIREBASE & ETSY CONFIGURATION
 // ==========================================
 const firebaseConfig = {
-  apiKey: "AIzaSyB1aOZeIwyhVEb4D2sRimetbjDJhbeZRqI",
-  authDomain: "print-in-place-boxes.firebaseapp.com",
-  projectId: "print-in-place-boxes",
-  storageBucket: "print-in-place-boxes.firebasestorage.app",
-  messagingSenderId: "282832338212",
-  appId: "1:282832338212:web:817f6b6906ca93aafa87b1"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 
 const ETSY_BENCH_URL = "https://www.etsy.com/shop/GlitchyGrizzly";
 const ETSY_CARGO_URL = "https://www.etsy.com/shop/GlitchyGrizzly";
+const FIRESTORE_COLLECTION = "custom_boxes";
 
 let db = null;
 let auth = null;
 try {
-  if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY") {
-    const app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    auth = getAuth(app);
-    signInAnonymously(auth).catch(() => {});
-  }
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  auth = getAuth(app);
+  signInAnonymously(auth).catch((err) => {
+    console.warn("Anonymous auth optional/skipped:", err.message);
+  });
 } catch (err) {
-  console.warn("Firebase init skipped:", err);
+  console.warn("Firebase init error:", err);
 }
 
 // ==========================================
@@ -279,6 +280,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('storage');
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
   const [designCode, setDesignCode] = useState('');
   const [adminMode, setAdminMode] = useState(false);
   const [adminUnlocked, setAdminUnlocked] = useState(false);
@@ -940,58 +942,85 @@ complete_model();
     URL.revokeObjectURL(url);
   };
 
+  const buildOrderPayload = (codeToSave) => ({
+    designCode: codeToSave,
+    productLine: activeTab,
+    createdAt: serverTimestamp(),
+    ...(activeTab === 'storage'
+      ? {
+          tiers,
+          drawersPerTier,
+          opening,
+          handlePos,
+          width,
+          depth,
+          height,
+          enableLabelSlot,
+          labelWidth,
+          labelHeight,
+          labelFont,
+          labels,
+          drawerDividers,
+          casingColorId,
+          drawerColorId
+        }
+      : {
+          cargoWidth,
+          cargoLength,
+          cargoHeight,
+          cargoCompX,
+          cargoCompY,
+          cargoBoxColorId,
+          cargoTextColorId,
+          cargoBoxColor: activeCargoBoxColor.hex,
+          cargoTextColor: activeCargoTextColor.hex,
+          cargoText,
+          cargoFont,
+          cargoBorder
+        })
+  });
+
+  const saveDesignToFirestore = async (codeToSave) => {
+    if (!db) return;
+    try {
+      if (auth && !auth.currentUser) {
+        await signInAnonymously(auth).catch(() => {});
+      }
+      const payload = buildOrderPayload(codeToSave);
+      await setDoc(doc(db, FIRESTORE_COLLECTION, codeToSave), payload);
+    } catch (e) {
+      console.error('Could not save to Firestore collection custom_boxes:', e);
+      setStatusBanner({
+        type: 'error',
+        text: `Firestore save error: ${e.message}`
+      });
+    }
+  };
+
   const handleOpenSpecModal = async () => {
     const prefix = activeTab === 'storage' ? 'BENCH-' : 'CARGO-';
     const randomChars = Math.random().toString(36).substring(2, 8).toUpperCase();
     const newCode = `${prefix}${randomChars}`;
     setDesignCode(newCode);
+    setCodeCopied(false);
     setModalTab('spec');
     setShowModal(true);
 
-    const payload = {
-      designCode: newCode,
-      productLine: activeTab,
-      createdAt: serverTimestamp(),
-      ...(activeTab === 'storage'
-        ? {
-            tiers,
-            drawersPerTier,
-            opening,
-            handlePos,
-            width,
-            depth,
-            height,
-            enableLabelSlot,
-            labelWidth,
-            labelHeight,
-            labelFont,
-            labels,
-            drawerDividers,
-            casingColorId,
-            drawerColorId
-          }
-        : {
-            cargoWidth,
-            cargoLength,
-            cargoHeight,
-            cargoCompX,
-            cargoCompY,
-            cargoBoxColorId,
-            cargoTextColorId,
-            cargoBoxColor: activeCargoBoxColor.hex,
-            cargoTextColor: activeCargoTextColor.hex,
-            cargoText,
-            cargoFont,
-            cargoBorder
-          })
-    };
+    try {
+      navigator.clipboard.writeText(newCode);
+      setCodeCopied(true);
+    } catch (err) {
+      // Ignore clipboard permission error until explicit button click
+    }
 
-    if (db && auth && auth.currentUser) {
-      try {
-        await setDoc(doc(db, 'custom_orders', newCode), payload);
-      } catch (e) {
-        console.warn('Could not save to Firestore:', e);
-      }
+    await saveDesignToFirestore(newCode);
+  };
+
+  const handleEtsyOrderClick = () => {
+    if (designCode) {
+      navigator.clipboard.writeText(designCode);
+      setCodeCopied(true);
+      saveDesignToFirestore(designCode);
     }
   };
 
@@ -1004,8 +1033,11 @@ complete_model();
       return;
     }
     try {
+      if (auth && !auth.currentUser) {
+        await signInAnonymously(auth).catch(() => {});
+      }
       const cleanCode = recallCode.trim().toUpperCase();
-      const snap = await getDoc(doc(db, 'custom_orders', cleanCode));
+      const snap = await getDoc(doc(db, FIRESTORE_COLLECTION, cleanCode));
       if (snap.exists()) {
         const data = snap.data();
         setDesignCode(cleanCode);
@@ -1124,12 +1156,19 @@ complete_model();
     scene.add(modelGroup);
     modelGroupRef.current = modelGroup;
 
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let downX = 0;
+    let downY = 0;
+
     const domElem = renderer.domElement;
     const onPointerDown = (e) => {
       controlsState.current.isDragging = true;
       controlsState.current.isPanning = e.button === 2 || e.shiftKey;
       controlsState.current.prevX = e.clientX;
       controlsState.current.prevY = e.clientY;
+      downX = e.clientX;
+      downY = e.clientY;
     };
     const onPointerMove = (e) => {
       if (!controlsState.current.isDragging) return;
@@ -1144,8 +1183,27 @@ complete_model();
         controlsState.current.phi = Math.max(0.15, Math.min(Math.PI / 2 - 0.02, controlsState.current.phi - dy * 0.0085));
       }
     };
-    const onPointerUp = () => {
+    const onPointerUp = (e) => {
       controlsState.current.isDragging = false;
+      const moveDist = Math.hypot(e.clientX - downX, e.clientY - downY);
+      if (moveDist < 5) {
+        const rect = domElem.getBoundingClientRect();
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(modelGroup.children, true);
+        if (intersects.length > 0) {
+          let obj = intersects[0].object;
+          while (obj && obj !== modelGroup) {
+            if (obj.userData && obj.userData.drawerKey) {
+              const key = obj.userData.drawerKey;
+              setOpenDrawersMap((prev) => ({ ...prev, [key]: !prev[key] }));
+              break;
+            }
+            obj = obj.parent;
+          }
+        }
+      }
     };
     const onWheel = (e) => {
       e.preventDefault();
@@ -1287,10 +1345,15 @@ complete_model();
           const drawerCenterZ = wallThick / 2;
           const drawerLocal = new THREE.Group();
           drawerLocal.position.set(drawerCenterX - pivotWorldX, 0, drawerCenterZ - pivotWorldZ);
+          drawerLocal.userData = { drawerKey };
 
-          drawerLocal.add(new THREE.Mesh(floorGeo, drawerMat));
+          const floorMesh = new THREE.Mesh(floorGeo, drawerMat);
+          floorMesh.userData = { drawerKey };
+          drawerLocal.add(floorMesh);
+
           const wallMesh = new THREE.Mesh(perimeterWallGeo, drawerMat);
           wallMesh.position.y = drawerFloorThick;
+          wallMesh.userData = { drawerKey };
           drawerLocal.add(wallMesh);
 
           const divConfig = getDividerForDrawer(t, b);
@@ -1302,12 +1365,14 @@ complete_model();
             const zPos = -innerSpanD / 2 + (innerSpanD / divConfig.h) * i;
             const hDiv = new THREE.Mesh(new THREE.BoxGeometry(innerSpanW, divHeight, 1.4), drawerMat);
             hDiv.position.set(0, drawerFloorThick + divHeight / 2, zPos);
+            hDiv.userData = { drawerKey };
             drawerLocal.add(hDiv);
           }
           for (let j = 1; j < (divConfig.v || 1); j++) {
             const xPos = -innerSpanW / 2 + (innerSpanW / divConfig.v) * j;
             const vDiv = new THREE.Mesh(new THREE.BoxGeometry(1.4, divHeight, innerSpanD), drawerMat);
             vDiv.position.set(xPos, drawerFloorThick + divHeight / 2, 0);
+            vDiv.userData = { drawerKey };
             drawerLocal.add(vDiv);
           }
 
@@ -1320,6 +1385,7 @@ complete_model();
               new THREE.MeshBasicMaterial({ map: labelTex })
             );
             labelPlate.position.set(0, dH / 2, dD / 2 + 0.8);
+            labelPlate.userData = { drawerKey };
             drawerLocal.add(labelPlate);
           }
 
@@ -1525,8 +1591,10 @@ complete_model();
           polygonOffsetFactor: -1
         })
       );
+      // When lidHalf folds 180° around the X-axis hinge, rotation.x = PI/2 with rotation.z = 0
+      // ensures the text faces upward and reads right-side-up from the front latch!
       lidLabelPlane.rotation.x = Math.PI / 2;
-      lidLabelPlane.rotation.z = Math.PI;
+      lidLabelPlane.rotation.z = 0;
       lidLabelPlane.position.set(0, -0.06, 0);
       lidHalf.add(lidLabelPlane);
 
@@ -1802,26 +1870,40 @@ complete_model();
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(generateSpecSheet());
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  }}
-                  className="px-4 py-2 rounded-lg bg-[#1e293b] hover:bg-[#334155] text-white font-bold text-xs flex items-center gap-1.5"
-                >
-                  {copied ? <CheckCircle size={15} className="text-emerald-400" /> : <Copy size={15} />}
-                  {copied ? 'Copied Spec & Code!' : 'Copy Spec Sheet'}
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(designCode);
+                      setCodeCopied(true);
+                      setTimeout(() => setCodeCopied(false), 2500);
+                    }}
+                    className="px-3.5 py-2 rounded-lg bg-[#38bdf8]/15 border border-[#38bdf8]/50 hover:bg-[#38bdf8]/25 text-[#38bdf8] font-bold text-xs flex items-center gap-1.5"
+                  >
+                    {codeCopied ? <CheckCircle size={15} className="text-emerald-400" /> : <Copy size={15} />}
+                    {codeCopied ? `Copied Code (${designCode})!` : `Copy Code: ${designCode}`}
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(generateSpecSheet());
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className="px-3.5 py-2 rounded-lg bg-[#1e293b] hover:bg-[#334155] text-white font-bold text-xs flex items-center gap-1.5"
+                  >
+                    {copied ? <CheckCircle size={15} className="text-emerald-400" /> : <Copy size={15} />}
+                    {copied ? 'Copied Full Spec!' : 'Copy Spec Sheet'}
+                  </button>
+                </div>
               )}
 
               <a
                 href={activeTab === 'storage' ? ETSY_BENCH_URL : ETSY_CARGO_URL}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={handleEtsyOrderClick}
                 className="px-5 py-2 rounded-lg bg-[#f43f5e] hover:bg-[#fb7185] text-white font-bold text-xs flex items-center gap-1.5"
               >
-                Order on Etsy <ExternalLink size={14} />
+                {codeCopied ? 'Code Copied! Order on Etsy' : 'Copy Code & Order on Etsy'} <ExternalLink size={14} />
               </a>
             </div>
           </div>
