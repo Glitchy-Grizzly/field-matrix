@@ -173,6 +173,35 @@ function createLabelTexture(text, bgHex = '#1F2022', textHex = '#9B7E64', fontNa
   return texture;
 }
 
+function createCargoLidTexture(text, boxHex = '#F5547C', textHex = '#1A1A1A', fontName = 'Impact') {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = boxHex;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Subtle recessed border groove on lid exterior
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.22)';
+  ctx.lineWidth = 14;
+  ctx.strokeRect(36, 36, canvas.width - 72, canvas.height - 72);
+
+  if (text && text.trim() !== '') {
+    const clean = text.trim();
+    ctx.fillStyle = textHex;
+    const fontSize = clean.length > 16 ? 78 : clean.length > 10 ? 105 : 132;
+    ctx.font = `900 ${fontSize}px "${fontName}", "Arial Black", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(clean, canvas.width / 2, canvas.height / 2);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
 function createDimensionSprite(text, isWarning = false) {
   const canvas = document.createElement('canvas');
   canvas.width = 320;
@@ -320,12 +349,12 @@ export default function App() {
   const [cargoLength, setCargoLength] = useState(90);
   const [cargoHeight, setCargoHeight] = useState(20);
   const [cargoCompX, setCargoCompX] = useState(2);
-  const [cargoCompY, setCargoCompY] = useState(1);
+  const [cargoCompY, setCargoCompY] = useState(2);
   const [cargoBoxColor, setCargoBoxColor] = useState('#F5547C');
   const [cargoTextColor, setCargoTextColor] = useState('#1A1A1A');
   const [cargoText, setCargoText] = useState('FIELD KIT');
   const [cargoFont, setCargoFont] = useState('Impact');
-  const [foldAngle, setFoldAngle] = useState(0);
+  const [foldAngle, setFoldAngle] = useState(35);
 
   const maxLabelHeight = useMemo(() => {
     const raw = 6 + (height - 10) * (18 / 20);
@@ -486,7 +515,7 @@ export default function App() {
       spec += `- Interior Grid      : ${cargoCompX} Columns × ${cargoCompY} Rows\n`;
       spec += `- Box Filament       : ${cargoBoxColor}\n`;
       spec += `- Text Inlay Color   : ${cargoTextColor}\n`;
-      spec += `- Custom Lid Text    : "${cargoText}"\n`;
+      spec += `- Custom Lid Text    : "${cargoText}" (Font: ${cargoFont})\n`;
     }
     return spec;
   };
@@ -548,6 +577,7 @@ export default function App() {
             setCargoBoxColor(data.cargoBoxColor);
             setCargoTextColor(data.cargoTextColor);
             setCargoText(data.cargoText);
+            if (data.cargoFont) setCargoFont(data.cargoFont);
           }
           alert(`Successfully loaded order ${recallCode.trim().toUpperCase()}!`);
           setAdminMode(false);
@@ -572,9 +602,9 @@ export default function App() {
     prevX: 0,
     prevY: 0,
     theta: 0.62,
-    phi: 1.12,
-    radius: 380,
-    targetY: 75
+    phi: 1.05,
+    radius: 360,
+    targetY: 50
   });
 
   const hasAnyOpenDrawer = useMemo(() => {
@@ -582,14 +612,24 @@ export default function App() {
   }, [swingOpenAmount, openDrawersMap]);
 
   const fitCameraToModel = useCallback(() => {
-    const perDrawerExplode = explodedView ? Math.max(16, height * 0.95) : 0;
-    const perTierExplode = explodedView ? 32 : 0;
-    const singleTierVisH = drawersPerTier * (height + 2.15 + perDrawerExplode) + 1.5;
-    const totalH = activeTab === 'storage' ? tiers * singleTierVisH + (tiers - 1) * perTierExplode : 140;
-    const maxSpan = Math.max(width, depth, totalH);
-    controlsState.current.targetY = totalH * 0.48;
-    controlsState.current.radius = Math.max(260, maxSpan * 1.95 + 110);
-  }, [activeTab, tiers, drawersPerTier, height, width, depth, explodedView]);
+    if (activeTab === 'storage') {
+      const perDrawerExplode = explodedView ? Math.max(16, height * 0.95) : 0;
+      const perTierExplode = explodedView ? 32 : 0;
+      const singleTierVisH = drawersPerTier * (height + 2.15 + perDrawerExplode) + 1.5;
+      const totalH = tiers * singleTierVisH + (tiers - 1) * perTierExplode;
+      const maxSpan = Math.max(width, depth, totalH);
+      controlsState.current.targetY = totalH * 0.48;
+      controlsState.current.radius = Math.max(260, maxSpan * 1.95 + 110);
+    } else {
+      const maxCargoSpan = Math.max(cargoWidth, cargoLength * 2.1, cargoHeight * 2);
+      controlsState.current.targetY = cargoHeight * 0.8;
+      controlsState.current.radius = Math.max(240, maxCargoSpan * 1.75 + 80);
+    }
+  }, [activeTab, tiers, drawersPerTier, height, width, depth, explodedView, cargoWidth, cargoLength, cargoHeight]);
+
+  useEffect(() => {
+    fitCameraToModel();
+  }, [activeTab, fitCameraToModel]);
 
   useEffect(() => {
     const container = mountRef.current;
@@ -611,7 +651,7 @@ export default function App() {
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    const ambientLight = new THREE.AmbientLight(0xf1f5f9, 0.82);
+    const ambientLight = new THREE.AmbientLight(0xf1f5f9, 0.85);
     scene.add(ambientLight);
 
     const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.15);
@@ -988,56 +1028,182 @@ export default function App() {
         group.add(hSprite);
       }
     } else {
-      // CARGO MATRIX 3D VIEWPORT
-      const boxMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(cargoBoxColor), roughness: 0.38, metalness: 0.08 });
-      const pinMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.25, metalness: 0.5 });
-      const wall = 2.0;
+      // ==========================================
+      // THE CARGO MATRIX (PRINT-IN-PLACE CLAMSHELL CASE)
+      // Properly oriented flat on the XZ build plate (Y-up)
+      // ==========================================
+      const boxMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(cargoBoxColor),
+        roughness: 0.42,
+        metalness: 0.08
+      });
+      const pinMat = new THREE.MeshStandardMaterial({
+        color: 0x94a3b8,
+        roughness: 0.25,
+        metalness: 0.6
+      });
+      const latchMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(cargoTextColor),
+        roughness: 0.4,
+        metalness: 0.1
+      });
 
-      const halfGroup = new THREE.Group();
-      const floor = new THREE.Mesh(new THREE.BoxGeometry(cargoWidth, cargoLength, wall), boxMat);
-      floor.position.set(0, 0, wall / 2);
-      halfGroup.add(floor);
+      const wall = 2.2;
+      const hingeGap = 1.6;
 
-      const left = new THREE.Mesh(new THREE.BoxGeometry(wall, cargoLength, cargoHeight), boxMat);
-      left.position.set(-cargoWidth / 2 + wall / 2, 0, cargoHeight / 2);
-      halfGroup.add(left);
+      // Helper function to build a hollow shell half (X = Width, Y = Height, Z = Length)
+      const createHalfShell = (isBase = true) => {
+        const shell = new THREE.Group();
 
-      const right = new THREE.Mesh(new THREE.BoxGeometry(wall, cargoLength, cargoHeight), boxMat);
-      right.position.set(cargoWidth / 2 - wall / 2, 0, cargoHeight / 2);
-      halfGroup.add(right);
+        // Bottom Floor (sits at y = 0 to y = wall)
+        const floor = new THREE.Mesh(new THREE.BoxGeometry(cargoWidth, wall, cargoLength), boxMat);
+        floor.position.set(0, wall / 2, 0);
+        floor.castShadow = true;
+        floor.receiveShadow = true;
+        shell.add(floor);
 
-      const front = new THREE.Mesh(new THREE.BoxGeometry(cargoWidth - wall * 2, wall, cargoHeight), boxMat);
-      front.position.set(0, -cargoLength / 2 + wall / 2, cargoHeight / 2);
-      halfGroup.add(front);
+        // Left & Right Walls
+        const sideGeo = new THREE.BoxGeometry(wall, cargoHeight, cargoLength);
+        const leftWall = new THREE.Mesh(sideGeo, boxMat);
+        leftWall.position.set(-cargoWidth / 2 + wall / 2, cargoHeight / 2, 0);
+        leftWall.castShadow = true;
+        leftWall.receiveShadow = true;
+        shell.add(leftWall);
 
-      const back = new THREE.Mesh(new THREE.BoxGeometry(cargoWidth - wall * 2, wall, cargoHeight), boxMat);
-      back.position.set(0, cargoLength / 2 - wall / 2, cargoHeight / 2);
-      halfGroup.add(back);
+        const rightWall = new THREE.Mesh(sideGeo, boxMat);
+        rightWall.position.set(cargoWidth / 2 - wall / 2, cargoHeight / 2, 0);
+        rightWall.castShadow = true;
+        rightWall.receiveShadow = true;
+        shell.add(rightWall);
 
-      const baseBottom = halfGroup.clone();
-      baseBottom.position.set(0, -cargoLength / 2 - 0.45, 0);
-      group.add(baseBottom);
+        // Front & Back Walls
+        const fbGeo = new THREE.BoxGeometry(cargoWidth - wall * 2, cargoHeight, wall);
+        const frontWall = new THREE.Mesh(fbGeo, boxMat);
+        frontWall.position.set(0, cargoHeight / 2, cargoLength / 2 - wall / 2);
+        frontWall.castShadow = true;
+        frontWall.receiveShadow = true;
+        shell.add(frontWall);
 
-      const pinMesh = new THREE.Mesh(new THREE.CylinderGeometry(1.33, 1.33, cargoWidth - 0.35, 20), pinMat);
+        const backWall = new THREE.Mesh(fbGeo, boxMat);
+        backWall.position.set(0, cargoHeight / 2, -cargoLength / 2 + wall / 2);
+        backWall.castShadow = true;
+        backWall.receiveShadow = true;
+        shell.add(backWall);
+
+        // Interior Compartment Grid Dividers (for the Base Half)
+        if (isBase) {
+          const innerW = cargoWidth - wall * 2;
+          const innerL = cargoLength - wall * 2;
+          const divH = Math.max(2, cargoHeight - wall - 1.2);
+          const divThick = 1.6;
+
+          if (cargoCompX > 1) {
+            const colGeo = new THREE.BoxGeometry(divThick, divH, innerL);
+            for (let i = 1; i < cargoCompX; i++) {
+              const xPos = -innerW / 2 + (innerW / cargoCompX) * i;
+              const divMesh = new THREE.Mesh(colGeo, boxMat);
+              divMesh.position.set(xPos, wall + divH / 2, 0);
+              divMesh.castShadow = true;
+              divMesh.receiveShadow = true;
+              shell.add(divMesh);
+            }
+          }
+
+          if (cargoCompY > 1) {
+            const rowGeo = new THREE.BoxGeometry(innerW, divH, divThick);
+            for (let j = 1; j < cargoCompY; j++) {
+              const zPos = -innerL / 2 + (innerL / cargoCompY) * j;
+              const divMesh = new THREE.Mesh(rowGeo, boxMat);
+              divMesh.position.set(0, wall + divH / 2, zPos);
+              divMesh.castShadow = true;
+              divMesh.receiveShadow = true;
+              shell.add(divMesh);
+            }
+          }
+        }
+
+        return shell;
+      };
+
+      // 1. Base Half (Front side of hinge: centered at Z = +cargoLength/2 + hingeGap/2)
+      const baseHalf = createHalfShell(true);
+      baseHalf.position.set(0, 0, cargoLength / 2 + hingeGap / 2);
+      group.add(baseHalf);
+
+      // Front Latch Accent on Base
+      const latchGeo = new THREE.BoxGeometry(Math.min(34, cargoWidth * 0.35), cargoHeight * 0.55, 2.2);
+      const baseLatch = new THREE.Mesh(latchGeo, latchMat);
+      baseLatch.position.set(0, cargoHeight * 0.55, cargoLength + hingeGap / 2 + 1.0);
+      group.add(baseLatch);
+
+      // 2. Center Hinge Knuckles & Steel/PLA Pin (along X axis at Y = cargoHeight, Z = 0)
+      const pinMesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(2.2, 2.2, cargoWidth - 4, 24),
+        pinMat
+      );
       pinMesh.rotation.z = Math.PI / 2;
-      pinMesh.position.set(0, 0, cargoHeight);
+      pinMesh.position.set(0, cargoHeight, 0);
       group.add(pinMesh);
 
+      const knuckleCount = 5;
+      const knuckleW = (cargoWidth - 16) / knuckleCount;
+      for (let k = 0; k < knuckleCount; k++) {
+        const kx = -((cargoWidth - 16) / 2) + knuckleW * (k + 0.5);
+        const kMesh = new THREE.Mesh(
+          new THREE.CylinderGeometry(3.8, 3.8, knuckleW - 1.2, 20),
+          k % 2 === 0 ? boxMat : latchMat
+        );
+        kMesh.rotation.z = Math.PI / 2;
+        kMesh.position.set(kx, cargoHeight, 0);
+        group.add(kMesh);
+      }
+
+      // 3. Lid Pivot Group (Rotates from 0° flat print-in-place position to 180° closed)
       const lidPivot = new THREE.Group();
-      lidPivot.position.set(0, 0, cargoHeight);
+      lidPivot.position.set(0, cargoHeight, 0);
+      // At foldAngle = 0: lid lies flat on the build plate behind the base (Z < 0).
+      // At foldAngle = 180: lid folds forward (+Math.PI around X) right on top of the base!
       lidPivot.rotation.x = THREE.MathUtils.degToRad(foldAngle);
 
-      const lidTop = halfGroup.clone();
-      lidTop.position.set(0, cargoLength / 2 + 0.45, -cargoHeight);
-      lidPivot.add(lidTop);
+      const lidHalf = createHalfShell(false);
+      lidHalf.position.set(0, -cargoHeight, -cargoLength / 2 - hingeGap / 2);
+
+      // Custom Multi-Color Lid Text Inlay Plate on the exterior of the Lid
+      const lidTex = createCargoLidTexture(cargoText, cargoBoxColor, cargoTextColor, cargoFont);
+      const inlayPlaneGeo = new THREE.PlaneGeometry(cargoWidth - 4, cargoLength - 4);
+      const inlayPlaneMat = new THREE.MeshBasicMaterial({
+        map: lidTex,
+        side: THREE.DoubleSide
+      });
+      const inlayMesh = new THREE.Mesh(inlayPlaneGeo, inlayPlaneMat);
+      // Positioned on the outer face of the lid (y = -0.25 in lidHalf local coords -> becomes top face when folded 180°)
+      inlayMesh.rotation.x = Math.PI / 2;
+      inlayMesh.position.set(0, -0.25, 0);
+      lidHalf.add(inlayMesh);
+
+      lidPivot.add(lidHalf);
       group.add(lidPivot);
+
+      if (showDimensions) {
+        const wSprite = createDimensionSprite(`${cargoWidth} mm W`);
+        wSprite.position.set(0, 6, cargoLength + 26);
+        group.add(wSprite);
+
+        const lSprite = createDimensionSprite(`${cargoLength} mm L`);
+        lSprite.position.set(-cargoWidth / 2 - 34, 6, cargoLength / 2);
+        group.add(lSprite);
+
+        const hSprite = createDimensionSprite(`${cargoHeight} mm H (half)`);
+        hSprite.position.set(cargoWidth / 2 + 38, cargoHeight / 2, cargoLength / 2);
+        group.add(hSprite);
+      }
     }
   }, [
     activeTab, tiers, drawersPerTier, opening, handlePos, width, depth, height,
     enableLabelSlot, labelWidth, labelHeight, maxLabelWidth, maxLabelHeight, labelFont,
     labels, drawerDividers, activeCasingColor, activeDrawerColor, explodedView, xrayMode,
     showDimensions, singleTierHeightMm, isOverP1SLimit,
-    cargoWidth, cargoLength, cargoHeight, cargoCompX, cargoCompY, cargoBoxColor, cargoTextColor, cargoText, foldAngle
+    cargoWidth, cargoLength, cargoHeight, cargoCompX, cargoCompY, cargoBoxColor, cargoTextColor, cargoText, cargoFont, foldAngle
   ]);
 
   const prevDrawerAnglesRef = useRef({});
@@ -1429,53 +1595,129 @@ export default function App() {
           ) : (
             // CARGO MATRIX SIDEBAR CONTROLS
             <div className="space-y-4">
+              {/* Lid Text & Colors placed prominently at top so it's immediately visible */}
               <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3">
-                <div className="text-xs font-bold uppercase tracking-widest text-[#38bdf8]">Case Dimensions (mm)</div>
+                <div className="text-xs font-bold uppercase tracking-widest text-[#38bdf8] flex items-center gap-1.5">
+                  <Tag size={13} /> Custom Lid Text &amp; Colors
+                </div>
+
                 <div>
-                  <label className="text-xs text-[#94a3b8] flex justify-between mb-1">Width (Hinge Axis) <span className="text-[#fda4af] font-bold">{cargoWidth} mm</span></label>
+                  <label className="text-xs text-[#e2e8f0] font-semibold mb-1.5 block">
+                    Lid Inlay Text
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={22}
+                    placeholder="Enter custom lid text..."
+                    value={cargoText}
+                    onChange={(e) => setCargoText(e.target.value)}
+                    className="w-full bg-[#0b0f19] border border-[#38bdf8]/50 focus:border-[#f43f5e] rounded-lg px-3 py-2 text-xs font-bold text-white outline-none"
+                  />
+                  <div className="flex justify-between items-center mt-1.5">
+                    <span className="text-[10px] text-[#94a3b8]">
+                      Tip: Fold Lid to 150°–180° to view top of closed lid
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setFoldAngle(foldAngle > 120 ? 25 : 180)}
+                      className="text-[10px] font-bold text-[#38bdf8] hover:underline"
+                    >
+                      {foldAngle > 120 ? 'Open Case (25°)' : 'Close Lid (180°)'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5 pt-1">
+                  <div>
+                    <label className="text-[11px] text-[#94a3b8] mb-1 block">Box Filament</label>
+                    <select
+                      value={cargoBoxColor}
+                      onChange={(e) => setCargoBoxColor(e.target.value)}
+                      className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg p-2 text-xs text-white"
+                    >
+                      <option value="#F5547C">Hot Pink</option>
+                      <option value="#C12E1F">Fire Red</option>
+                      <option value="#FF6A13">Mandarin Orange</option>
+                      <option value="#1A1A1A">Matte Charcoal</option>
+                      <option value="#F8FAFC">Arctic White</option>
+                      <option value="#F4EE2A">Lemon Yellow</option>
+                      <option value="#0A2989">Cobalt Blue</option>
+                      <option value="#3F8E43">Forest Green</option>
+                      <option value="#E4BD68">Metallic Gold</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] text-[#94a3b8] mb-1 block">Text &amp; Latch Color</label>
+                    <select
+                      value={cargoTextColor}
+                      onChange={(e) => setCargoTextColor(e.target.value)}
+                      className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg p-2 text-xs text-white"
+                    >
+                      <option value="#1A1A1A">Matte Black</option>
+                      <option value="#F8FAFC">Crisp White</option>
+                      <option value="#E4BD68">Gold Accent</option>
+                      <option value="#F4EE2A">Hi-Vis Yellow</option>
+                      <option value="#38bdf8">Cyan Blue</option>
+                      <option value="#F5547C">Hot Pink</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] text-[#94a3b8] mb-1 block">Lid Font Style</label>
+                  <select
+                    value={cargoFont}
+                    onChange={(e) => setCargoFont(e.target.value)}
+                    className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg p-2 text-xs text-white"
+                  >
+                    <option value="Impact">Impact (Heavy Stencil)</option>
+                    <option value="Inter">Inter Black</option>
+                    <option value="JetBrains Mono">Technical Mono</option>
+                    <option value="Arial Black">Bold Industrial</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3">
+                <div className="text-xs font-bold uppercase tracking-widest text-[#38bdf8] flex items-center gap-1.5">
+                  <Sliders size={13} /> Case Dimensions (mm)
+                </div>
+                <div>
+                  <label className="text-xs text-[#94a3b8] flex justify-between mb-1">
+                    Width (Hinge Axis) <span className="text-[#fda4af] font-bold">{cargoWidth} mm</span>
+                  </label>
                   <input type="range" min="40" max="200" value={cargoWidth} onChange={(e) => setCargoWidth(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
                 </div>
                 <div>
-                  <label className="text-xs text-[#94a3b8] flex justify-between mb-1">Length (Each Half) <span className="text-[#fda4af] font-bold">{cargoLength} mm</span></label>
+                  <label className="text-xs text-[#94a3b8] flex justify-between mb-1">
+                    Length (Each Half) <span className="text-[#fda4af] font-bold">{cargoLength} mm</span>
+                  </label>
                   <input type="range" min="40" max="105" value={cargoLength} onChange={(e) => setCargoLength(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
                 </div>
                 <div>
-                  <label className="text-xs text-[#94a3b8] flex justify-between mb-1">Height (Each Half) <span className="text-[#fda4af] font-bold">{cargoHeight} mm</span></label>
+                  <label className="text-xs text-[#94a3b8] flex justify-between mb-1">
+                    Height (Each Half) <span className="text-[#fda4af] font-bold">{cargoHeight} mm</span>
+                  </label>
                   <input type="range" min="12" max="60" value={cargoHeight} onChange={(e) => setCargoHeight(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
                 </div>
               </div>
 
               <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3">
-                <div className="text-xs font-bold uppercase tracking-widest text-[#38bdf8]">Interior Grid (Base)</div>
+                <div className="text-xs font-bold uppercase tracking-widest text-[#38bdf8] flex items-center gap-1.5">
+                  <Grid size={13} /> Interior Grid (Base Compartments)
+                </div>
                 <div>
-                  <label className="text-xs text-[#94a3b8] flex justify-between mb-1">Columns (X) <span className="text-[#fda4af] font-bold">{cargoCompX}</span></label>
+                  <label className="text-xs text-[#94a3b8] flex justify-between mb-1">
+                    Columns (X) <span className="text-[#fda4af] font-bold">{cargoCompX}</span>
+                  </label>
                   <input type="range" min="1" max="5" value={cargoCompX} onChange={(e) => setCargoCompX(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
                 </div>
                 <div>
-                  <label className="text-xs text-[#94a3b8] flex justify-between mb-1">Rows (Y) <span className="text-[#fda4af] font-bold">{cargoCompY}</span></label>
+                  <label className="text-xs text-[#94a3b8] flex justify-between mb-1">
+                    Rows (Y) <span className="text-[#fda4af] font-bold">{cargoCompY}</span>
+                  </label>
                   <input type="range" min="1" max="5" value={cargoCompY} onChange={(e) => setCargoCompY(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
-                </div>
-              </div>
-
-              <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3">
-                <div className="text-xs font-bold uppercase tracking-widest text-[#38bdf8]">Colors &amp; Lid Text</div>
-                <div>
-                  <label className="text-xs text-[#94a3b8] mb-1 block">Box Color</label>
-                  <select value={cargoBoxColor} onChange={(e) => setCargoBoxColor(e.target.value)} className="w-full bg-[#0b0f19] border border-[#1e293b] rounded p-2 text-xs text-white">
-                    <option value="#C12E1F">Red</option>
-                    <option value="#FF6A13">Orange</option>
-                    <option value="#1A1A1A">Black</option>
-                    <option value="#F8FAFC">White</option>
-                    <option value="#F4EE2A">Yellow</option>
-                    <option value="#0A2989">Blue</option>
-                    <option value="#3F8E43">Green</option>
-                    <option value="#F5547C">Hot Pink</option>
-                    <option value="#E4BD68">Gold</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-[#94a3b8] mb-1 block">Custom Lid Text</label>
-                  <input type="text" value={cargoText} onChange={(e) => setCargoText(e.target.value)} className="w-full bg-[#0b0f19] border border-[#1e293b] rounded p-2 text-xs text-white" />
                 </div>
               </div>
             </div>
@@ -1534,9 +1776,15 @@ export default function App() {
                 <input
                   type="range" min="0" max="180" value={foldAngle}
                   onChange={(e) => setFoldAngle(parseFloat(e.target.value))}
-                  className="w-24 box-studio-slider"
+                  className="w-28 box-studio-slider"
                 />
-                <span className="text-[11px] text-[#fda4af] font-mono">{foldAngle}°</span>
+                <span className="text-[11px] text-[#fda4af] font-mono w-9">{foldAngle}°</span>
+                <button
+                  onClick={() => setFoldAngle(foldAngle > 120 ? 0 : 180)}
+                  className="px-2 py-0.5 rounded-full bg-[#3b1526] border border-[#f43f5e]/50 text-[10px] font-bold text-[#fecdd3]"
+                >
+                  {foldAngle > 120 ? 'Lay Flat (0°)' : 'Close Box (180°)'}
+                </button>
               </div>
             )}
           </div>
@@ -1546,14 +1794,14 @@ export default function App() {
               <>
                 <button onClick={() => setExplodedView(!explodedView)} className={`px-2.5 py-1 rounded text-xs font-medium border ${explodedView ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]' : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'}`}>Exploded</button>
                 <button onClick={() => setXrayMode(!xrayMode)} className={`px-2.5 py-1 rounded text-xs font-medium border ${xrayMode ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]' : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'}`}>X-Ray</button>
-                <button onClick={() => setShowDimensions(!showDimensions)} className={`px-2.5 py-1 rounded text-xs font-medium border flex items-center gap-1 ${showDimensions ? 'bg-[#38bdf8]/15 border-[#38bdf8] text-[#38bdf8]' : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'}`}><Eye size={12} /> 3D Dimensions</button>
               </>
             )}
+            <button onClick={() => setShowDimensions(!showDimensions)} className={`px-2.5 py-1 rounded text-xs font-medium border flex items-center gap-1 ${showDimensions ? 'bg-[#38bdf8]/15 border-[#38bdf8] text-[#38bdf8]' : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'}`}><Eye size={12} /> 3D Dimensions</button>
             <button onClick={fitCameraToModel} className="px-2.5 py-1 rounded text-xs font-medium bg-[#151e31] border border-[#1e293b] text-[#e2e8f0] flex items-center gap-1"><Maximize2 size={12} /> Fit</button>
             <button
               onClick={() => {
                 controlsState.current.theta = 0.62;
-                controlsState.current.phi = 1.12;
+                controlsState.current.phi = 1.05;
                 setOpenDrawersMap({});
                 setSwingOpenAmount(0);
                 fitCameraToModel();
