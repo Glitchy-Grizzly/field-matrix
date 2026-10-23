@@ -15,7 +15,6 @@ import {
   Sliders,
   Tag,
   Palette,
-  Grid,
   ChevronDown,
   ChevronUp,
   Sparkles,
@@ -31,7 +30,6 @@ import {
 
 // ==========================================
 // FIREBASE & ETSY CONFIGURATION
-// Paste your existing Firebase keys here
 // ==========================================
 const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
@@ -60,7 +58,6 @@ try {
 
 // ==========================================
 // BAMBU LAB PLA COLOR PALETTE (20 COLORS)
-// Shared by both The Bench Matrix & The Cargo Matrix
 // ==========================================
 const BAMBU_PLA_COLORS = [
   { id: 'matte-charcoal', name: 'Matte Charcoal', hex: '#1F2022', roughness: 0.78 },
@@ -89,9 +86,6 @@ const P1S_MAX_HEIGHT_MM = 250.0;
 const TIER_CLEARANCE_PER_DRAWER_MM = 2.15;
 const TIER_FRAME_BASE_TOP_MM = 1.5;
 
-// ==========================================
-// INTERACTIVE POPUP EXPLANATION COMPONENT
-// ==========================================
 function InfoPopover({ title, text, formula }) {
   const [open, setOpen] = useState(false);
   const popRef = useRef(null);
@@ -148,9 +142,6 @@ function InfoPopover({ title, text, formula }) {
   );
 }
 
-// ==========================================
-// 3D HELPER: DYNAMIC CANVAS TEXTURE FOR DRAWER LABELS
-// ==========================================
 function createLabelTexture(text, bgHex = '#1F2022', textHex = '#9B7E64', fontName = 'Inter') {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
@@ -179,11 +170,6 @@ function createLabelTexture(text, bgHex = '#1F2022', textHex = '#9B7E64', fontNa
   return texture;
 }
 
-// ==========================================
-// 3D HELPER: TRANSPARENT CANVAS TEXTURE FOR CARGO LID INLAY
-// Transparent background ensures the 3D lid MeshStandardMaterial
-// shows through with identical lighting & color as the rest of the box
-// ==========================================
 function createCargoLidTexture(text, textHex = '#1A1A1A', fontName = 'Impact', showBorder = true) {
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
@@ -301,6 +287,7 @@ export default function App() {
   const [recallCode, setRecallCode] = useState('');
   const [statusBanner, setStatusBanner] = useState(null);
   const [modalTab, setModalTab] = useState('spec'); // 'spec' | 'scad'
+  const [scadExportMode, setScadExportMode] = useState('full'); // 'full' | 'box_only' | 'text_only' | 'hinge' | 'latch'
   const [scadCopied, setScadCopied] = useState(false);
   const logoClickRef = useRef({ count: 0, timer: null });
 
@@ -308,7 +295,6 @@ export default function App() {
 
   const triggerHiddenAdmin = useCallback(() => {
     setAdminMode(true);
-    setAdminUnlocked(false);
     setAdminPinInput('');
     setAdminPinError(false);
   }, []);
@@ -357,9 +343,7 @@ export default function App() {
   const toggleSection = (key) =>
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  // ==========================================
-  // THE BENCH MATRIX STATE
-  // ==========================================
+  // Bench Matrix State
   const [sizePreset, setSizePreset] = useState('Medium');
   const [tiers, setTiers] = useState(2);
   const [drawersPerTier, setDrawersPerTier] = useState(5);
@@ -393,9 +377,7 @@ export default function App() {
   const [xrayMode, setXrayMode] = useState(false);
   const [showDimensions, setShowDimensions] = useState(true);
 
-  // ==========================================
-  // THE CARGO MATRIX STATE
-  // ==========================================
+  // Cargo Matrix State
   const [cargoWidth, setCargoWidth] = useState(120);
   const [cargoLength, setCargoLength] = useState(90);
   const [cargoHeight, setCargoHeight] = useState(20);
@@ -417,7 +399,15 @@ export default function App() {
     [cargoTextColorId]
   );
 
-  // Dynamic Label Caps for Bench Matrix
+  const activeCasingColor = useMemo(
+    () => BAMBU_PLA_COLORS.find((c) => c.id === casingColorId) || BAMBU_PLA_COLORS[16],
+    [casingColorId]
+  );
+  const activeDrawerColor = useMemo(
+    () => BAMBU_PLA_COLORS.find((c) => c.id === drawerColorId) || BAMBU_PLA_COLORS[9],
+    [drawerColorId]
+  );
+
   const maxLabelHeight = useMemo(() => {
     const raw = height <= 20 ? 6 + (height - 10) * 0.8 : height - 6;
     return Math.max(6, Math.round(raw * 10) / 10);
@@ -492,7 +482,9 @@ export default function App() {
   };
 
   const getDividerForDrawer = useCallback(
-    (t, b) => drawerDividers[`tier_${t}_box_${b}`] || { h: 1, v: 1 },
+    (t, b) => {
+      return drawerDividers[`tier_${t}_box_${b}`] || { h: 1, v: 1 };
+    },
     [drawerDividers]
   );
 
@@ -517,15 +509,6 @@ export default function App() {
     setDrawerDividers(updated);
   };
 
-  const activeCasingColor = useMemo(
-    () => BAMBU_PLA_COLORS.find((c) => c.id === casingColorId) || BAMBU_PLA_COLORS[16],
-    [casingColorId]
-  );
-  const activeDrawerColor = useMemo(
-    () => BAMBU_PLA_COLORS.find((c) => c.id === drawerColorId) || BAMBU_PLA_COLORS[9],
-    [drawerColorId]
-  );
-
   const calculatePrice = () => {
     if (activeTab === 'storage') {
       const basePrice = 16;
@@ -533,40 +516,57 @@ export default function App() {
       const totalDrawers = tiers * drawersPerTier;
       const drawersCost = totalDrawers * (1.75 + volumeFactor * 0.45);
       const tierFrameCost = tiers * 4.5;
-      return basePrice + tierFrameCost + drawersCost;
+
+      let dividerCellsExtra = 0;
+      for (let t = 0; t < tiers; t++) {
+        for (let b = 0; b < drawersPerTier; b++) {
+          const div = getDividerForDrawer(t, b);
+          dividerCellsExtra += (div.h - 1 + (div.v - 1)) * 0.5;
+        }
+      }
+      return basePrice + tierFrameCost + drawersCost + dividerCellsExtra;
     } else {
-      const vol = (cargoWidth * cargoLength * cargoHeight * 2) / 10000;
-      return 14 + vol * 0.85 + (cargoCompX * cargoCompY) * 0.5;
+      const basePrice = 14;
+      const vol = (cargoWidth * cargoLength * (cargoHeight * 2)) / 30000;
+      const compExtra = (cargoCompX * cargoCompY - 1) * 0.75;
+      const textExtra = cargoText.trim() !== '' ? 2.5 : 0;
+      return basePrice + vol * 2.2 + compExtra + textExtra;
     }
   };
 
-  const generateSpecSheet = (codeToDisplay = designCode) => {
+  const generateSpecSheet = () => {
     let spec = `====================================================\n`;
     spec += `   FIELDMATRIX 3D - PRINT & SHIP SPECIFICATION\n`;
     spec += `====================================================\n`;
-    spec += `Design Code  : ${codeToDisplay || 'PENDING'}\n`;
+    spec += `Design Code  : ${designCode || 'UNSAVED'}\n`;
     spec += `Product Line : ${
-      activeTab === 'storage' ? 'The Bench Matrix' : 'The Cargo Matrix'
+      activeTab === 'storage' ? 'The Bench Matrix (Modular Drawer Storage)' : 'The Cargo Matrix (Print-in-Place Clamshell)'
     }\n`;
     spec += `Est. Price   : $${calculatePrice().toFixed(2)}\n\n`;
 
     if (activeTab === 'storage') {
       spec += `[ 1. GEOMETRY & CONFIGURATION ]\n`;
+      spec += `- Preset Size        : ${sizePreset}\n`;
       spec += `- Number of Tiers    : ${tiers}\n`;
       spec += `- Drawers per Tier   : ${drawersPerTier} (${tiers * drawersPerTier} Total Drawers)\n`;
-      spec += `- Single Tier Height : ${singleTierHeightMm} mm (Max 250.0 mm)\n`;
+      spec += `- Single Tier Height : ${singleTierHeightMm} mm (Max 250.0 mm Solid Pivot Rod)\n`;
+      spec += `- Total Stack Height : ${totalStackedHeightMm} mm\n`;
       spec += `- Opening Pivot Side : ${opening} Hinge Rod\n`;
       spec += `- Finger Pull Handle : ${handlePos} Curved Corner Notch\n`;
       spec += `- Outer Width        : ${width} mm\n`;
       spec += `- Outer Depth        : ${depth} mm\n`;
-      spec += `- Drawer Height      : ${height} mm\n\n`;
-      spec += `[ 2. COLORS (DUAL-COLOR BAMBU LAB PLA) ]\n`;
+      spec += `- Drawer Height      : ${height.toFixed(1)} mm\n\n`;
+
+      spec += `[ 2. COLORS (20 BAMBU LAB PLA SWATCHES) ]\n`;
       spec += `- Outer Casing & Rod : ${activeCasingColor.name} (${activeCasingColor.hex})\n`;
       spec += `- Drawers & Dividers : ${activeDrawerColor.name} (${activeDrawerColor.hex})\n\n`;
+
       spec += `[ 3. LABEL SLOT SETTINGS ]\n`;
       spec += `- Enable Label Slot  : ${enableLabelSlot ? 'YES' : 'NO'}\n`;
       if (enableLabelSlot) {
-        spec += `- Label Width × H    : ${labelWidth} mm × ${labelHeight} mm (Font: ${labelFont})\n`;
+        spec += `- Label Slot Width   : ${labelWidth} mm\n`;
+        spec += `- Label Slot Height  : ${labelHeight} mm\n`;
+        spec += `- Font Family        : ${labelFont}\n`;
       }
       spec += `\n[ 4. PER-DRAWER DIVIDERS (H x V) & CUSTOM LABELS ]\n`;
       for (let t = tiers - 1; t >= 0; t--) {
@@ -578,215 +578,364 @@ export default function App() {
         }
       }
     } else {
-      spec += `[ CARGO CASE CONFIGURATION ]\n`;
-      spec += `- Width (Hinge Axis) : ${cargoWidth} mm\n`;
-      spec += `- Length (Each Half) : ${cargoLength} mm\n`;
-      spec += `- Height (Each Half) : ${cargoHeight} mm\n`;
-      spec += `- Interior Grid      : ${cargoCompX} Columns × ${cargoCompY} Rows\n`;
-      spec += `- Box Filament       : ${activeCargoBoxColor.name} (${activeCargoBoxColor.hex})\n`;
-      spec += `- Text Inlay Color   : ${activeCargoTextColor.name} (${activeCargoTextColor.hex})\n`;
-      spec += `- Custom Lid Text    : "${cargoText}" (Font: ${cargoFont})\n`;
+      spec += `[ 1. CARGO MATRIX DIMENSIONS & GRID ]\n`;
+      spec += `- Box Width (X)      : ${cargoWidth} mm\n`;
+      spec += `- Box Length (Y)     : ${cargoLength} mm\n`;
+      spec += `- Half Height (Z)    : ${cargoHeight} mm (${cargoHeight * 2} mm Closed Total)\n`;
+      spec += `- Compartment Grid   : ${cargoCompX} Columns (X) x ${cargoCompY} Rows (Y) (${cargoCompX * cargoCompY} Compartments)\n\n`;
+
+      spec += `[ 2. FILAMENT COLORS & LID INLAY ]\n`;
+      spec += `- Box Body & Hinges  : ${activeCargoBoxColor.name} (${activeCargoBoxColor.hex})\n`;
+      spec += `- Lid Text & Border  : ${activeCargoTextColor.name} (${activeCargoTextColor.hex})\n`;
+      spec += `- Custom Lid Text    : "${cargoText.trim() || '(None)'}"\n`;
+      spec += `- Lid Font Style     : ${cargoFont}\n`;
       spec += `- Lid Border Inlay   : ${cargoBorder ? 'YES (Flush Inlay Frame)' : 'NO'}\n`;
     }
     return spec;
   };
 
   // ==========================================
-  // PARAMETRIC OPENSCAD GENERATOR FOR CARGO MATRIX
-  // Generates print-in-place clamshell STL geometry
-  // with Flush Multi-Color Inlay for BOTH Lid Text & Lid Border Frame
+  // BAMBU P1S V12 PARAMETRIC OPENSCAD GENERATOR FOR CARGO MATRIX
   // ==========================================
-  const generateScadCode = () => {
-    const cleanText = (cargoText || '').replace(/"/g, '\\"');
-    return `// ==========================================
-// FIELDMATRIX 3D - THE CARGO MATRIX OPENSCAD FILE
-// Design Code: ${designCode || 'CUSTOM'}
-// Box Color: ${activeCargoBoxColor.name} (${activeCargoBoxColor.hex})
-// Inlay Color (Text & Border): ${activeCargoTextColor.name} (${activeCargoTextColor.hex})
-// ==========================================
+  const generateScadCode = (mode = scadExportMode) => {
+    const rawLines = (cargoText || '').split('\n').map((s) => s.trim()).filter(Boolean);
+    let line1 = rawLines[0] || '';
+    let line2 = rawLines[1] || '';
 
+    if (rawLines.length === 1 && line1.length > 12 && line1.includes(' ')) {
+      const words = line1.split(' ');
+      const mid = Math.ceil(words.length / 2);
+      line1 = words.slice(0, mid).join(' ');
+      line2 = words.slice(mid).join(' ');
+    }
+
+    const cleanLine1 = line1.replace(/"/g, '\\"');
+    const cleanLine2 = line2.replace(/"/g, '\\"');
+    const maxChars = Math.max(line1.length, line2.length, 4);
+    const wall = 2.0;
+    const gap = 1.6;
+    const innerW = cargoWidth - wall * 2 - 14;
+    const innerL = cargoLength - wall * 2 - 14;
+    const computedFontSize = Math.min(
+      (innerW / maxChars) * 1.38,
+      line2 ? innerL * 0.24 : innerL * 0.34,
+      22
+    );
+    const fontSizeMm = Math.max(5.5, computedFontSize).toFixed(2);
+
+    return `// Print-in-Place Hinged Box (Bambu P1S V12 - Responsive & Multi-Color)
+// Design Code: ${designCode || 'CUSTOM'}
+export_part = "${mode}";
+
+width = ${cargoWidth};
+length = ${cargoLength};
+height = ${cargoHeight};
+wall = ${wall};
+compX = ${cargoCompX};
+compY = ${cargoCompY};
+gap = ${gap};
 $fn = 64;
 
-// Export Mode: "both" (preview), "box" (body STL), or "inlay" (text + border inlay STL)
-render_part = "both";
-
-// Primary Dimensions (mm)
-box_width = ${cargoWidth};       // Width along hinge axis
-half_length = ${cargoLength};    // Front-to-back length of each half
-half_height = ${cargoHeight};    // Height of each half shell
-comp_cols = ${cargoCompX};       // Interior X columns
-comp_rows = ${cargoCompY};       // Interior Y rows
-
-// Structural Parameters
-wall_thick = 2.2;
-floor_thick = 2.0;
-div_thick = 1.6;
-corner_r = 3.0;
-hinge_gap = 1.6;
-hinge_r = 3.8;
-pin_r = 2.0;
-pin_clearance = 0.35;
-inlay_depth = 0.8;
-
-// Lid Text & Border Inlay Parameters
-lid_text = "${cleanText}";
-lid_font = "${cargoFont}";
+box_color  = "${activeCargoBoxColor.hex}";
+text_color = "${activeCargoTextColor.hex}";
+box_text_1 = "${cleanLine1}";
+box_text_2 = "${cleanLine2}";
+text_size  = ${fontSizeMm};
+font_style = "${cargoFont}:style=Bold";
 enable_lid_border = ${cargoBorder ? 'true' : 'false'};
 border_inset = 5.0;
-border_line_width = 2.0;
+border_line_w = 2.0;
 
-module rounded_outer_box(w, l, h, r) {
-  hull() {
-    for (x = [-w/2 + r, w/2 - r])
-      for (y = [-l/2 + r, l/2 - r])
-        translate([x, y, 0])
-          cylinder(r = r, h = h);
-  }
-}
+num_k     = 5;
+k_span    = width / num_k;
+hr        = 3.20;
+pin_r     = 1.33;
+bore_r    = 1.65;
+k_tol     = 0.35;
+shell_clr = 0.65;
+gusset_h  = 4.8;
 
-// 2D Profile for both the Lid Text and Lid Rectangular Border Inlay
-module lid_inlay_2d_profile() {
-  inner_w = box_width - wall_thick * 2;
-  inner_l = half_length - wall_thick * 2;
+base_indices = [-2, 0, 2];
+lid_indices  = [-1, 1];
 
-  if (len(lid_text) > 0) {
-    mirror([1, 0, 0])
-      text(
-        lid_text,
-        size = min(inner_w / max(6, len(lid_text)) * 1.35, inner_l * 0.28),
-        font = lid_font,
-        halign = "center",
-        valign = "center"
-      );
-  }
-
-  if (enable_lid_border) {
-    bw = box_width - border_inset * 2;
-    bl = half_length - border_inset * 2;
-    difference() {
-      square([bw, bl], center = true);
-      square([bw - border_line_width * 2, bl - border_line_width * 2], center = true);
-    }
-  }
-}
-
-// 3D Flush Inlay Solid (sits on the exterior bottom face Z = 0 of the lid half)
-module lid_inlay_solid() {
-  color("${activeCargoTextColor.hex}")
-    translate([0, -half_length/2 - hinge_gap/2, 0])
-      linear_extrude(height = inlay_depth)
-        lid_inlay_2d_profile();
-}
-
-module half_shell(is_base = true) {
-  inner_w = box_width - wall_thick * 2;
-  inner_l = half_length - wall_thick * 2;
-  div_h = half_height - floor_thick - 1.0;
-
-  difference() {
-    rounded_outer_box(box_width, half_length, half_height, corner_r);
-    translate([0, 0, floor_thick])
-      rounded_outer_box(inner_w, inner_l, half_height, max(1.0, corner_r - wall_thick));
-
-    // Cut matching 0.8mm recess into Lid Exterior (Z = 0 face) for flush multi-color inlay
-    if (!is_base) {
-      translate([0, 0, -0.01])
-        linear_extrude(height = inlay_depth + 0.01)
-          lid_inlay_2d_profile();
-    }
-  }
-
-  // Interior Grid Dividers for Base Half
-  if (is_base) {
-    if (comp_cols > 1) {
-      for (i = [1 : comp_cols - 1]) {
-        x_pos = -inner_w/2 + (inner_w / comp_cols) * i;
-        translate([x_pos - div_thick/2, -inner_l/2, floor_thick])
-          cube([div_thick, inner_l, div_h]);
-      }
-    }
-    if (comp_rows > 1) {
-      for (j = [1 : comp_rows - 1]) {
-        y_pos = -inner_l/2 + (inner_l / comp_rows) * j;
-        translate([-inner_w/2, y_pos - div_thick/2, floor_thick])
-          cube([inner_w, div_thick, div_h]);
-      }
-    }
-  }
-}
-
-module print_in_place_hinge() {
-  knuckle_count = 5;
-  total_hinge_span = box_width - 16;
-  knuckle_w = total_hinge_span / knuckle_count;
-
-  // Continuous Print-in-Place Hinge Pin
-  translate([-total_hinge_span/2 - 2, 0, half_height])
-    rotate([0, 90, 0])
-      cylinder(r = pin_r, h = total_hinge_span + 4);
-
-  for (k = [0 : knuckle_count - 1]) {
-    kx = -total_hinge_span/2 + k * knuckle_w;
-    difference() {
-      hull() {
-        translate([kx + 0.4, 0, half_height])
-          rotate([0, 90, 0])
-            cylinder(r = hinge_r, h = knuckle_w - 0.8);
-        if (k % 2 == 0) {
-          translate([kx + 0.4, hinge_gap/2, half_height - hinge_r * 1.5])
-            cube([knuckle_w - 0.8, 2.2, hinge_r * 1.5]);
-        } else {
-          translate([kx + 0.4, -hinge_gap/2 - 2.2, half_height - hinge_r * 1.5])
-            cube([knuckle_w - 0.8, 2.2, hinge_r * 1.5]);
+// CORRECTED: mirror([0, 1, 0]) flips Y-axis so when the lid folds 180° over the X-axis hinge,
+// the text is right-side up AND reads left-to-right from the front latch!
+module render_lid_text() {
+    if (box_text_1 != "") {
+        mirror([0, 1, 0]) {
+            if (box_text_2 == "") {
+                text(box_text_1, font=font_style, size=text_size, halign="center", valign="center");
+            } else {
+                line_step = text_size * 1.35;
+                translate([0,  line_step/2, 0])
+                    text(box_text_1, font=font_style, size=text_size, halign="center", valign="center");
+                translate([0, -line_step/2, 0])
+                    text(box_text_2, font=font_style, size=text_size, halign="center", valign="center");
+            }
         }
-      }
-      if (k % 2 == 1) {
-        translate([kx, 0, half_height])
-          rotate([0, 90, 0])
-            cylinder(r = pin_r + pin_clearance, h = knuckle_w + 1);
-      }
     }
-  }
+    if (enable_lid_border) {
+        bw = width - border_inset * 2;
+        bl = length - border_inset * 2;
+        difference() {
+            square([bw, bl], center = true);
+            square([bw - border_line_w * 2, bl - border_line_w * 2], center = true);
+        }
+    }
 }
 
-module front_latch_wedge() {
-  latch_w = min(34, box_width * 0.35);
-  translate([-latch_w/2, half_length + hinge_gap/2 - 0.2, half_height * 0.28])
-    cube([latch_w, 2.2, half_height * 0.55]);
+module complete_model() {
+    if (export_part == "hinge") {
+        intersection() {
+            box_body_assembly();
+            translate([0, 0, height]) cube([width + 2, 24, height*2.5], center=true);
+        }
+    } else if (export_part == "latch") {
+        intersection() {
+            box_body_assembly();
+            armW = max(16.0, width / 4.0);
+            translate([0, 0, height]) cube([armW + 8, length*2 + 20, height*2.5], center=true);
+        }
+    } else if (export_part == "box_only") {
+        box_body_assembly();
+    } else if (export_part == "text_only") {
+        text_inlay_assembly();
+    } else {
+        box_body_assembly();
+        text_inlay_assembly();
+    }
 }
 
-module cargo_box_body() {
-  color("${activeCargoBoxColor.hex}")
-  union() {
-    translate([0, half_length/2 + hinge_gap/2, 0])
-      half_shell(true);
+module box_body_assembly() {
+    color(box_color) {
+        union() {
+            difference() {
+                union() {
+                    translate([0, -length/2 - gap/2, 0]) base_box();
+                    build_base_hinges();
+                }
+                for(i = lid_indices) {
+                    knuckle_cradle_cutter(i * k_span, is_base_side = true);
+                }
+            }
+            translate([0, 0, height])
+            rotate([0, 90, 0])
+            cylinder(r=pin_r, h=width - k_tol, center=true);
+        }
 
-    translate([0, -half_length/2 - hinge_gap/2, 0])
-      half_shell(false);
-
-    print_in_place_hinge();
-    front_latch_wedge();
-  }
+        difference() {
+            union() {
+                translate([0, length/2 + gap/2, 0]) lid_box();
+                build_lid_hinges();
+            }
+            for(i = base_indices) {
+                knuckle_cradle_cutter(i * k_span, is_base_side = false);
+            }
+            for(i = lid_indices) {
+                translate([i * k_span, 0, 0])
+                lid_bore_tunnel(bore_r, k_span + 0.2);
+            }
+        }
+    }
 }
 
-// Render output based on render_part selection
-if (render_part == "box") {
-  cargo_box_body();
-} else if (render_part == "inlay") {
-  lid_inlay_solid();
-} else {
-  cargo_box_body();
-  lid_inlay_solid();
+module text_inlay_assembly() {
+    if (box_text_1 != "" || enable_lid_border) {
+        color(text_color)
+        translate([0, length/2 + gap/2, 0])
+        linear_extrude(0.60)
+        render_lid_text();
+    }
 }
+
+module lid_bore_tunnel(r, len) {
+    translate([0, 0, height])
+    rotate([90, 0, 90])
+    linear_extrude(len, center=true)
+    union() {
+        circle(r=r, $fn=48);
+        polygon([
+            [-r * 0.7071, r * 0.7071],
+            [0,           r * 1.32],
+            [ r * 0.7071, r * 0.7071]
+        ]);
+    }
+}
+
+module knuckle_cradle_cutter(x_pos, is_base_side) {
+    cut_w = k_span;
+    cut_r = hr + shell_clr;
+    y_dir = is_base_side ? -1 : 1;
+
+    translate([x_pos, 0, height]) {
+        hull() {
+            rotate([0, 90, 0]) cylinder(r=cut_r, h=cut_w, center=true);
+            translate([0, 0, cut_r]) rotate([0, 90, 0]) cylinder(r=cut_r, h=cut_w, center=true);
+            translate([0, y_dir * (gap/2 + 0.6), -cut_r - 1.2]) rotate([0, 90, 0]) cylinder(r=0.4, h=cut_w, center=true);
+        }
+    }
+}
+
+module hinge_wall_backing_rib(is_base) {
+    rib_depth = 2.5;
+    rib_drop  = 5.5;
+    y_edge    = is_base ? (length/2 - wall) : (-length/2 + wall);
+    y_inward  = is_base ? (y_edge - rib_depth) : (y_edge + rib_depth);
+
+    hull() {
+        translate([-width/2, min(y_edge, y_inward), height - rib_drop])
+        cube([width, rib_depth, rib_drop]);
+        translate([-width/2, is_base ? (y_edge - 0.1) : y_edge, height - rib_drop - rib_depth])
+        cube([width, 0.1, 0.1]);
+    }
+}
+
+module base_box() {
+    armW = max(16.0, width / 4.0);
+    c_span = armW - 0.4; 
+
+    union() {
+        difference() {
+            translate([-width/2, -length/2, 0]) cube([width, length, height]);
+            
+            comp_w = (width - wall * (compX + 1)) / compX;
+            comp_l = (length - wall * (compY + 1)) / compY;
+            for(i=[0:compX-1]) {
+                for(j=[0:compY-1]) {
+                    translate([-width/2 + wall + i*(comp_w+wall), -length/2 + wall + j*(comp_l+wall), wall])
+                    cube([comp_w, comp_l, height + 1]);
+                }
+            }
+        }
+        hinge_wall_backing_rib(is_base = true);
+        
+        polyhedron(
+            points = [
+                [-c_span/2, -length/2,        height - 0.2],
+                [ c_span/2, -length/2,        height - 0.2],
+                [-c_span/2, -length/2,        height - 3.60],
+                [ c_span/2, -length/2,        height - 3.60],
+                [-c_span/2, -length/2 - 0.85, height - 2.75],
+                [ c_span/2, -length/2 - 0.85, height - 2.75]
+            ],
+            faces = [[0,1,3,2], [2,3,5,4], [0,4,5,1], [0,2,4], [1,5,3]]
+        );
+    }
+}
+
+module lid_box() {
+    armW = max(16.0, width / 4.0);
+    armT = 1.4;
+    armH = 5.8;
+
+    union() {
+        difference() {
+            union() {
+                translate([-width/2, -length/2, 0]) cube([width, length, height]);
+                translate([0, length/2, 0]) {
+                    translate([-armW/2, 0, height - 3.5]) 
+                    cube([armW, armT, armH + 3.5]);
+
+                    translate([-(armW*0.85)/2, armT, height + armH - 1.8]) 
+                    cube([armW*0.85, 1.8, 1.8]);
+
+                    polyhedron(
+                        points = [
+                            [-armW/2, 0,       height + 3.65],
+                            [ armW/2, 0,       height + 3.65],
+                            [-armW/2, -0.80,   height + 4.45],
+                            [ armW/2, -0.80,   height + 4.45],
+                            [-armW/2, 0,       height + 5.80],
+                            [ armW/2, 0,       height + 5.80]
+                        ],
+                        faces = [[0,2,3,1], [2,4,5,3], [0,1,5,4], [0,4,2], [1,3,5]]
+                    );
+
+                    polyhedron(
+                        points = [
+                            [-armW/2, 0,          height - 3.5],
+                            [ armW/2, 0,          height - 3.5],
+                            [-armW/2, armT * 1.6, height - 3.5],
+                            [ armW/2, armT * 1.6, height - 3.5],
+                            [-armW/2, armT,       height + 1.0],
+                            [ armW/2, armT,       height + 1.0]
+                        ],
+                        faces = [[0,1,3,2], [2,3,5,4], [0,4,5,1], [0,2,4], [1,5,3]]
+                    );
+                }
+            }
+            translate([-width/2 + wall, -length/2 + wall, wall])
+            cube([width - wall*2, length - wall*2, height + 1]);
+            if (box_text_1 != "" || enable_lid_border) {
+                translate([0, 0, -0.02])
+                linear_extrude(0.64)
+                offset(r=0.01)
+                render_lid_text();
+            }
+        }
+        hinge_wall_backing_rib(is_base = false);
+    }
+}
+
+module build_base_hinges() {
+    for(i = base_indices) {
+        x_pos = i * k_span;
+        k_len = k_span - k_tol;
+        translate([x_pos, 0, height]) {
+            union() {
+                rotate([0, 90, 0]) cylinder(r=hr, h=k_len, center=true);
+                hull() {
+                    intersection() {
+                        rotate([0, 90, 0]) cylinder(r=hr, h=k_len, center=true);
+                        translate([-k_len, -hr*2, -hr*2]) cube([k_len*2, hr*2 - gap/2, hr*2]);
+                    }
+                    translate([-k_len/2, -wall - gap/2, -gusset_h]) cube([k_len, wall, 0.1]);
+                }
+            }
+        }
+    }
+}
+
+module build_lid_hinges() {
+    for(i = lid_indices) {
+        x_pos = i * k_span;
+        k_len = k_span - k_tol;
+        translate([x_pos, 0, height]) {
+            union() {
+                rotate([0, 90, 0]) cylinder(r=hr, h=k_len, center=true);
+                hull() {
+                    intersection() {
+                        rotate([0, 90, 0]) cylinder(r=hr, h=k_len, center=true);
+                        translate([-k_len, gap/2, -hr*2]) cube([k_len*2, hr*2, hr*2]);
+                    }
+                    translate([-k_len/2, gap/2, -gusset_h]) cube([k_len, wall, 0.1]);
+                }
+            }
+        }
+    }
+}
+
+complete_model();
 `;
   };
 
-  const downloadScadFile = () => {
-    const blob = new Blob([generateScadCode()], { type: 'text/plain;charset=utf-8' });
+  const downloadScadFile = (mode = scadExportMode) => {
+    const safeText = (cargoText || '').replace(/[^a-zA-Z0-9\s_-]/g, '').trim() || 'BOX';
+    const typeMap = {
+      full: 'FULL-3MF-V12',
+      box_only: 'BOX-ONLY-V12',
+      text_only: 'TEXT-ONLY-V12',
+      hinge: 'HINGE-TEST-V12',
+      latch: 'LATCH-TEST-V12'
+    };
+    const codeSuffix = designCode || Math.random().toString(36).substring(2, 6).toUpperCase();
+    const filename = `${safeText}_${cargoWidth}x${cargoLength}x${cargoHeight}_${typeMap[mode]}_${codeSuffix}.scad`;
+
+    const blob = new Blob([generateScadCode(mode)], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${designCode || 'CARGO-MATRIX'}.scad`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -1199,9 +1348,10 @@ if (render_part == "box") {
         metalness: activeCargoBoxColor.metalness ?? 0.08
       });
 
-      const wall = 2.2;
+      const wall = 2.0;
       const floorT = 2.0;
       const hingeGap = 1.6;
+      const armW = Math.max(16.0, cargoWidth / 4.0);
 
       const createHalfShell = (isBase) => {
         const shellGroup = new THREE.Group();
@@ -1239,13 +1389,13 @@ if (render_part == "box") {
         if (isBase) {
           const innerW = cargoWidth - wall * 2;
           const innerL = cargoLength - wall * 2;
-          const divH = Math.max(2, wallH - 1.2);
+          const divH = Math.max(2, wallH - 0.5);
           const divY = floorT + divH / 2;
 
           if (cargoCompX > 1) {
             for (let i = 1; i < cargoCompX; i++) {
               const xPos = -innerW / 2 + (innerW / cargoCompX) * i;
-              const divX = new THREE.Mesh(new THREE.BoxGeometry(1.6, divH, innerL), boxMat);
+              const divX = new THREE.Mesh(new THREE.BoxGeometry(wall, divH, innerL), boxMat);
               divX.position.set(xPos, divY, 0);
               shellGroup.add(divX);
             }
@@ -1253,16 +1403,66 @@ if (render_part == "box") {
           if (cargoCompY > 1) {
             for (let j = 1; j < cargoCompY; j++) {
               const zPos = -innerL / 2 + (innerL / cargoCompY) * j;
-              const divZ = new THREE.Mesh(new THREE.BoxGeometry(innerW, divH, 1.6), boxMat);
+              const divZ = new THREE.Mesh(new THREE.BoxGeometry(innerW, divH, wall), boxMat);
               divZ.position.set(0, divY, zPos);
               shellGroup.add(divZ);
             }
           }
 
-          const latchGeo = new THREE.BoxGeometry(Math.min(34, cargoWidth * 0.35), wallH * 0.55, 2.2);
-          const latchMesh = new THREE.Mesh(latchGeo, boxMat);
-          latchMesh.position.set(0, wallY, cargoLength / 2 + 1.0);
-          shellGroup.add(latchMesh);
+          // Base front catch wedge
+          const catchSpan = armW - 0.4;
+          const wedgeShape = new THREE.Shape();
+          wedgeShape.moveTo(0, -0.2);
+          wedgeShape.lineTo(0, -3.6);
+          wedgeShape.lineTo(1.25, -2.75);
+          wedgeShape.closePath();
+
+          const wedgeGeo = new THREE.ExtrudeGeometry(wedgeShape, {
+            depth: catchSpan,
+            bevelEnabled: false
+          });
+          wedgeGeo.translate(0, 0, -catchSpan / 2);
+          wedgeGeo.rotateY(-Math.PI / 2);
+
+          const catchMesh = new THREE.Mesh(wedgeGeo, boxMat);
+          catchMesh.position.set(0, cargoHeight, cargoLength / 2);
+          shellGroup.add(catchMesh);
+        } else {
+          // Lid outer flexing snap-latch arm + finger pull tab + inward hook tooth
+          const armT = 1.4;
+          const armH = 5.8;
+          const latchGroup = new THREE.Group();
+          latchGroup.position.set(0, 0, -cargoLength / 2);
+
+          const plateH = armH + 3.5;
+          const plateGeo = new THREE.BoxGeometry(armW, plateH, armT);
+          const plateMesh = new THREE.Mesh(plateGeo, boxMat);
+          plateMesh.position.set(0, cargoHeight - 3.5 + plateH / 2, -armT / 2);
+          latchGroup.add(plateMesh);
+
+          const pullGeo = new THREE.BoxGeometry(armW * 0.85, 1.8, 1.8);
+          const pullMesh = new THREE.Mesh(pullGeo, boxMat);
+          pullMesh.position.set(0, cargoHeight + armH - 0.9, -armT - 0.9);
+          latchGroup.add(pullMesh);
+
+          const toothShape = new THREE.Shape();
+          toothShape.moveTo(0, 3.65);
+          toothShape.lineTo(1.15, 4.45);
+          toothShape.lineTo(0, 5.8);
+          toothShape.closePath();
+
+          const toothGeo = new THREE.ExtrudeGeometry(toothShape, {
+            depth: armW,
+            bevelEnabled: false
+          });
+          toothGeo.translate(0, 0, -armW / 2);
+          toothGeo.rotateY(-Math.PI / 2);
+
+          const toothMesh = new THREE.Mesh(toothGeo, boxMat);
+          toothMesh.position.set(0, cargoHeight, 0);
+          latchGroup.add(toothMesh);
+
+          shellGroup.add(latchGroup);
         }
 
         return shellGroup;
@@ -1272,21 +1472,38 @@ if (render_part == "box") {
       baseHalf.position.set(0, 0, cargoLength / 2 + hingeGap / 2);
       group.add(baseHalf);
 
-      const knuckleCount = 5;
-      const totalHingeSpan = cargoWidth - 16;
-      const knuckleW = totalHingeSpan / knuckleCount;
-      for (let k = 0; k < knuckleCount; k++) {
-        const kx = -totalHingeSpan / 2 + knuckleW * (k + 0.5);
-        const knuckleGeo = new THREE.CylinderGeometry(3.4, 3.4, knuckleW - 0.8, 20);
-        knuckleGeo.rotateZ(Math.PI / 2);
-        const knuckleMesh = new THREE.Mesh(knuckleGeo, boxMat);
-        knuckleMesh.position.set(kx, cargoHeight, 0);
-        group.add(knuckleMesh);
-      }
-
       const lidPivot = new THREE.Group();
       lidPivot.position.set(0, cargoHeight, 0);
       lidPivot.rotation.x = THREE.MathUtils.degToRad(foldAngle);
+
+      const knuckleCount = 5;
+      const kSpan = cargoWidth / knuckleCount;
+      const kLen = kSpan - 0.45;
+      const hr = 3.2;
+
+      for (let k = 0; k < knuckleCount; k++) {
+        const kx = (k - 2) * kSpan;
+        const isBaseKnuckle = k % 2 === 0;
+
+        const knuckleGeo = new THREE.CylinderGeometry(hr, hr, kLen, 24);
+        knuckleGeo.rotateZ(Math.PI / 2);
+        const knuckleMesh = new THREE.Mesh(knuckleGeo, boxMat);
+
+        const gussetGeo = new THREE.BoxGeometry(kLen, 4.2, wall + hingeGap / 2);
+        const gussetMesh = new THREE.Mesh(gussetGeo, boxMat);
+
+        if (isBaseKnuckle) {
+          knuckleMesh.position.set(kx, cargoHeight, 0);
+          gussetMesh.position.set(kx, cargoHeight - 2.1, hingeGap / 2 + wall / 2);
+          group.add(knuckleMesh);
+          group.add(gussetMesh);
+        } else {
+          knuckleMesh.position.set(kx, 0, 0);
+          gussetMesh.position.set(kx, -2.1, -hingeGap / 2 - wall / 2);
+          lidPivot.add(knuckleMesh);
+          lidPivot.add(gussetMesh);
+        }
+      }
 
       const lidHalf = createHalfShell(false);
       lidHalf.position.set(0, -cargoHeight, -cargoLength / 2 - hingeGap / 2);
@@ -1297,31 +1514,32 @@ if (render_part == "box") {
         cargoFont,
         cargoBorder
       );
-      const inlayPlaneGeo = new THREE.PlaneGeometry(cargoWidth - 2, cargoLength - 2);
-      const inlayPlaneMat = new THREE.MeshStandardMaterial({
-        map: lidTex,
-        transparent: true,
-        roughness: activeCargoTextColor.roughness ?? 0.5,
-        metalness: activeCargoTextColor.metalness ?? 0.08,
-        polygonOffset: true,
-        polygonOffsetFactor: -1,
-        side: THREE.DoubleSide
-      });
-      const inlayMesh = new THREE.Mesh(inlayPlaneGeo, inlayPlaneMat);
-      inlayMesh.rotation.x = Math.PI / 2;
-      inlayMesh.position.set(0, -0.08, 0);
-      lidHalf.add(inlayMesh);
+      const lidLabelPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(cargoWidth - 4, cargoLength - 4),
+        new THREE.MeshStandardMaterial({
+          map: lidTex,
+          transparent: true,
+          roughness: activeCargoTextColor.roughness ?? 0.5,
+          metalness: activeCargoTextColor.metalness ?? 0.08,
+          polygonOffset: true,
+          polygonOffsetFactor: -1
+        })
+      );
+      lidLabelPlane.rotation.x = Math.PI / 2;
+      lidLabelPlane.rotation.z = Math.PI;
+      lidLabelPlane.position.set(0, -0.06, 0);
+      lidHalf.add(lidLabelPlane);
 
       lidPivot.add(lidHalf);
       group.add(lidPivot);
 
       if (showDimensions) {
         const wSprite = createDimensionSprite(`${cargoWidth} mm W`);
-        wSprite.position.set(0, 6, cargoLength + 24);
+        wSprite.position.set(0, 8, cargoLength + 28);
         group.add(wSprite);
 
         const lSprite = createDimensionSprite(`${cargoLength} mm L`);
-        lSprite.position.set(cargoWidth / 2 + 36, 6, cargoLength / 2);
+        lSprite.position.set(cargoWidth / 2 + 36, 8, cargoLength / 2);
         group.add(lSprite);
 
         const hSprite = createDimensionSprite(`${cargoHeight} mm H (half)`);
@@ -1330,12 +1548,41 @@ if (render_part == "box") {
       }
     }
   }, [
-    activeTab, tiers, drawersPerTier, opening, handlePos, width, depth, height,
-    enableLabelSlot, labelWidth, labelHeight, maxLabelWidth, maxLabelHeight, labelFont,
-    labels, drawerDividers, getDividerForDrawer, activeCasingColor, activeDrawerColor,
-    explodedView, xrayMode, showDimensions, singleTierHeightMm, isOverP1SLimit,
-    cargoWidth, cargoLength, cargoHeight, cargoCompX, cargoCompY, activeCargoBoxColor,
-    activeCargoTextColor, cargoText, cargoFont, cargoBorder, foldAngle
+    activeTab,
+    tiers,
+    drawersPerTier,
+    opening,
+    handlePos,
+    width,
+    depth,
+    height,
+    enableLabelSlot,
+    labelWidth,
+    labelHeight,
+    maxLabelWidth,
+    maxLabelHeight,
+    labelFont,
+    labels,
+    drawerDividers,
+    getDividerForDrawer,
+    activeCasingColor,
+    activeDrawerColor,
+    explodedView,
+    xrayMode,
+    showDimensions,
+    singleTierHeightMm,
+    isOverP1SLimit,
+    cargoWidth,
+    cargoLength,
+    cargoHeight,
+    cargoCompX,
+    cargoCompY,
+    activeCargoBoxColor,
+    activeCargoTextColor,
+    cargoText,
+    cargoFont,
+    cargoBorder,
+    foldAngle
   ]);
 
   useEffect(() => {
@@ -1343,10 +1590,11 @@ if (render_part == "box") {
     const maxSwingRad = THREE.MathUtils.degToRad(68);
     drawerPivotsRef.current.forEach((item) => {
       const isIndividuallyOpen = !!openDrawersMap[item.drawerKey];
-      const effectiveRatio = Math.max(swingOpenAmount, isIndividuallyOpen ? 0.78 : 0);
-      item.targetAngle = pivotSign * effectiveRatio * maxSwingRad;
+      const explodedFan = explodedView ? 0.35 + ((drawersPerTier - 1 - item.boxIndex) / Math.max(1, drawersPerTier)) * 0.45 : 0;
+      const ratio = Math.max(swingOpenAmount, isIndividuallyOpen ? 0.78 : 0, explodedFan);
+      item.targetAngle = pivotSign * ratio * maxSwingRad;
     });
-  }, [swingOpenAmount, openDrawersMap, opening]);
+  }, [swingOpenAmount, openDrawersMap, explodedView, opening, drawersPerTier]);
 
   return (
     <div className="flex flex-col-reverse md:flex-row h-screen w-screen overflow-hidden bg-[#0b0f19] text-[#e2e8f0] font-sans select-none">
@@ -1368,27 +1616,215 @@ if (render_part == "box") {
           border-radius: 9999px;
           background: #f43f5e;
           border: 2.5px solid #ffffff;
-          box-shadow: 0 0 8px rgba(244, 63, 94, 0.55);
           cursor: pointer;
         }
       `}</style>
 
-      {/* STATUS BANNER NOTIFICATION */}
-      {statusBanner && (
-        <div
-          className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg text-xs font-bold shadow-2xl border flex items-center gap-2 ${
-            statusBanner.type === 'success'
-              ? 'bg-emerald-950/95 border-emerald-500 text-emerald-200'
-              : 'bg-red-950/95 border-red-500 text-red-200'
-          }`}
-        >
-          <span>{statusBanner.text}</span>
-          <button
-            onClick={() => setStatusBanner(null)}
-            className="ml-2 text-white/70 hover:text-white"
-          >
-            ✕
-          </button>
+      {/* ADMIN ORDER RECALL MODAL */}
+      {adminMode && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#111827] border border-[#38bdf8]/40 rounded-xl max-w-md w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[#1e293b] pb-3">
+              <div className="flex items-center gap-2 text-[#38bdf8] font-bold text-sm">
+                <Lock size={16} />
+                <span>{adminUnlocked ? 'Admin Order Recall' : 'Admin Security Gate'}</span>
+              </div>
+              <button onClick={() => setAdminMode(false)} className="text-[#94a3b8] hover:text-white text-sm font-bold">
+                ✕
+              </button>
+            </div>
+
+            {!adminUnlocked ? (
+              <form onSubmit={handleVerifyPin} className="space-y-3">
+                <p className="text-xs text-[#94a3b8]">
+                  Enter your 4-digit Admin PIN to unlock customer order lookup and V12 OpenSCAD exports:
+                </p>
+                <input
+                  type="password"
+                  value={adminPinInput}
+                  onChange={(e) => {
+                    setAdminPinInput(e.target.value);
+                    setAdminPinError(false);
+                  }}
+                  placeholder="••••"
+                  autoFocus
+                  className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg px-3 py-2 text-center tracking-[0.5em] text-sm font-mono text-white"
+                />
+                {adminPinError && (
+                  <p className="text-[11px] text-red-400 font-semibold">Invalid PIN code.</p>
+                )}
+                <button
+                  type="submit"
+                  className="w-full py-2 rounded-lg bg-[#38bdf8] text-[#0b0f19] font-bold text-xs hover:bg-[#7dd3fc]"
+                >
+                  Unlock Admin Tools
+                </button>
+              </form>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs text-[#94a3b8]">
+                  Enter a customer Design Code (e.g. <span className="text-white font-mono">BENCH-7F9K2A</span> or <span className="text-white font-mono">CARGO-3X8M1P</span>) or click below to view V12 OpenSCAD for the current Cargo design:
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={recallCode}
+                    onChange={(e) => setRecallCode(e.target.value)}
+                    placeholder="CARGO-XXXXXX"
+                    className="flex-1 bg-[#0b0f19] border border-[#1e293b] rounded-lg px-3 py-2 text-sm font-mono text-white uppercase"
+                  />
+                  <button
+                    onClick={handleAdminRecall}
+                    className="px-4 py-2 rounded-lg bg-[#38bdf8] text-[#0b0f19] font-bold text-xs hover:bg-[#7dd3fc]"
+                  >
+                    Load Order
+                  </button>
+                </div>
+                <div className="pt-2 border-t border-[#1e293b] flex justify-between items-center">
+                  <span className="text-[11px] text-emerald-400 font-semibold">✓ Admin V12 .SCAD Unlocked</span>
+                  <button
+                    onClick={() => {
+                      setAdminMode(false);
+                      setModalTab('scad');
+                      setShowModal(true);
+                    }}
+                    className="px-3 py-1.5 rounded bg-[#f43f5e] text-white text-xs font-bold"
+                  >
+                    Open V12 .SCAD Generator
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* SPEC SHEET & ADMIN-ONLY OPENSCAD GENERATOR MODAL */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#111827] border border-[#1e293b] rounded-xl max-w-2xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="px-5 py-3.5 bg-[#0f172a] border-b border-[#1e293b] flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-[#38bdf8] uppercase tracking-wider flex items-center gap-2">
+                  <span>
+                    FieldMatrix 3D • Design Code: <span className="text-white">{designCode}</span>
+                  </span>
+                  {adminUnlocked && (
+                    <span className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/50 text-[10px] text-emerald-300">
+                      ADMIN UNLOCKED
+                    </span>
+                  )}
+                </h3>
+                <p className="text-[11px] text-[#94a3b8]">
+                  Copy your Design Code or Spec Sheet and include it in your Etsy personalization box.
+                </p>
+              </div>
+              <button onClick={() => setShowModal(false)} className="text-[#94a3b8] hover:text-white text-sm font-bold px-2">
+                ✕
+              </button>
+            </div>
+
+            {adminUnlocked && activeTab === 'cargo' && (
+              <div className="px-5 pt-3 bg-[#111827] flex flex-wrap items-center justify-between gap-2 border-b border-[#1e293b]">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setModalTab('spec')}
+                    className={`pb-2 px-3 text-xs font-bold border-b-2 transition-colors ${
+                      modalTab === 'spec' ? 'border-[#38bdf8] text-[#38bdf8]' : 'border-transparent text-[#94a3b8]'
+                    }`}
+                  >
+                    Customer Spec Summary
+                  </button>
+                  <button
+                    onClick={() => setModalTab('scad')}
+                    className={`pb-2 px-3 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-colors ${
+                      modalTab === 'scad' ? 'border-[#f43f5e] text-[#fecdd3]' : 'border-transparent text-[#94a3b8]'
+                    }`}
+                  >
+                    <Code size={13} /> Admin V12 OpenSCAD (.scad)
+                  </button>
+                </div>
+
+                {modalTab === 'scad' && (
+                  <div className="flex items-center gap-1 pb-2">
+                    <span className="text-[10px] text-[#94a3b8] mr-1">Export Part:</span>
+                    {[
+                      { id: 'full', label: 'Full' },
+                      { id: 'box_only', label: 'Box' },
+                      { id: 'text_only', label: 'Inlay' },
+                      { id: 'hinge', label: 'Hinge Test' },
+                      { id: 'latch', label: 'Latch Test' }
+                    ].map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => setScadExportMode(m.id)}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                          scadExportMode === m.id
+                            ? 'bg-[#f43f5e] text-white'
+                            : 'bg-[#151e31] text-[#94a3b8] hover:text-white border border-[#1e293b]'
+                        }`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="p-4 overflow-y-auto flex-1 bg-[#0b0f19] m-4 rounded-lg border border-[#1e293b]">
+              <pre className="text-xs font-mono text-[#e2e8f0] whitespace-pre-wrap leading-relaxed">
+                {adminUnlocked && activeTab === 'cargo' && modalTab === 'scad'
+                  ? generateScadCode(scadExportMode)
+                  : generateSpecSheet()}
+              </pre>
+            </div>
+
+            <div className="px-5 py-3.5 bg-[#0f172a] border-t border-[#1e293b] flex flex-wrap items-center justify-between gap-2">
+              {adminUnlocked && activeTab === 'cargo' && modalTab === 'scad' ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(generateScadCode(scadExportMode));
+                      setScadCopied(true);
+                      setTimeout(() => setScadCopied(false), 2000);
+                    }}
+                    className="px-3.5 py-2 rounded-lg bg-[#1e293b] hover:bg-[#334155] text-white font-bold text-xs flex items-center gap-1.5"
+                  >
+                    {scadCopied ? <CheckCircle size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                    {scadCopied ? 'Copied .SCAD!' : 'Copy .SCAD Code'}
+                  </button>
+                  <button
+                    onClick={() => downloadScadFile(scadExportMode)}
+                    className="px-3.5 py-2 rounded-lg bg-[#38bdf8] text-[#0b0f19] font-bold text-xs flex items-center gap-1.5"
+                  >
+                    <Download size={14} /> Download {scadExportMode.toUpperCase()} .SCAD
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(generateSpecSheet());
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-[#1e293b] hover:bg-[#334155] text-white font-bold text-xs flex items-center gap-1.5"
+                >
+                  {copied ? <CheckCircle size={15} className="text-emerald-400" /> : <Copy size={15} />}
+                  {copied ? 'Copied Spec & Code!' : 'Copy Spec Sheet'}
+                </button>
+              )}
+
+              <a
+                href={activeTab === 'storage' ? ETSY_BENCH_URL : ETSY_CARGO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-5 py-2 rounded-lg bg-[#f43f5e] hover:bg-[#fb7185] text-white font-bold text-xs flex items-center gap-1.5"
+              >
+                Order on Etsy <ExternalLink size={14} />
+              </a>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1474,10 +1910,6 @@ if (render_part == "box") {
                       <div className="flex items-center text-xs text-[#cbd5e1]">
                         {lockToP1S ? <Lock size={13} className="text-[#f43f5e] mr-1.5" /> : <Unlock size={13} className="text-[#64748b] mr-1.5" />}
                         <span>Lock to 250 mm Max Rod Height</span>
-                        <InfoPopover
-                          title="250 mm Solid Rod Limit"
-                          text="Each tier uses a single continuous vertical pivot rod. Because the rod is printed as one solid piece, a single tier cannot exceed 250 mm in height."
-                        />
                       </div>
                       <button
                         type="button"
@@ -1753,74 +2185,180 @@ if (render_part == "box") {
                THE CARGO MATRIX SIDEBAR CONTROLS
             ========================================== */
             <div className="space-y-3.5">
-              <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3.5">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-[#38bdf8] flex items-center gap-1.5">
-                  <Tag size={13} /> Custom Lid Text &amp; Colors
-                </h3>
+              {/* CUSTOM LID TEXT & BORDER */}
+              <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-[#38bdf8] flex items-center gap-1.5">
+                    <Tag size={13} /> Custom Lid Text &amp; Frame
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setFoldAngle(foldAngle > 90 ? 25 : 180)}
+                    className="px-2 py-0.5 rounded bg-[#3b1526] border border-[#f43f5e]/50 text-[10px] font-bold text-[#fecdd3]"
+                  >
+                    {foldAngle > 90 ? 'Open Box (25°)' : 'Close Lid (180°)'}
+                  </button>
+                </div>
 
                 <div>
-                  <label className="text-[11px] text-[#94a3b8] mb-1 block">Custom Lid Inlay Text</label>
+                  <label className="block text-xs font-semibold mb-1">Lid Inlay Text</label>
                   <input
                     type="text"
                     value={cargoText}
                     onChange={(e) => setCargoText(e.target.value)}
-                    placeholder="Enter Lid Text..."
-                    className="w-full bg-[#0b0f19] border border-[#1e293b] focus:border-[#38bdf8] rounded-lg px-3 py-2 text-xs text-white font-bold tracking-wider outline-none"
+                    placeholder="Enter custom lid text..."
+                    className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#38bdf8]"
                   />
                 </div>
 
-                <div>
-                  <label className="text-[11px] text-[#94a3b8] mb-1 block">Lid Font Style</label>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold">Font Family</span>
                   <select
                     value={cargoFont}
                     onChange={(e) => setCargoFont(e.target.value)}
-                    className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg p-2 text-xs text-white"
+                    className="bg-[#0b0f19] border border-[#1e293b] rounded-lg px-2.5 py-1 text-xs text-white"
                   >
-                    <option value="Impact">Impact (Heavy Stencil)</option>
-                    <option value="Inter">Inter Black</option>
-                    <option value="JetBrains Mono">Technical Mono</option>
-                    <option value="Arial Black">Bold Industrial</option>
+                    <option value="Impact">Impact Heavy</option>
+                    <option value="Inter">Inter Bold</option>
+                    <option value="JetBrains Mono">JetBrains Mono</option>
+                    <option value="Arial Black">Arial Black</option>
                   </select>
                 </div>
 
-                <div className="flex items-center justify-between bg-[#151e31] px-3 py-2 rounded-lg border border-[#1e293b]">
-                  <span className="text-xs font-semibold text-[#e2e8f0]">Lid Rectangular Border Inlay</span>
+                <div className="flex items-center justify-between pt-1 border-t border-[#1e293b]">
+                  <span className="text-xs font-semibold flex items-center">
+                    Lid Rectangular Border Frame
+                    <InfoPopover
+                      title="Flush Inlay Border Frame"
+                      text="Adds a 2mm wide rectangular border around the outer lid perimeter using the same flush multi-color inlay as your text."
+                    />
+                  </span>
                   <button
                     type="button"
                     onClick={() => setCargoBorder(!cargoBorder)}
-                    className={`w-10 h-5 rounded-full transition-colors relative ${
+                    className={`w-9 h-5 rounded-full transition-colors relative ${
                       cargoBorder ? 'bg-[#f43f5e]' : 'bg-[#334155]'
                     }`}
                   >
                     <span
                       className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                        cargoBorder ? 'translate-x-5' : ''
+                        cargoBorder ? 'translate-x-4' : ''
                       }`}
                     />
                   </button>
                 </div>
+              </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    const temp = cargoBoxColorId;
-                    setCargoBoxColorId(cargoTextColorId);
-                    setCargoTextColorId(temp);
-                  }}
-                  className="w-full py-1.5 px-2 rounded bg-[#151e31] hover:bg-[#1e293b] border border-[#334155] text-[11px] font-semibold text-[#e2e8f0] flex items-center justify-center gap-1.5"
-                >
-                  <ArrowLeftRight size={12} className="text-[#38bdf8]" /> Swap Box &amp; Text Colors
-                </button>
+              {/* DIMENSIONS & COMPARTMENTS */}
+              <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3.5">
+                <div className="text-[11px] font-bold uppercase tracking-widest text-[#38bdf8] flex items-center gap-1.5">
+                  <Box size={13} /> Dimensions &amp; Compartments
+                </div>
 
                 <div>
-                  <div className="flex justify-between text-xs mb-1.5">
-                    <span className="text-[#cbd5e1] font-semibold">1. Box, Hinge &amp; Latch Color</span>
-                    <span className="text-[#fecdd3] text-[10px] font-bold">{activeCargoBoxColor.name}</span>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-semibold">↔ Box Width (X)</span>
+                    <span className="text-[#fecdd3] font-bold">{cargoWidth} mm</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="50"
+                    max="220"
+                    value={cargoWidth}
+                    onChange={(e) => setCargoWidth(parseInt(e.target.value, 10))}
+                    className="w-full box-studio-slider"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-semibold">↗ Box Length (Y)</span>
+                    <span className="text-[#fecdd3] font-bold">{cargoLength} mm</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="40"
+                    max="180"
+                    value={cargoLength}
+                    onChange={(e) => setCargoLength(parseInt(e.target.value, 10))}
+                    className="w-full box-studio-slider"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-semibold">↕ Half-Shell Height (Z)</span>
+                    <span className="text-[#fecdd3] font-bold">{cargoHeight} mm ({cargoHeight * 2} mm closed)</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="12"
+                    max="50"
+                    value={cargoHeight}
+                    onChange={(e) => setCargoHeight(parseInt(e.target.value, 10))}
+                    className="w-full box-studio-slider"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-1 border-t border-[#1e293b]">
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-semibold">Columns (X)</span>
+                      <span className="text-[#38bdf8] font-bold">{cargoCompX}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="6"
+                      value={cargoCompX}
+                      onChange={(e) => setCargoCompX(parseInt(e.target.value, 10))}
+                      className="w-full box-studio-slider"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-semibold">Rows (Y)</span>
+                      <span className="text-[#38bdf8] font-bold">{cargoCompY}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="6"
+                      value={cargoCompY}
+                      onChange={(e) => setCargoCompY(parseInt(e.target.value, 10))}
+                      className="w-full box-studio-slider"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARGO MATRIX COLORS (20 SWATCHES) */}
+              <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-[#38bdf8] flex items-center gap-1.5">
+                    <Palette size={13} /> Colors (20 Bambu PLA Swatches)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const t = cargoBoxColorId;
+                      setCargoBoxColorId(cargoTextColorId);
+                      setCargoTextColorId(t);
+                    }}
+                    className="px-2 py-1 rounded bg-[#151e31] border border-[#334155] text-[10px] font-semibold flex items-center gap-1"
+                  >
+                    <ArrowLeftRight size={11} className="text-[#38bdf8]" /> Swap
+                  </button>
+                </div>
+
+                <div>
+                  <div className="text-xs font-semibold mb-1.5">
+                    1. Box Body, Hinges &amp; Latch: <span className="text-[#fecdd3]">{activeCargoBoxColor.name}</span>
                   </div>
                   <div className="grid grid-cols-5 gap-1.5">
                     {BAMBU_PLA_COLORS.map((col) => (
                       <button
-                        key={`cbox_${col.id}`}
+                        key={`cb_${col.id}`}
                         onClick={() => setCargoBoxColorId(col.id)}
                         className={`p-1 rounded border flex flex-col items-center gap-1 ${
                           cargoBoxColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
@@ -1834,14 +2372,13 @@ if (render_part == "box") {
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-xs mb-1.5">
-                    <span className="text-[#cbd5e1] font-semibold">2. Lid Text &amp; Border Inlay Color</span>
-                    <span className="text-[#fecdd3] text-[10px] font-bold">{activeCargoTextColor.name}</span>
+                  <div className="text-xs font-semibold mb-1.5">
+                    2. Lid Text &amp; Frame Inlay: <span className="text-[#38bdf8]">{activeCargoTextColor.name}</span>
                   </div>
                   <div className="grid grid-cols-5 gap-1.5">
                     {BAMBU_PLA_COLORS.map((col) => (
                       <button
-                        key={`ctxt_${col.id}`}
+                        key={`ct_${col.id}`}
                         onClick={() => setCargoTextColorId(col.id)}
                         className={`p-1 rounded border flex flex-col items-center gap-1 ${
                           cargoTextColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
@@ -1851,53 +2388,6 @@ if (render_part == "box") {
                         <span className="text-[9px] truncate w-full text-center">{col.name.replace('Matte ', '')}</span>
                       </button>
                     ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3.5">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-[#38bdf8] flex items-center gap-1.5">
-                  <Box size={13} /> Case Dimensions &amp; Grid
-                </h3>
-
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span>↔ Width (Hinge Axis)</span>
-                    <span className="text-[#fecdd3] font-bold">{cargoWidth} mm</span>
-                  </div>
-                  <input type="range" min="60" max="220" value={cargoWidth} onChange={(e) => setCargoWidth(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span>↗ Length (Each Half)</span>
-                    <span className="text-[#fecdd3] font-bold">{cargoLength} mm</span>
-                  </div>
-                  <input type="range" min="50" max="150" value={cargoLength} onChange={(e) => setCargoLength(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span>↕ Height (Each Half)</span>
-                    <span className="text-[#fecdd3] font-bold">{cargoHeight} mm</span>
-                  </div>
-                  <input type="range" min="12" max="50" value={cargoHeight} onChange={(e) => setCargoHeight(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span>Columns (X)</span>
-                      <span className="text-[#fecdd3] font-bold">{cargoCompX}</span>
-                    </div>
-                    <input type="range" min="1" max="6" value={cargoCompX} onChange={(e) => setCargoCompX(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span>Rows (Y)</span>
-                      <span className="text-[#fecdd3] font-bold">{cargoCompY}</span>
-                    </div>
-                    <input type="range" min="1" max="6" value={cargoCompY} onChange={(e) => setCargoCompY(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
                   </div>
                 </div>
               </div>
@@ -1911,7 +2401,7 @@ if (render_part == "box") {
             <span className="text-[#94a3b8]">
               {activeTab === 'storage'
                 ? `${tiers} Tiers • ${tiers * drawersPerTier} Drawers`
-                : `${cargoWidth}×${cargoLength}mm • ${cargoCompX}×${cargoCompY} Grid`}
+                : `${cargoWidth}×${cargoLength}×${cargoHeight}mm • ${cargoCompX * cargoCompY} Cells`}
             </span>
             <span className="text-lg font-black text-[#38bdf8]">${calculatePrice().toFixed(2)}</span>
           </div>
@@ -1926,15 +2416,29 @@ if (render_part == "box") {
       </aside>
 
       {/* RIGHT 3D VIEWPORT */}
-      <main className="w-full md:flex-1 h-[46vh] md:h-full flex flex-col relative bg-[#0d121d] overflow-hidden">
-        <header className="min-h-12 shrink-0 bg-[#0f172a] border-b border-[#1e293b] px-3 py-2 flex flex-wrap items-center justify-between gap-2 z-10">
-          <div className="flex items-center gap-2">
+      <main className="flex-1 h-[46vh] md:h-full flex flex-col relative bg-[#0d121d] overflow-hidden">
+        {statusBanner && (
+          <div
+            className={`px-4 py-2 text-xs font-semibold flex items-center justify-between ${
+              statusBanner.type === 'error' ? 'bg-red-900/90 text-red-100' : 'bg-emerald-900/90 text-emerald-100'
+            }`}
+          >
+            <span>{statusBanner.text}</span>
+            <button onClick={() => setStatusBanner(null)} className="ml-4 font-bold">
+              ✕
+            </button>
+          </div>
+        )}
+
+        <header className="bg-[#0f172a] border-b border-[#1e293b] px-4 py-2 flex flex-wrap items-center justify-between gap-2 z-10">
+          <div className="flex items-center gap-3">
             <span className="text-xs font-bold uppercase tracking-wider text-[#38bdf8] flex items-center gap-1.5">
               <Sparkles size={14} /> 3D Preview
             </span>
+
             {activeTab === 'storage' ? (
               <div className="flex items-center gap-2 bg-[#151e31] px-2.5 py-1 rounded-lg border border-[#1e293b]">
-                <span className="text-[11px] font-semibold">Swing:</span>
+                <span className="text-[11px] font-semibold">Swing Drawers:</span>
                 <input
                   type="range"
                   min="0"
@@ -1956,12 +2460,6 @@ if (render_part == "box") {
                   onChange={(e) => setFoldAngle(parseInt(e.target.value, 10))}
                   className="w-24 box-studio-slider"
                 />
-                <button
-                  onClick={() => setFoldAngle(foldAngle > 90 ? 0 : 180)}
-                  className="px-2 py-0.5 rounded bg-[#3b1526] border border-[#f43f5e]/50 text-[10px] font-bold text-[#fecdd3]"
-                >
-                  {foldAngle > 90 ? 'Lay Flat (0°)' : 'Close Box (180°)'}
-                </button>
               </div>
             )}
           </div>
@@ -1971,7 +2469,7 @@ if (render_part == "box") {
               <>
                 <button
                   onClick={() => setExplodedView(!explodedView)}
-                  className={`px-2 py-1 rounded text-[11px] font-medium border ${
+                  className={`px-2 py-1 rounded text-xs border ${
                     explodedView ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]' : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'
                   }`}
                 >
@@ -1979,7 +2477,7 @@ if (render_part == "box") {
                 </button>
                 <button
                   onClick={() => setXrayMode(!xrayMode)}
-                  className={`px-2 py-1 rounded text-[11px] font-medium border ${
+                  className={`px-2 py-1 rounded text-xs border ${
                     xrayMode ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]' : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'
                   }`}
                 >
@@ -1989,7 +2487,7 @@ if (render_part == "box") {
             )}
             <button
               onClick={() => setShowDimensions(!showDimensions)}
-              className={`px-2 py-1 rounded text-[11px] font-medium border flex items-center gap-1 ${
+              className={`px-2 py-1 rounded text-xs border flex items-center gap-1 ${
                 showDimensions ? 'bg-[#38bdf8]/15 border-[#38bdf8] text-[#38bdf8]' : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'
               }`}
             >
@@ -1997,202 +2495,26 @@ if (render_part == "box") {
             </button>
             <button
               onClick={fitCameraToModel}
-              className="px-2 py-1 rounded text-[11px] font-medium bg-[#151e31] border border-[#1e293b] text-[#e2e8f0] flex items-center gap-1"
+              className="px-2 py-1 rounded text-xs bg-[#151e31] border border-[#1e293b] text-[#e2e8f0] flex items-center gap-1"
             >
               <Maximize2 size={12} /> Fit
             </button>
             <button
-              onClick={fitCameraToModel}
-              className="px-2 py-1 rounded text-[11px] font-medium bg-[#151e31] border border-[#1e293b] text-[#94a3b8]"
+              onClick={() => {
+                setSwingOpenAmount(0);
+                setOpenDrawersMap({});
+                setFoldAngle(35);
+                fitCameraToModel();
+              }}
+              className="px-2 py-1 rounded text-xs bg-[#151e31] border border-[#1e293b] text-[#94a3b8] flex items-center gap-1"
             >
-              <RotateCcw size={12} />
+              <RotateCcw size={12} /> Reset
             </button>
           </div>
         </header>
 
         <div ref={mountRef} className="flex-1 w-full h-full cursor-grab active:cursor-grabbing" />
       </main>
-
-      {/* SPEC SHEET & OPENSCAD GENERATOR MODAL */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#111827] border border-[#1e293b] rounded-xl max-w-2xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="px-5 py-3.5 bg-[#0f172a] border-b border-[#1e293b] flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-[#38bdf8] uppercase tracking-wider">
-                  FieldMatrix 3D • Design Code: <span className="text-white">{designCode}</span>
-                </h3>
-                <p className="text-[11px] text-[#94a3b8]">
-                  Copy your Design Code or Spec Sheet and include it in your Etsy personalization box.
-                </p>
-              </div>
-              <button onClick={() => setShowModal(false)} className="text-[#94a3b8] hover:text-white text-sm font-bold px-2">
-                ✕
-              </button>
-            </div>
-
-            {activeTab === 'cargo' && (
-              <div className="px-5 pt-3 bg-[#111827] flex gap-2 border-b border-[#1e293b]">
-                <button
-                  onClick={() => setModalTab('spec')}
-                  className={`pb-2 px-3 text-xs font-bold border-b-2 transition-colors ${
-                    modalTab === 'spec' ? 'border-[#38bdf8] text-[#38bdf8]' : 'border-transparent text-[#94a3b8]'
-                  }`}
-                >
-                  Customer Spec Summary
-                </button>
-                <button
-                  onClick={() => setModalTab('scad')}
-                  className={`pb-2 px-3 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-colors ${
-                    modalTab === 'scad' ? 'border-[#f43f5e] text-[#fecdd3]' : 'border-transparent text-[#94a3b8]'
-                  }`}
-                >
-                  <Code size={13} /> OpenSCAD (.scad) STL Generator
-                </button>
-              </div>
-            )}
-
-            <div className="p-4 overflow-y-auto flex-1 bg-[#0b0f19] m-4 rounded-lg border border-[#1e293b]">
-              <pre className="text-xs font-mono text-[#e2e8f0] whitespace-pre-wrap leading-relaxed">
-                {activeTab === 'cargo' && modalTab === 'scad' ? generateScadCode() : generateSpecSheet()}
-              </pre>
-            </div>
-
-            <div className="px-5 py-3.5 bg-[#0f172a] border-t border-[#1e293b] flex flex-wrap items-center justify-between gap-2">
-              {activeTab === 'cargo' && modalTab === 'scad' ? (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(generateScadCode());
-                      setScadCopied(true);
-                      setTimeout(() => setScadCopied(false), 2000);
-                    }}
-                    className="px-3.5 py-2 rounded-lg bg-[#1e293b] hover:bg-[#334155] text-white font-bold text-xs flex items-center gap-1.5"
-                  >
-                    {scadCopied ? <CheckCircle size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                    {scadCopied ? 'Copied .SCAD!' : 'Copy .SCAD Code'}
-                  </button>
-                  <button
-                    onClick={downloadScadFile}
-                    className="px-3.5 py-2 rounded-lg bg-[#38bdf8] text-[#0b0f19] font-bold text-xs flex items-center gap-1.5"
-                  >
-                    <Download size={14} /> Download .SCAD File
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(generateSpecSheet());
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  }}
-                  className="px-4 py-2 rounded-lg bg-[#1e293b] hover:bg-[#334155] text-white font-bold text-xs flex items-center gap-1.5"
-                >
-                  {copied ? <CheckCircle size={15} className="text-emerald-400" /> : <Copy size={15} />}
-                  {copied ? 'Copied Spec & Code!' : 'Copy Spec Sheet'}
-                </button>
-              )}
-
-              <a
-                href={activeTab === 'storage' ? ETSY_BENCH_URL : ETSY_CARGO_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-5 py-2 rounded-lg bg-[#f43f5e] hover:bg-[#fb7185] text-white font-bold text-xs flex items-center gap-1.5"
-              >
-                Order on Etsy <ExternalLink size={14} />
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* HIDDEN ADMIN PIN GATE & ORDER RECALL MODAL */}
-      {adminMode && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#111827] border border-[#1e293b] rounded-xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-[#38bdf8] uppercase tracking-wider flex items-center gap-1.5">
-                <Lock size={14} /> {adminUnlocked ? 'Admin Order Recall' : 'Admin Security Gate'}
-              </h3>
-              <button
-                onClick={() => setAdminMode(false)}
-                className="text-[#94a3b8] hover:text-white text-xs font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            {!adminUnlocked ? (
-              <form onSubmit={handleVerifyPin} className="space-y-3">
-                <div>
-                  <label className="text-xs text-[#94a3b8] block mb-1">
-                    Enter Admin PIN to unlock Order Recall:
-                  </label>
-                  <input
-                    type="password"
-                    autoFocus
-                    value={adminPinInput}
-                    onChange={(e) => {
-                      setAdminPinInput(e.target.value);
-                      setAdminPinError(false);
-                    }}
-                    placeholder="••••"
-                    className="w-full bg-[#0b0f19] border border-[#1e293b] focus:border-[#38bdf8] rounded px-3 py-2 text-center text-sm font-mono tracking-widest text-white outline-none"
-                  />
-                  {adminPinError && (
-                    <p className="text-[11px] text-red-400 mt-1">Invalid security PIN.</p>
-                  )}
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setAdminMode(false)}
-                    className="flex-1 py-2 rounded bg-[#151e31] text-xs font-semibold text-[#94a3b8]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 py-2 rounded bg-[#38bdf8] text-[#0b0f19] text-xs font-bold"
-                  >
-                    Unlock
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs text-[#94a3b8] block mb-1">
-                    Enter Customer Design Code (e.g. BENCH-XYZ123 or CARGO-XYZ123)
-                  </label>
-                  <input
-                    type="text"
-                    autoFocus
-                    value={recallCode}
-                    onChange={(e) => setRecallCode(e.target.value)}
-                    placeholder="CARGO-XXXXXX"
-                    className="w-full bg-[#0b0f19] border border-[#1e293b] rounded px-3 py-2 text-xs font-mono text-white uppercase outline-none focus:border-[#38bdf8]"
-                  />
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <button
-                    onClick={() => setAdminMode(false)}
-                    className="flex-1 py-2 rounded bg-[#151e31] text-xs font-semibold text-[#94a3b8]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleAdminRecall}
-                    className="flex-1 py-2 rounded bg-[#f43f5e] text-xs font-bold text-white"
-                  >
-                    Recall Design
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
