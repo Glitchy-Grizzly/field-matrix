@@ -32,12 +32,12 @@ import {
 // FIREBASE & ETSY CONFIGURATION
 // ==========================================
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyB1aOZeIwyhVEb4D2sRimetbjDJhbeZRqI",
+  authDomain: "print-in-place-boxes.firebaseapp.com",
+  projectId: "print-in-place-boxes",
+  storageBucket: "print-in-place-boxes.firebasestorage.app",
+  messagingSenderId: "282832338212",
+  appId: "1:282832338212:web:817f6b6906ca93aafa87b1"
 };
 
 const ETSY_BENCH_URL = "https://www.etsy.com/shop/GlitchyGrizzly";
