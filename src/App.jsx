@@ -5,7 +5,6 @@ import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
 import { getAuth, signInAnonymously } from "firebase/auth";
 import {
   Package,
-  Award,
   Copy,
   CheckCircle,
   RotateCcw,
@@ -35,14 +34,15 @@ import {
 const ETSY_BENCH_URL = "https://www.etsy.com/shop/GlitchyGrizzly";
 const ETSY_CARGO_URL = "https://www.etsy.com/shop/GlitchyGrizzly";
 
+// Paste your live firebaseConfig from your 3d-box-generator repo here:
 const firebaseConfig = {
-            apiKey: "AIzaSyB1aOZeIwyhVEb4D2sRimetbjDJhbeZRqI",
-            authDomain: "print-in-place-boxes.firebaseapp.com",
-            projectId: "print-in-place-boxes",
-            storageBucket: "print-in-place-boxes.firebasestorage.app",
-            messagingSenderId: "282832338212",
-            appId: "1:282832338212:web:817f6b6906ca93aafa87b1"
-        };
+  apiKey: "AIzaSyDummyKeyForTemplate12345",
+  authDomain: "glitchygrizzly-matrix.firebaseapp.com",
+  projectId: "glitchygrizzly-matrix",
+  storageBucket: "glitchygrizzly-matrix.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abcdef"
+};
 
 let db = null;
 let auth = null;
@@ -52,7 +52,7 @@ try {
   auth = getAuth(app);
   signInAnonymously(auth).catch(() => {});
 } catch (e) {
-  console.warn("Firebase offline mode (localStorage fallback active).");
+  console.warn("Firebase offline mode active.");
 }
 
 // ==========================================
@@ -85,9 +85,6 @@ const P1S_MAX_HEIGHT_MM = 250.0;
 const TIER_CLEARANCE_PER_DRAWER_MM = 2.15;
 const TIER_FRAME_BASE_TOP_MM = 1.5;
 
-// ==========================================
-// POPUP EXPLANATION COMPONENT
-// ==========================================
 function InfoPopover({ title, text, formula }) {
   const [open, setOpen] = useState(false);
   const popRef = useRef(null);
@@ -117,14 +114,6 @@ function InfoPopover({ title, text, formula }) {
           e.stopPropagation();
           setOpen((prev) => !prev);
         }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            e.stopPropagation();
-            setOpen((prev) => !prev);
-          }
-        }}
-        aria-label={`Info about ${title}`}
         className={`w-4 h-4 rounded-full inline-flex items-center justify-center cursor-pointer transition-colors focus:outline-none ${
           open
             ? 'bg-[#38bdf8] text-[#0b0f19] shadow-sm'
@@ -137,7 +126,7 @@ function InfoPopover({ title, text, formula }) {
       {open && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute left-0 bottom-full mb-2 w-64 p-3 rounded-lg bg-[#0f172a] border border-[#38bdf8]/50 shadow-2xl z-50 text-left pointer-events-auto animate-in fade-in duration-150"
+          className="absolute left-0 bottom-full mb-2 w-64 p-3 rounded-lg bg-[#0f172a] border border-[#38bdf8]/50 shadow-2xl z-50 text-left pointer-events-auto"
         >
           <div className="text-[11px] font-bold text-[#38bdf8] mb-1">
             <span>{title}</span>
@@ -162,7 +151,6 @@ function createLabelTexture(text, bgHex = '#1F2022', textHex = '#9B7E64', fontNa
   canvas.height = 160;
   const ctx = canvas.getContext('2d');
 
-  // Slide-in plate background strictly matches Outer Casing & Pivot Rod hex
   ctx.fillStyle = bgHex;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -279,18 +267,13 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [designCode, setDesignCode] = useState('');
   const [adminMode, setAdminMode] = useState(false);
-  const [adminPin, setAdminPin] = useState('');
   const [recallCode, setRecallCode] = useState('');
 
   const [openSections, setOpenSections] = useState({
     config: true,
     labels: true,
     dividers: true,
-    colors: true,
-    cargoDims: true,
-    cargoGrid: true,
-    cargoColors: true,
-    cargoText: true
+    colors: true
   });
 
   const toggleSection = (key) =>
@@ -344,15 +327,12 @@ export default function App() {
   const [cargoFont, setCargoFont] = useState('Impact');
   const [foldAngle, setFoldAngle] = useState(0);
 
-  // Dynamic Label Slot Caps for Bench Matrix
   const maxLabelHeight = useMemo(() => {
-    // Exact requested ratio mapping: 10mm->6mm, 20mm->14mm, 25mm->19mm, 30mm->24mm
     const raw = 6 + (height - 10) * (18 / 20);
     return Math.max(6, Math.min(24, Math.round(raw * 10) / 10));
   }, [height]);
 
   const maxLabelWidth = useMemo(() => {
-    // Max 60mm. Shrinks by 2mm for every 1mm width is reduced below 60mm
     if (width >= 60) return 60;
     const diff = 60 - width;
     return Math.max(10, Math.round(60 - diff * 2));
@@ -439,6 +419,18 @@ export default function App() {
     }
   };
 
+  const applyBatchDividers = (hCount, vCount) => {
+    setBatchH(hCount);
+    setBatchV(vCount);
+    const updated = {};
+    for (let t = 0; t < tiers; t++) {
+      for (let b = 0; b < drawersPerTier; b++) {
+        updated[`tier_${t}_box_${b}`] = { h: hCount, v: vCount };
+      }
+    }
+    setDrawerDividers(updated);
+  };
+
   const activeCasingColor = useMemo(
     () => BAMBU_PLA_COLORS.find((c) => c.id === casingColorId) || BAMBU_PLA_COLORS[16],
     [casingColorId]
@@ -467,7 +459,7 @@ export default function App() {
 
   const generateSpecSheet = () => {
     let spec = `====================================================\n`;
-    spec = `   FIELDMATRIX 3D - ORDER SPECIFICATION SHEET\n`;
+    spec += `   FIELDMATRIX 3D - ORDER SPECIFICATION SHEET\n`;
     spec += `====================================================\n`;
     spec += `Product Line : ${activeTab === 'storage' ? 'The Bench Matrix (Custom Drawer Storage)' : 'The Cargo Matrix (Tailored Storage Cases)'}\n`;
     spec += `Est. Price   : $${calculatePrice().toFixed(2)}\n`;
@@ -480,7 +472,9 @@ export default function App() {
       spec += `- Single Tier Height : ${singleTierHeightMm} mm\n`;
       spec += `- Outer Width        : ${width} mm\n`;
       spec += `- Outer Depth        : ${depth} mm\n`;
-      spec += `- Drawer Height      : ${height} mm\n\n`;
+      spec += `- Drawer Height      : ${height} mm\n`;
+      spec += `- Opening Pivot Side : ${opening}\n`;
+      spec += `- Finger Pull Handle : ${handlePos}\n\n`;
       spec += `[ COLORS & MATERIALS ]\n`;
       spec += `- Outer Casing & Rod : ${activeCasingColor.name} (${activeCasingColor.hex})\n`;
       spec += `- Drawers & Dividers : ${activeDrawerColor.name} (${activeDrawerColor.hex})\n`;
@@ -566,7 +560,6 @@ export default function App() {
     alert("Order code not found in database.");
   };
 
-  // THREE.JS VIEWPORT REF
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
@@ -587,6 +580,16 @@ export default function App() {
   const hasAnyOpenDrawer = useMemo(() => {
     return swingOpenAmount > 0.05 || Object.values(openDrawersMap).some(Boolean);
   }, [swingOpenAmount, openDrawersMap]);
+
+  const fitCameraToModel = useCallback(() => {
+    const perDrawerExplode = explodedView ? Math.max(16, height * 0.95) : 0;
+    const perTierExplode = explodedView ? 32 : 0;
+    const singleTierVisH = drawersPerTier * (height + 2.15 + perDrawerExplode) + 1.5;
+    const totalH = activeTab === 'storage' ? tiers * singleTierVisH + (tiers - 1) * perTierExplode : 140;
+    const maxSpan = Math.max(width, depth, totalH);
+    controlsState.current.targetY = totalH * 0.48;
+    controlsState.current.radius = Math.max(260, maxSpan * 1.95 + 110);
+  }, [activeTab, tiers, drawersPerTier, height, width, depth, explodedView]);
 
   useEffect(() => {
     const container = mountRef.current;
@@ -730,7 +733,6 @@ export default function App() {
     };
   }, [activeTab]);
 
-  // RENDER 3D SCENE
   useEffect(() => {
     const group = modelGroupRef.current;
     if (!group) return;
@@ -971,6 +973,20 @@ export default function App() {
 
         group.add(tierGroup);
       }
+
+      if (showDimensions) {
+        const wSprite = createDimensionSprite(`${width} mm`);
+        wSprite.position.set(0, 4, depth / 2 + 28);
+        group.add(wSprite);
+
+        const dSprite = createDimensionSprite(`${depth} mm`);
+        dSprite.position.set(-width / 2 - 32, 4, 0);
+        group.add(dSprite);
+
+        const hSprite = createDimensionSprite(`${singleTierHeightMm} mm / tier`, isOverP1SLimit);
+        hSprite.position.set(width / 2 + 38, singleTierH / 2, depth / 2);
+        group.add(hSprite);
+      }
     } else {
       // CARGO MATRIX 3D VIEWPORT
       const boxMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(cargoBoxColor), roughness: 0.38, metalness: 0.08 });
@@ -1020,13 +1036,13 @@ export default function App() {
     activeTab, tiers, drawersPerTier, opening, handlePos, width, depth, height,
     enableLabelSlot, labelWidth, labelHeight, maxLabelWidth, maxLabelHeight, labelFont,
     labels, drawerDividers, activeCasingColor, activeDrawerColor, explodedView, xrayMode,
+    showDimensions, singleTierHeightMm, isOverP1SLimit,
     cargoWidth, cargoLength, cargoHeight, cargoCompX, cargoCompY, cargoBoxColor, cargoTextColor, cargoText, foldAngle
   ]);
 
-  // SWING ANIMATION EFFECT
   const prevDrawerAnglesRef = useRef({});
   useEffect(() => {
-    const pivotSign = opening === 'Left' ? 1 : -1;
+    const pivotSign = opening === 'Left' ? -1 : 1;
     const maxSwingRad = THREE.MathUtils.degToRad(68);
 
     drawerPivotsRef.current.forEach((item) => {
@@ -1069,10 +1085,6 @@ export default function App() {
           border: 2.5px solid #ffffff;
           box-shadow: 0 0 8px rgba(244, 63, 94, 0.55);
           cursor: pointer;
-          transition: transform 0.12s ease;
-        }
-        .box-studio-slider::-webkit-slider-thumb:hover {
-          transform: scale(1.12);
         }
       `}</style>
 
@@ -1085,11 +1097,9 @@ export default function App() {
                 <Package size={18} />
               </div>
               <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-black tracking-wider text-sm text-white uppercase">
-                    FieldMatrix 3D
-                  </span>
-                </div>
+                <span className="font-black tracking-wider text-sm text-white uppercase">
+                  FieldMatrix 3D
+                </span>
                 <p className="text-[11px] text-[#38bdf8] font-medium">
                   Glitchy Grizzly • <span className="text-[#94a3b8]">You configure your Matrix. We print &amp; ship.</span>
                 </p>
@@ -1128,26 +1138,23 @@ export default function App() {
           </div>
         </div>
 
-        {/* SCROLLABLE SIDEBAR */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           {activeTab === 'storage' ? (
             <>
-              <div className="space-y-2.5">
-                <div className="grid grid-cols-3 gap-2">
-                  {['Small', 'Medium', 'Large'].map((preset) => (
-                    <button
-                      key={preset}
-                      onClick={() => applyPreset(preset)}
-                      className={`py-2 px-3 rounded-lg border text-xs font-semibold transition-all flex flex-col items-center gap-1 ${
-                        sizePreset === preset
-                          ? 'bg-[#3b1526] border-[#f43f5e]/60 text-[#fecdd3]'
-                          : 'bg-[#0f172a] border-[#1e293b] text-[#94a3b8] hover:border-[#334155] hover:text-white'
-                      }`}
-                    >
-                      <span>{preset}</span>
-                    </button>
-                  ))}
-                </div>
+              <div className="grid grid-cols-3 gap-2">
+                {['Small', 'Medium', 'Large'].map((preset) => (
+                  <button
+                    key={preset}
+                    onClick={() => applyPreset(preset)}
+                    className={`py-2 px-3 rounded-lg border text-xs font-semibold transition-all ${
+                      sizePreset === preset
+                        ? 'bg-[#3b1526] border-[#f43f5e]/60 text-[#fecdd3]'
+                        : 'bg-[#0f172a] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
               </div>
 
               {/* CONFIGURATION */}
@@ -1156,9 +1163,7 @@ export default function App() {
                   onClick={() => toggleSection('config')}
                   className="w-full px-3.5 py-2.5 flex items-center justify-between text-[11px] font-bold tracking-widest uppercase text-[#38bdf8] border-b border-[#1e293b]"
                 >
-                  <span className="flex items-center gap-1.5">
-                    <Sliders size={13} className="text-[#38bdf8]" /> Configuration
-                  </span>
+                  <span className="flex items-center gap-1.5"><Sliders size={13} /> Configuration</span>
                   {openSections.config ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
 
@@ -1168,11 +1173,6 @@ export default function App() {
                       <div className="flex items-center text-xs text-[#cbd5e1]">
                         {lockToP1S ? <Lock size={13} className="text-[#f43f5e] mr-1.5" /> : <Unlock size={13} className="text-[#64748b] mr-1.5" />}
                         <span>Lock to 250 mm Max Rod Height</span>
-                        <InfoPopover
-                          title="250 mm Solid Rod Limit"
-                          text="Each tier uses a single continuous vertical pivot rod. Because the rod is printed as one solid piece, a single tier cannot exceed 250 mm in height."
-                          formula="Tier H = Drawers × (Height + 2.15) + 1.5 ≤ 250 mm"
-                        />
                       </div>
                       <button
                         type="button"
@@ -1185,79 +1185,41 @@ export default function App() {
 
                     <div>
                       <div className="flex justify-between items-center text-xs mb-1.5">
-                        <span className="text-[#e2e8f0] font-semibold flex items-center">
-                          Number of tiers
-                          <InfoPopover title="Number of Tiers" text="Stacks multiple independent tier units vertically." />
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-[#3b1526] border border-[#f43f5e]/50 text-[#fecdd3] text-[11px] font-bold">
-                          {tiers}
-                        </span>
+                        <span className="text-[#e2e8f0] font-semibold">Number of tiers</span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-[#3b1526] border border-[#f43f5e]/50 text-[#fecdd3] text-[11px] font-bold">{tiers}</span>
                       </div>
-                      <input
-                        type="range" min="1" max="5" value={tiers}
-                        onChange={(e) => setTiers(parseInt(e.target.value, 10))}
-                        className="w-full box-studio-slider"
-                      />
+                      <input type="range" min="1" max="5" value={tiers} onChange={(e) => setTiers(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
                     </div>
 
                     <div>
                       <div className="flex justify-between items-center text-xs mb-1.5">
-                        <span className="text-[#e2e8f0] font-semibold flex items-center">
-                          Drawers per tier
-                          <InfoPopover title="Drawers per Tier" text="Controls how many swing-out drawers sit inside each vertical tier." />
-                        </span>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${isOverP1SLimit ? 'bg-red-950 border-red-500 text-red-300' : 'bg-[#3b1526] border-[#f43f5e]/50 text-[#fecdd3]'}`}>
-                          {drawersPerTier}
-                        </span>
+                        <span className="text-[#e2e8f0] font-semibold">Drawers per tier ({totalStackedHeightMm} mm)</span>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${isOverP1SLimit ? 'bg-red-950 border-red-500 text-red-300' : 'bg-[#3b1526] border-[#f43f5e]/50 text-[#fecdd3]'}`}>{drawersPerTier}</span>
                       </div>
-                      <input
-                        type="range" min="1" max="10" value={drawersPerTier}
-                        onChange={(e) => handleDrawersPerTierChange(e.target.value)}
-                        className="w-full box-studio-slider"
-                      />
-                      {isOverP1SLimit && (
-                        <div className="mt-1.5 flex items-center justify-between text-[11px] text-red-300 bg-red-950/50 border border-red-800/60 rounded px-2 py-1">
-                          <span>⚠ Past limit — ends at {maxAllowedDrawersForCurrentHeight} drawers.</span>
-                          <button onClick={() => setDrawersPerTier(maxAllowedDrawersForCurrentHeight)} className="underline font-bold ml-2">Set to {maxAllowedDrawersForCurrentHeight}</button>
-                        </div>
-                      )}
+                      <input type="range" min="1" max="10" value={drawersPerTier} onChange={(e) => handleDrawersPerTierChange(e.target.value)} className="w-full box-studio-slider" />
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-[#e2e8f0] font-semibold flex items-center">
-                        Opening <InfoPopover title="Opening Pivot Side" text="Selects which front corner holds the vertical pivot rod." />
-                      </span>
+                      <span className="text-xs text-[#e2e8f0] font-semibold">Opening</span>
                       <div className="grid grid-cols-2 gap-1 bg-[#090d16] p-0.5 rounded-md border border-[#1e293b]">
                         {['Right', 'Left'].map((dir) => (
-                          <button
-                            key={dir} onClick={() => setOpening(dir)}
-                            className={`px-3 py-1 rounded text-xs font-semibold transition-all ${opening === dir ? 'bg-[#3b1526] text-[#fecdd3] border border-[#f43f5e]/50' : 'text-[#94a3b8] hover:text-white'}`}
-                          >
-                            {dir}
-                          </button>
+                          <button key={dir} onClick={() => setOpening(dir)} className={`px-3 py-1 rounded text-xs font-semibold ${opening === dir ? 'bg-[#3b1526] text-[#fecdd3] border border-[#f43f5e]/50' : 'text-[#94a3b8]'}`}>{dir}</button>
                         ))}
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-[#e2e8f0] font-semibold flex items-center">
-                        Handle <InfoPopover title="Handle Notch" text="Places the inward-curved finger-pull corner scoop on Front or Back." />
-                      </span>
+                      <span className="text-xs text-[#e2e8f0] font-semibold">Handle</span>
                       <div className="grid grid-cols-2 gap-1 bg-[#090d16] p-0.5 rounded-md border border-[#1e293b]">
                         {['Front', 'Back'].map((pos) => (
-                          <button
-                            key={pos} onClick={() => setHandlePos(pos)}
-                            className={`px-3 py-1 rounded text-xs font-semibold transition-all ${handlePos === pos ? 'bg-[#3b1526] text-[#fecdd3] border border-[#f43f5e]/50' : 'text-[#94a3b8] hover:text-white'}`}
-                          >
-                            {pos}
-                          </button>
+                          <button key={pos} onClick={() => setHandlePos(pos)} className={`px-3 py-1 rounded text-xs font-semibold ${handlePos === pos ? 'bg-[#3b1526] text-[#fecdd3] border border-[#f43f5e]/50' : 'text-[#94a3b8]'}`}>{pos}</button>
                         ))}
                       </div>
                     </div>
 
                     <div>
                       <div className="flex justify-between items-center text-xs mb-1.5">
-                        <span className="text-[#e2e8f0] font-semibold flex items-center">↔ Width (mm)</span>
+                        <span className="text-[#e2e8f0] font-semibold">↔ Width (mm)</span>
                         <span className="px-2.5 py-0.5 rounded-full bg-[#3b1526] border border-[#f43f5e]/50 text-[#fecdd3] text-[11px] font-bold">{width} mm</span>
                       </div>
                       <input type="range" min="50" max="200" value={width} onChange={(e) => setWidth(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
@@ -1265,7 +1227,7 @@ export default function App() {
 
                     <div>
                       <div className="flex justify-between items-center text-xs mb-1.5">
-                        <span className="text-[#e2e8f0] font-semibold flex items-center">↗ Depth (mm)</span>
+                        <span className="text-[#e2e8f0] font-semibold">↗ Depth (mm)</span>
                         <span className="px-2.5 py-0.5 rounded-full bg-[#3b1526] border border-[#f43f5e]/50 text-[#fecdd3] text-[11px] font-bold">{depth} mm</span>
                       </div>
                       <input type="range" min="58" max="120" value={depth} onChange={(e) => setDepth(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
@@ -1273,16 +1235,10 @@ export default function App() {
 
                     <div>
                       <div className="flex justify-between items-center text-xs mb-1.5">
-                        <span className="text-[#e2e8f0] font-semibold flex items-center">↕ Height (mm)</span>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${isOverP1SLimit ? 'bg-red-950 border-red-500 text-red-300' : 'bg-[#3b1526] border-[#f43f5e]/50 text-[#fecdd3]'}`}>{height.toFixed(1)} mm</span>
+                        <span className="text-[#e2e8f0] font-semibold">↕ Height (mm)</span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-[#3b1526] border border-[#f43f5e]/50 text-[#fecdd3] text-[11px] font-bold">{height.toFixed(1)} mm</span>
                       </div>
                       <input type="range" min="10" max="30" step="0.1" value={height} onChange={(e) => handleHeightChange(e.target.value)} className="w-full box-studio-slider" />
-                      {isOverP1SLimit && (
-                        <div className="mt-1.5 flex items-center justify-between text-[11px] text-red-300 bg-red-950/50 border border-red-800/60 rounded px-2 py-1">
-                          <span>⚠ Past limit — ends at {maxAllowedHeightForCurrentDrawers.toFixed(1)} mm.</span>
-                          <button onClick={() => setHeight(maxAllowedHeightForCurrentDrawers)} className="underline font-bold ml-2">Set to {maxAllowedHeightForCurrentDrawers.toFixed(1)}</button>
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
@@ -1294,21 +1250,19 @@ export default function App() {
                   onClick={() => toggleSection('colors')}
                   className="w-full px-3.5 py-2.5 flex items-center justify-between text-[11px] font-bold tracking-widest uppercase text-[#38bdf8] border-b border-[#1e293b]"
                 >
-                  <span className="flex items-center gap-1.5"><Palette size={13} className="text-[#38bdf8]" /> Colors (Dual-Color)</span>
+                  <span className="flex items-center gap-1.5"><Palette size={13} /> Colors (Dual-Color)</span>
                   {openSections.colors ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
 
                 {openSections.colors && (
                   <div className="p-3.5 space-y-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={() => { const temp = casingColorId; setCasingColorId(drawerColorId); setDrawerColorId(temp); }}
-                        className="flex-1 py-1.5 px-2 rounded bg-[#151e31] hover:bg-[#1e293b] border border-[#334155] text-[11px] font-semibold text-[#e2e8f0] flex items-center justify-center gap-1.5"
-                      >
-                        <ArrowLeftRight size={12} className="text-[#38bdf8]" /> Swap Casing &amp; Drawers
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { const temp = casingColorId; setCasingColorId(drawerColorId); setDrawerColorId(temp); }}
+                      className="w-full py-1.5 px-2 rounded bg-[#151e31] hover:bg-[#1e293b] border border-[#334155] text-[11px] font-semibold text-[#e2e8f0] flex items-center justify-center gap-1.5"
+                    >
+                      <ArrowLeftRight size={12} className="text-[#38bdf8]" /> Swap Casing &amp; Drawers
+                    </button>
 
                     <div>
                       <div className="flex items-center justify-between text-xs mb-2">
@@ -1319,10 +1273,10 @@ export default function App() {
                         {BAMBU_PLA_COLORS.map((col) => (
                           <button
                             key={`case_${col.id}`} onClick={() => setCasingColorId(col.id)} title={col.name}
-                            className={`p-1 rounded-md border flex flex-col items-center gap-1 transition-all ${casingColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60 scale-[1.03]' : 'border-[#1e293b] bg-[#151e31]'}`}
+                            className={`p-1 rounded-md border flex flex-col items-center gap-1 ${casingColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'}`}
                           >
                             <span className="w-full h-4 rounded-sm border border-black/30" style={{ backgroundColor: col.hex }} />
-                            <span className="text-[9px] text-[#cbd5e1] truncate w-full text-center leading-tight">{col.name.replace('Matte ', '')}</span>
+                            <span className="text-[9px] text-[#cbd5e1] truncate w-full text-center">{col.name.replace('Matte ', '')}</span>
                           </button>
                         ))}
                       </div>
@@ -1337,10 +1291,10 @@ export default function App() {
                         {BAMBU_PLA_COLORS.map((col) => (
                           <button
                             key={`drawer_${col.id}`} onClick={() => setDrawerColorId(col.id)} title={col.name}
-                            className={`p-1 rounded-md border flex flex-col items-center gap-1 transition-all ${drawerColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60 scale-[1.03]' : 'border-[#1e293b] bg-[#151e31]'}`}
+                            className={`p-1 rounded-md border flex flex-col items-center gap-1 ${drawerColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'}`}
                           >
                             <span className="w-full h-4 rounded-sm border border-black/30" style={{ backgroundColor: col.hex }} />
-                            <span className="text-[9px] text-[#cbd5e1] truncate w-full text-center leading-tight">{col.name.replace('Matte ', '')}</span>
+                            <span className="text-[9px] text-[#cbd5e1] truncate w-full text-center">{col.name.replace('Matte ', '')}</span>
                           </button>
                         ))}
                       </div>
@@ -1355,7 +1309,7 @@ export default function App() {
                   onClick={() => toggleSection('labels')}
                   className="w-full px-3.5 py-2.5 flex items-center justify-between text-[11px] font-bold tracking-widest uppercase text-[#38bdf8] border-b border-[#1e293b]"
                 >
-                  <span className="flex items-center gap-1.5"><Tag size={13} className="text-[#38bdf8]" /> Labels</span>
+                  <span className="flex items-center gap-1.5"><Tag size={13} /> Labels</span>
                   {openSections.labels ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
 
@@ -1397,57 +1351,77 @@ export default function App() {
                   onClick={() => toggleSection('dividers')}
                   className="w-full px-3.5 py-2.5 flex items-center justify-between text-[11px] font-bold tracking-widest uppercase text-[#38bdf8] border-b border-[#1e293b]"
                 >
-                  <span className="flex items-center gap-1.5"><Grid size={13} className="text-[#38bdf8]" /> Drawer Sections &amp; Labels</span>
+                  <span className="flex items-center gap-1.5"><Grid size={13} /> Drawer Sections &amp; Labels</span>
                   {openSections.dividers ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
 
                 {openSections.dividers && (
-                  <div className="p-3.5 space-y-4 max-h-[320px] overflow-y-auto pr-1">
-                    {Array.from({ length: tiers }).map((_, tr) => {
-                      const t = tiers - 1 - tr;
-                      return (
-                        <div key={t} className="space-y-2">
-                          <div className="text-[11px] font-bold text-[#38bdf8]">Tier {t + 1}</div>
-                          {Array.from({ length: drawersPerTier }).map((_, br) => {
-                            const b = drawersPerTier - 1 - br;
-                            const key = `tier_${t}_box_${b}`;
-                            const div = drawerDividers[key] || { h: 1, v: 1 };
-                            return (
-                              <div key={b} className="p-2 rounded-lg bg-[#151e31] border border-[#1e293b] space-y-1.5">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[11px] font-bold text-[#94a3b8] w-5">{b + 1}.</span>
-                                  <input
-                                    type="text" placeholder="Label text..." value={labels[key] || ''}
-                                    onChange={(e) => setLabels(prev => ({ ...prev, [key]: e.target.value }))}
-                                    className="flex-1 bg-[#0b0f19] border border-[#1e293b] rounded px-2.5 py-1 text-xs text-white focus:outline-none focus:border-[#38bdf8]"
-                                  />
-                                </div>
-                                <div className="flex items-center justify-between pl-6 text-[10px]">
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[#64748b]">H:</span>
-                                    {[1, 2, 3, 4].map((n) => (
-                                      <button
-                                        key={`h_${n}`} onClick={() => setDrawerDividers(prev => ({ ...prev, [key]: { ...(prev[key] || { h: 1, v: 1 }), h: n } }))}
-                                        className={`w-5 h-5 rounded font-bold ${div.h === n ? 'bg-[#f43f5e] text-white' : 'bg-[#0b0f19] text-[#64748b]'}`}
-                                      >{n}</button>
-                                    ))}
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[#64748b]">V:</span>
-                                    {[1, 2, 3, 4].map((n) => (
-                                      <button
-                                        key={`v_${n}`} onClick={() => setDrawerDividers(prev => ({ ...prev, [key]: { ...(prev[key] || { h: 1, v: 1 }), v: n } }))}
-                                        className={`w-5 h-5 rounded font-bold ${div.v === n ? 'bg-[#f43f5e] text-white' : 'bg-[#0b0f19] text-[#64748b]'}`}
-                                      >{n}</button>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
+                  <div className="p-3.5 space-y-4">
+                    <div className="bg-[#151e31] p-2.5 rounded-lg border border-[#1e293b] space-y-2">
+                      <div className="text-[10px] uppercase tracking-wider font-bold text-[#38bdf8]">Batch Set All Drawers (H × V)</div>
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-[#94a3b8]">H:</span>
+                          {[1, 2, 3, 4].map((n) => (
+                            <button key={`bh_${n}`} onClick={() => applyBatchDividers(n, batchV)} className={`w-6 h-6 rounded text-xs font-bold ${batchH === n ? 'bg-[#f43f5e] text-white' : 'bg-[#0b0f19] text-[#94a3b8]'}`}>{n}</button>
+                          ))}
                         </div>
-                      );
-                    })}
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-[#94a3b8]">V:</span>
+                          {[1, 2, 3, 4].map((n) => (
+                            <button key={`bv_${n}`} onClick={() => applyBatchDividers(batchH, n)} className={`w-6 h-6 rounded text-xs font-bold ${batchV === n ? 'bg-[#f43f5e] text-white' : 'bg-[#0b0f19] text-[#94a3b8]'}`}>{n}</button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
+                      {Array.from({ length: tiers }).map((_, tr) => {
+                        const t = tiers - 1 - tr;
+                        return (
+                          <div key={t} className="space-y-2">
+                            <div className="text-[11px] font-bold text-[#38bdf8]">Tier {t + 1}</div>
+                            {Array.from({ length: drawersPerTier }).map((_, br) => {
+                              const b = drawersPerTier - 1 - br;
+                              const key = `tier_${t}_box_${b}`;
+                              const div = drawerDividers[key] || { h: 1, v: 1 };
+                              return (
+                                <div key={b} className="p-2 rounded-lg bg-[#151e31] border border-[#1e293b] space-y-1.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-bold text-[#94a3b8] w-5">{b + 1}.</span>
+                                    <input
+                                      type="text" placeholder="Label text..." value={labels[key] || ''}
+                                      onChange={(e) => setLabels(prev => ({ ...prev, [key]: e.target.value }))}
+                                      className="flex-1 bg-[#0b0f19] border border-[#1e293b] rounded px-2.5 py-1 text-xs text-white"
+                                    />
+                                  </div>
+                                  <div className="flex items-center justify-between pl-6 text-[10px]">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-[#64748b]">H:</span>
+                                      {[1, 2, 3, 4].map((n) => (
+                                        <button
+                                          key={`h_${n}`} onClick={() => setDrawerDividers(prev => ({ ...prev, [key]: { ...(prev[key] || { h: 1, v: 1 }), h: n } }))}
+                                          className={`w-5 h-5 rounded font-bold ${div.h === n ? 'bg-[#f43f5e] text-white' : 'bg-[#0b0f19] text-[#64748b]'}`}
+                                        >{n}</button>
+                                      ))}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-[#64748b]">V:</span>
+                                      {[1, 2, 3, 4].map((n) => (
+                                        <button
+                                          key={`v_${n}`} onClick={() => setDrawerDividers(prev => ({ ...prev, [key]: { ...(prev[key] || { h: 1, v: 1 }), v: n } }))}
+                                          className={`w-5 h-5 rounded font-bold ${div.v === n ? 'bg-[#f43f5e] text-white' : 'bg-[#0b0f19] text-[#64748b]'}`}
+                                        >{n}</button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1459,15 +1433,15 @@ export default function App() {
                 <div className="text-xs font-bold uppercase tracking-widest text-[#38bdf8]">Case Dimensions (mm)</div>
                 <div>
                   <label className="text-xs text-[#94a3b8] flex justify-between mb-1">Width (Hinge Axis) <span className="text-[#fda4af] font-bold">{cargoWidth} mm</span></label>
-                  <input type="range" min="40" max="200" value={cargoWidth} onChange={(e) => setCargoWidth(parseInt(e.target.value))} className="w-full box-studio-slider" />
+                  <input type="range" min="40" max="200" value={cargoWidth} onChange={(e) => setCargoWidth(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
                 </div>
                 <div>
                   <label className="text-xs text-[#94a3b8] flex justify-between mb-1">Length (Each Half) <span className="text-[#fda4af] font-bold">{cargoLength} mm</span></label>
-                  <input type="range" min="40" max="105" value={cargoLength} onChange={(e) => setCargoLength(parseInt(e.target.value))} className="w-full box-studio-slider" />
+                  <input type="range" min="40" max="105" value={cargoLength} onChange={(e) => setCargoLength(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
                 </div>
                 <div>
                   <label className="text-xs text-[#94a3b8] flex justify-between mb-1">Height (Each Half) <span className="text-[#fda4af] font-bold">{cargoHeight} mm</span></label>
-                  <input type="range" min="12" max="60" value={cargoHeight} onChange={(e) => setCargoHeight(parseInt(e.target.value))} className="w-full box-studio-slider" />
+                  <input type="range" min="12" max="60" value={cargoHeight} onChange={(e) => setCargoHeight(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
                 </div>
               </div>
 
@@ -1475,11 +1449,11 @@ export default function App() {
                 <div className="text-xs font-bold uppercase tracking-widest text-[#38bdf8]">Interior Grid (Base)</div>
                 <div>
                   <label className="text-xs text-[#94a3b8] flex justify-between mb-1">Columns (X) <span className="text-[#fda4af] font-bold">{cargoCompX}</span></label>
-                  <input type="range" min="1" max="5" value={cargoCompX} onChange={(e) => setCargoCompX(parseInt(e.target.value))} className="w-full box-studio-slider" />
+                  <input type="range" min="1" max="5" value={cargoCompX} onChange={(e) => setCargoCompX(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
                 </div>
                 <div>
                   <label className="text-xs text-[#94a3b8] flex justify-between mb-1">Rows (Y) <span className="text-[#fda4af] font-bold">{cargoCompY}</span></label>
-                  <input type="range" min="1" max="5" value={cargoCompY} onChange={(e) => setCargoCompY(parseInt(e.target.value))} className="w-full box-studio-slider" />
+                  <input type="range" min="1" max="5" value={cargoCompY} onChange={(e) => setCargoCompY(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
                 </div>
               </div>
 
@@ -1572,8 +1546,22 @@ export default function App() {
               <>
                 <button onClick={() => setExplodedView(!explodedView)} className={`px-2.5 py-1 rounded text-xs font-medium border ${explodedView ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]' : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'}`}>Exploded</button>
                 <button onClick={() => setXrayMode(!xrayMode)} className={`px-2.5 py-1 rounded text-xs font-medium border ${xrayMode ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]' : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'}`}>X-Ray</button>
+                <button onClick={() => setShowDimensions(!showDimensions)} className={`px-2.5 py-1 rounded text-xs font-medium border flex items-center gap-1 ${showDimensions ? 'bg-[#38bdf8]/15 border-[#38bdf8] text-[#38bdf8]' : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'}`}><Eye size={12} /> 3D Dimensions</button>
               </>
             )}
+            <button onClick={fitCameraToModel} className="px-2.5 py-1 rounded text-xs font-medium bg-[#151e31] border border-[#1e293b] text-[#e2e8f0] flex items-center gap-1"><Maximize2 size={12} /> Fit</button>
+            <button
+              onClick={() => {
+                controlsState.current.theta = 0.62;
+                controlsState.current.phi = 1.12;
+                setOpenDrawersMap({});
+                setSwingOpenAmount(0);
+                fitCameraToModel();
+              }}
+              className="px-2.5 py-1 rounded text-xs font-medium bg-[#151e31] border border-[#1e293b] text-[#94a3b8] flex items-center gap-1"
+            >
+              <RotateCcw size={12} /> Reset
+            </button>
           </div>
         </header>
 
