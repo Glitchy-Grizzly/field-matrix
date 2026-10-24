@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import * as THREE from 'three';
 import { initializeApp } from 'firebase/app';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import {
@@ -57,7 +57,7 @@ try {
   if (typeof window !== 'undefined' && RECAPTCHA_V3_SITE_KEY) {
     try {
       initializeAppCheck(app, {
-        provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
+        provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_V3_SITE_KEY),
         isTokenAutoRefreshEnabled: true
       });
     } catch (appCheckErr) {
