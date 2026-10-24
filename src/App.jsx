@@ -33,12 +33,13 @@ import {
 // FIREBASE, APP CHECK & ETSY CONFIGURATION
 // ==========================================
 const firebaseConfig = {
-  apiKey: "AIzaSyB1aOZeIwyhVEb4D2sRimetbjDJhbeZRqI",
-  authDomain: "print-in-place-boxes.firebaseapp.com",
-  projectId: "print-in-place-boxes",
-  storageBucket: "print-in-place-boxes.firebasestorage.app",
-  messagingSenderId: "282832338212",
-  appId: "1:282832338212:web:817f6b6906ca93aafa87b1"
+  apiKey: "AIzaSyB8ZEOzGOGeWRUYyWbZrkM_5Bl2OR37tyc",
+  authDomain: "fieldmatrix-3d.firebaseapp.com",
+  projectId: "fieldmatrix-3d",
+  storageBucket: "fieldmatrix-3d.firebasestorage.app",
+  messagingSenderId: "319878094871",
+  appId: "1:319878094871:web:1eeeb9304d718e13887c52",
+  measurementId: "G-PZPVDS18S2"
 };
 
 const RECAPTCHA_V3_SITE_KEY = "6Lf9XvctAAAAAJGGYSp43IqkYUCieUidOg-cxWwk";
