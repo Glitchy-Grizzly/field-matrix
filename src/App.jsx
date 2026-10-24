@@ -1929,9 +1929,9 @@ complete_model();
             <div className="flex items-center gap-2.5">
               <div
                 onClick={handleLogoSecretClick}
-                className="w-8 h-8 rounded-lg bg-[#38bdf8]/15 border border-[#38bdf8]/40 flex items-center justify-center text-[#38bdf8] cursor-pointer overflow-hidden p-1"
+                className="w-8 h-8 rounded-lg bg-[#38bdf8]/15 border border-[#38bdf8]/40 flex items-center justify-center text-[#38bdf8] cursor-pointer"
               >
-                <img src="/favicon.png" alt="Logo" className="w-full h-full object-contain" />
+                <Package size={18} />
               </div>
               <div>
                 <span className="font-black tracking-wider text-sm text-white uppercase">
