@@ -42,7 +42,7 @@ const firebaseConfig = {
   measurementId: "G-PZPVDS18S2"
 };
 
-const RECAPTCHA_V3_SITE_KEY = "6LepIfgtAAAAAJORMQZiUfuHOvjNQ5f3Uz-Ax2pz";
+const RECAPTCHA_V3_SITE_KEY = "6LeqWv4tAAAAALkuL2q5NNooELUIXc8xgxhknqfU";
 
 const ETSY_BENCH_URL = "https://www.etsy.com/shop/GlitchyGrizzly";
 const ETSY_CARGO_URL = "https://www.etsy.com/shop/GlitchyGrizzly";
