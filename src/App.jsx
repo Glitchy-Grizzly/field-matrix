@@ -1930,7 +1930,6 @@ complete_model();
               <div
                 onClick={handleLogoSecretClick}
                 className="w-8 h-8 rounded-lg bg-[#38bdf8]/15 border border-[#38bdf8]/40 flex items-center justify-center text-[#38bdf8] cursor-pointer overflow-hidden p-1"
-                title="Click logo 5 times to unlock admin mode"
               >
                 <img src="/favicon.png" alt="Logo" className="w-full h-full object-contain" />
               </div>
