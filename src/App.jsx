@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import * as THREE from 'three';
 import { initializeApp } from 'firebase/app';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaV3Provider, getToken } from 'firebase/app-check';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import {
@@ -41,7 +41,6 @@ const firebaseConfig = {
   appId: "1:282832338212:web:817f6b6906ca93aafa87b1"
 };
 
-// Paste your reCAPTCHA v3 Site Key from your old index.html right here:
 const RECAPTCHA_V3_SITE_KEY = "6Lf9XvctAAAAAJGGYSp43IqkYUCieUidOg-cxWwk";
 
 const ETSY_BENCH_URL = "https://www.etsy.com/shop/GlitchyGrizzly";
@@ -50,12 +49,13 @@ const FIRESTORE_COLLECTION = "custom_boxes";
 
 let db = null;
 let auth = null;
+let appCheckInstance = null;
+
 try {
   const app = initializeApp(firebaseConfig);
 
-  // Initialize Firebase App Check with reCAPTCHA v3 unconditionally
   if (typeof window !== 'undefined' && RECAPTCHA_V3_SITE_KEY) {
-    initializeAppCheck(app, {
+    appCheckInstance = initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
       isTokenAutoRefreshEnabled: true
     });
@@ -294,6 +294,7 @@ export default function App() {
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
   const [designCode, setDesignCode] = useState('');
   const [adminMode, setAdminMode] = useState(false);
   const [adminUnlocked, setAdminUnlocked] = useState(false);
@@ -964,12 +965,12 @@ complete_model();
     const basePayload = {
       designCode: codeToSave,
       productLine: activeTab,
-      // Required fields to satisfy Firestore Security Rules:
+      // Strictly satisfies Firestore Security Rules:
       // hasAll(['width', 'length', 'height', 'scadCode', 'createdAt'])
-      width: isStorage ? width : cargoWidth,
-      length: isStorage ? depth : cargoLength,
-      height: isStorage ? height : cargoHeight,
-      scadCode: scadString,
+      width: Number(isStorage ? width : cargoWidth),
+      length: Number(isStorage ? depth : cargoLength),
+      height: Number(isStorage ? height : cargoHeight),
+      scadCode: String(scadString),
       createdAt: serverTimestamp()
     };
 
@@ -1010,27 +1011,37 @@ complete_model();
   const savedCodesRef = useRef(new Set());
 
   const saveDesignToFirestore = async (codeToSave) => {
-    if (!db || !codeToSave) return;
-    // Because Firestore rules have `allow update: if false`, never overwrite an already-created code
-    if (savedCodesRef.current.has(codeToSave)) return;
+    if (!db || !codeToSave) return false;
+    if (savedCodesRef.current.has(codeToSave)) return true;
 
     try {
+      // Ensure App Check token is fetched and valid before writing to Firestore
+      if (appCheckInstance) {
+        await getToken(appCheckInstance, false);
+      }
       if (auth && !auth.currentUser) {
         await signInAnonymously(auth).catch(() => {});
       }
       const payload = buildOrderPayload(codeToSave);
       await setDoc(doc(db, FIRESTORE_COLLECTION, codeToSave), payload);
       savedCodesRef.current.add(codeToSave);
+      setStatusBanner({
+        type: 'success',
+        text: `Design ${codeToSave} saved! Redirecting to Etsy...`
+      });
+      return true;
     } catch (e) {
       console.error('Could not save to Firestore collection custom_boxes:', e);
       setStatusBanner({
         type: 'error',
-        text: `Firestore save error: ${e.message}`
+        text: `Firestore/AppCheck Error: ${e.message}. Check that field-matrix.glitchygrizzly.com is added to your Google reCAPTCHA v3 allowed domains!`
       });
+      return false;
     }
   };
 
-  const handleOpenSpecModal = async () => {
+  // Opening the Spec Modal now ONLY generates the code locally (no premature Firestore write)
+  const handleOpenSpecModal = () => {
     const prefix = activeTab === 'storage' ? 'BENCH-' : 'CARGO-';
     const randomChars = Math.random().toString(36).substring(2, 8).toUpperCase();
     const newCode = `${prefix}${randomChars}`;
@@ -1043,18 +1054,28 @@ complete_model();
       navigator.clipboard.writeText(newCode);
       setCodeCopied(true);
     } catch (err) {
-      // Ignore clipboard permission error until explicit button click
+      // Clipboard will copy when they click the explicit button
     }
-
-    await saveDesignToFirestore(newCode);
   };
 
-  const handleEtsyOrderClick = () => {
+  // Saves to Firestore ONLY when the customer clicks "Copy Code & Order on Etsy"
+  const handleEtsyOrderClick = async (e) => {
+    e.preventDefault();
+    const targetUrl = activeTab === 'storage' ? ETSY_BENCH_URL : ETSY_CARGO_URL;
+
     if (designCode) {
-      navigator.clipboard.writeText(designCode);
-      setCodeCopied(true);
-      saveDesignToFirestore(designCode);
+      try {
+        await navigator.clipboard.writeText(designCode);
+        setCodeCopied(true);
+      } catch (err) {
+        // Fallback if clipboard blocked
+      }
+      setIsSavingOrder(true);
+      await saveDesignToFirestore(designCode);
+      setIsSavingOrder(false);
     }
+
+    window.open(targetUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleAdminRecall = async () => {
@@ -1066,6 +1087,9 @@ complete_model();
       return;
     }
     try {
+      if (appCheckInstance) {
+        await getToken(appCheckInstance, false);
+      }
       if (auth && !auth.currentUser) {
         await signInAnonymously(auth).catch(() => {});
       }
@@ -1093,9 +1117,9 @@ complete_model();
           setDrawerColorId(data.drawerColorId || 'matte-latte-brown');
         } else {
           setActiveTab('cargo');
-          setCargoWidth(data.cargoWidth ?? 120);
-          setCargoLength(data.cargoLength ?? 90);
-          setCargoHeight(data.cargoHeight ?? 20);
+          setCargoWidth(data.cargoWidth ?? data.width ?? 120);
+          setCargoLength(data.cargoLength ?? data.length ?? 90);
+          setCargoHeight(data.cargoHeight ?? data.height ?? 20);
           setCargoCompX(data.cargoCompX ?? 2);
           setCargoCompY(data.cargoCompY ?? 2);
           if (data.cargoBoxColorId) setCargoBoxColorId(data.cargoBoxColorId);
@@ -1624,8 +1648,6 @@ complete_model();
           polygonOffsetFactor: -1
         })
       );
-      // When lidHalf folds 180° around the X-axis hinge, rotation.x = PI/2 with rotation.z = 0
-      // ensures the text faces upward and reads right-side-up from the front latch!
       lidLabelPlane.rotation.x = Math.PI / 2;
       lidLabelPlane.rotation.z = 0;
       lidLabelPlane.position.set(0, -0.06, 0);
@@ -1817,7 +1839,7 @@ complete_model();
                   )}
                 </h3>
                 <p className="text-[11px] text-[#94a3b8]">
-                  Copy your Design Code or Spec Sheet and include it in your Etsy personalization box.
+                  Click "Copy Code &amp; Order on Etsy" below to save your design code and open Etsy.
                 </p>
               </div>
               <button onClick={() => setShowModal(false)} className="text-[#94a3b8] hover:text-white text-sm font-bold px-2">
@@ -1929,15 +1951,19 @@ complete_model();
                 </div>
               )}
 
-              <a
-                href={activeTab === 'storage' ? ETSY_BENCH_URL : ETSY_CARGO_URL}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                disabled={isSavingOrder}
                 onClick={handleEtsyOrderClick}
-                className="px-5 py-2 rounded-lg bg-[#f43f5e] hover:bg-[#fb7185] text-white font-bold text-xs flex items-center gap-1.5"
+                className="px-5 py-2 rounded-lg bg-[#f43f5e] hover:bg-[#fb7185] disabled:opacity-60 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
               >
-                {codeCopied ? 'Code Copied! Order on Etsy' : 'Copy Code & Order on Etsy'} <ExternalLink size={14} />
-              </a>
+                {isSavingOrder
+                  ? 'Saving Design...'
+                  : codeCopied
+                  ? 'Code Copied! Order on Etsy'
+                  : 'Copy Code & Order on Etsy'}{' '}
+                <ExternalLink size={14} />
+              </button>
             </div>
           </div>
         </div>
