@@ -2572,7 +2572,7 @@ complete_model();
 
           {/* CENTER LOGO IMAGE */}
           <div className="hidden md:flex items-center justify-center">
-            <img src="/favicon.png" alt="FieldMatrix Logo" className="w-7 h-7 object-contain opacity-90 drop-shadow" />
+            <img src="/logotransparent.png" alt="FieldMatrix Logo" className="w-7 h-7 object-contain opacity-90 drop-shadow" />
           </div>
 
           <div className="flex items-center gap-1.5">
