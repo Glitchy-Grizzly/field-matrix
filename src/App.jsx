@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import * as THREE from 'three';
 import { initializeApp } from 'firebase/app';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import {
@@ -29,7 +30,7 @@ import {
 } from 'lucide-react';
 
 // ==========================================
-// FIREBASE & ETSY CONFIGURATION
+// FIREBASE, APP CHECK & ETSY CONFIGURATION
 // ==========================================
 const firebaseConfig = {
   apiKey: "AIzaSyB1aOZeIwyhVEb4D2sRimetbjDJhbeZRqI",
@@ -40,6 +41,9 @@ const firebaseConfig = {
   appId: "1:282832338212:web:817f6b6906ca93aafa87b1"
 };
 
+// Paste your reCAPTCHA v3 Site Key from your old index.html right here:
+const RECAPTCHA_V3_SITE_KEY = "6Lf9XvctAAAAAJGGYSp43IqkYUCieUidOg-cxWwk";
+
 const ETSY_BENCH_URL = "https://www.etsy.com/shop/GlitchyGrizzly";
 const ETSY_CARGO_URL = "https://www.etsy.com/shop/GlitchyGrizzly";
 const FIRESTORE_COLLECTION = "custom_boxes";
@@ -48,6 +52,15 @@ let db = null;
 let auth = null;
 try {
   const app = initializeApp(firebaseConfig);
+
+  // Initialize Firebase App Check with reCAPTCHA v3
+  if (typeof window !== 'undefined' && RECAPTCHA_V3_SITE_KEY && RECAPTCHA_V3_SITE_KEY !== "6Lf9XvctAAAAAJGGYSp43IqkYUCieUidOg-cxWwk") {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
+      isTokenAutoRefreshEnabled: true
+    });
+  }
+
   db = getFirestore(app);
   auth = getAuth(app);
   signInAnonymously(auth).catch((err) => {
@@ -942,43 +955,48 @@ complete_model();
     URL.revokeObjectURL(url);
   };
 
-  const buildOrderPayload = (codeToSave) => ({
-    designCode: codeToSave,
-    productLine: activeTab,
-    createdAt: serverTimestamp(),
-    ...(activeTab === 'storage'
-      ? {
-          tiers,
-          drawersPerTier,
-          opening,
-          handlePos,
-          width,
-          depth,
-          height,
-          enableLabelSlot,
-          labelWidth,
-          labelHeight,
-          labelFont,
-          labels,
-          drawerDividers,
-          casingColorId,
-          drawerColorId
-        }
-      : {
-          cargoWidth,
-          cargoLength,
-          cargoHeight,
-          cargoCompX,
-          cargoCompY,
-          cargoBoxColorId,
-          cargoTextColorId,
-          cargoBoxColor: activeCargoBoxColor.hex,
-          cargoTextColor: activeCargoTextColor.hex,
-          cargoText,
-          cargoFont,
-          cargoBorder
-        })
-  });
+  const buildOrderPayload = (codeToSave) => {
+    const basePayload = {
+      designCode: codeToSave,
+      productLine: activeTab,
+      createdAt: serverTimestamp()
+    };
+
+    if (activeTab === 'storage') {
+      return Object.assign(basePayload, {
+        tiers,
+        drawersPerTier,
+        opening,
+        handlePos,
+        width,
+        depth,
+        height,
+        enableLabelSlot,
+        labelWidth,
+        labelHeight,
+        labelFont,
+        labels,
+        drawerDividers,
+        casingColorId,
+        drawerColorId
+      });
+    }
+
+    return Object.assign(basePayload, {
+      cargoWidth,
+      cargoLength,
+      cargoHeight,
+      cargoCompX,
+      cargoCompY,
+      cargoBoxColorId,
+      cargoTextColorId,
+      cargoBoxColor: activeCargoBoxColor.hex,
+      cargoTextColor: activeCargoTextColor.hex,
+      cargoText,
+      cargoFont,
+      cargoBorder
+    });
+  };
 
   const saveDesignToFirestore = async (codeToSave) => {
     if (!db) return;
