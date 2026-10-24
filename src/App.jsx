@@ -298,7 +298,6 @@ export default function App() {
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
-  const [isSavingOrder, setIsSavingOrder] = useState(false);
   const [designCode, setDesignCode] = useState('');
   const [adminMode, setAdminMode] = useState(false);
   const [adminUnlocked, setAdminUnlocked] = useState(false);
@@ -962,19 +961,16 @@ complete_model();
 
   const buildOrderPayload = (codeToSave) => {
     const isStorage = activeTab === 'storage';
-    const scadString = isStorage
-      ? generateSpecSheet()
-      : generateScadCode('full');
+    // For Bench Matrix, scadCode stores the complete configuration spec sheet
+    const codeContent = isStorage ? generateSpecSheet() : generateScadCode('full');
 
     const basePayload = {
       designCode: codeToSave,
       productLine: activeTab,
-      // Strictly satisfies Firestore Security Rules:
-      // hasAll(['width', 'length', 'height', 'scadCode', 'createdAt'])
       width: Number(isStorage ? width : cargoWidth),
       length: Number(isStorage ? depth : cargoLength),
       height: Number(isStorage ? height : cargoHeight),
-      scadCode: String(scadString),
+      scadCode: String(codeContent),
       createdAt: serverTimestamp()
     };
 
@@ -984,7 +980,6 @@ complete_model();
         drawersPerTier,
         opening,
         handlePos,
-        depth,
         enableLabelSlot,
         labelWidth,
         labelHeight,
@@ -997,9 +992,6 @@ complete_model();
     }
 
     return Object.assign(basePayload, {
-      cargoWidth,
-      cargoLength,
-      cargoHeight,
       cargoCompX,
       cargoCompY,
       cargoBoxColorId,
@@ -1023,7 +1015,6 @@ complete_model();
         await signInAnonymously(auth).catch(() => {});
       }
       const payload = buildOrderPayload(codeToSave);
-      // Firestore SDK automatically passes AppCheck token in request headers
       await setDoc(doc(db, FIRESTORE_COLLECTION, codeToSave), payload);
       savedCodesRef.current.add(codeToSave);
       setStatusBanner({
@@ -1032,7 +1023,7 @@ complete_model();
       });
       return true;
     } catch (e) {
-      console.error('Could not save to Firestore collection custom_boxes:', e);
+      console.error('Firestore save error:', e);
       setStatusBanner({
         type: 'error',
         text: `Save Error: ${e.message}`
@@ -1041,7 +1032,6 @@ complete_model();
     }
   };
 
-  // Opening the Spec Modal now ONLY generates the code locally (no premature Firestore write)
   const handleOpenSpecModal = () => {
     const prefix = activeTab === 'storage' ? 'BENCH-' : 'CARGO-';
     const randomChars = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -1055,11 +1045,10 @@ complete_model();
       navigator.clipboard.writeText(newCode);
       setCodeCopied(true);
     } catch (err) {
-      // Clipboard will copy when they click the explicit button
+      // Ignored until button click
     }
   };
 
-  // Saves to Firestore ONLY when the customer clicks "Copy Code & Order on Etsy"
   const handleEtsyOrderClick = async (e) => {
     e.preventDefault();
     const targetUrl = activeTab === 'storage' ? ETSY_BENCH_URL : ETSY_CARGO_URL;
@@ -1069,7 +1058,7 @@ complete_model();
         await navigator.clipboard.writeText(designCode);
         setCodeCopied(true);
       } catch (err) {
-        // Fallback if clipboard blocked
+        // Fallback
       }
       setIsSavingOrder(true);
       await saveDesignToFirestore(designCode);
@@ -1078,6 +1067,8 @@ complete_model();
 
     window.open(targetUrl, '_blank', 'noopener,noreferrer');
   };
+
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
 
   const handleAdminRecall = async () => {
     if (!recallCode.trim() || !db) {
@@ -1103,7 +1094,7 @@ complete_model();
           setOpening(data.opening ?? 'Left');
           setHandlePos(data.handlePos ?? 'Front');
           setWidth(data.width ?? 140);
-          setDepth(data.depth ?? 120);
+          setDepth(data.length ?? 120);
           setHeight(data.height ?? 15.4);
           setEnableLabelSlot(data.enableLabelSlot ?? true);
           setLabelWidth(data.labelWidth ?? 30);
@@ -1115,9 +1106,9 @@ complete_model();
           setDrawerColorId(data.drawerColorId || 'matte-latte-brown');
         } else {
           setActiveTab('cargo');
-          setCargoWidth(data.cargoWidth ?? data.width ?? 120);
-          setCargoLength(data.cargoLength ?? data.length ?? 90);
-          setCargoHeight(data.cargoHeight ?? data.height ?? 20);
+          setCargoWidth(data.width ?? 120);
+          setCargoLength(data.length ?? 90);
+          setCargoHeight(data.height ?? 20);
           setCargoCompX(data.cargoCompX ?? 2);
           setCargoCompY(data.cargoCompY ?? 2);
           if (data.cargoBoxColorId) setCargoBoxColorId(data.cargoBoxColorId);
