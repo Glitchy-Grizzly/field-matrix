@@ -956,21 +956,30 @@ complete_model();
   };
 
   const buildOrderPayload = (codeToSave) => {
+    const isStorage = activeTab === 'storage';
+    const scadString = isStorage
+      ? generateSpecSheet()
+      : generateScadCode('full');
+
     const basePayload = {
       designCode: codeToSave,
       productLine: activeTab,
+      // Required fields to satisfy Firestore Security Rules:
+      // hasAll(['width', 'length', 'height', 'scadCode', 'createdAt'])
+      width: isStorage ? width : cargoWidth,
+      length: isStorage ? depth : cargoLength,
+      height: isStorage ? height : cargoHeight,
+      scadCode: scadString,
       createdAt: serverTimestamp()
     };
 
-    if (activeTab === 'storage') {
+    if (isStorage) {
       return Object.assign(basePayload, {
         tiers,
         drawersPerTier,
         opening,
         handlePos,
-        width,
         depth,
-        height,
         enableLabelSlot,
         labelWidth,
         labelHeight,
@@ -998,14 +1007,20 @@ complete_model();
     });
   };
 
+  const savedCodesRef = useRef(new Set());
+
   const saveDesignToFirestore = async (codeToSave) => {
-    if (!db) return;
+    if (!db || !codeToSave) return;
+    // Because Firestore rules have `allow update: if false`, never overwrite an already-created code
+    if (savedCodesRef.current.has(codeToSave)) return;
+
     try {
       if (auth && !auth.currentUser) {
         await signInAnonymously(auth).catch(() => {});
       }
       const payload = buildOrderPayload(codeToSave);
       await setDoc(doc(db, FIRESTORE_COLLECTION, codeToSave), payload);
+      savedCodesRef.current.add(codeToSave);
     } catch (e) {
       console.error('Could not save to Firestore collection custom_boxes:', e);
       setStatusBanner({
