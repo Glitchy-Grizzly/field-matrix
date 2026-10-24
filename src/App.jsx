@@ -2536,7 +2536,7 @@ complete_model();
           </div>
         )}
 
-        <header className="bg-[#0f172a] border-b border-[#1e293b] px-4 py-2 flex flex-wrap items-center justify-between gap-2 z-10">
+        <header className="bg-[#0f172a] border-b border-[#1e293b] px-4 py-2 flex items-center justify-between gap-2 z-10">
           <div className="flex items-center gap-3">
             <span className="text-xs font-bold uppercase tracking-wider text-[#38bdf8] flex items-center gap-1.5">
               <Sparkles size={14} /> 3D Preview
@@ -2568,6 +2568,11 @@ complete_model();
                 />
               </div>
             )}
+          </div>
+
+          {/* CENTER LOGO IMAGE */}
+          <div className="hidden md:flex items-center justify-center">
+            <img src="/favicon.png" alt="FieldMatrix Logo" className="w-7 h-7 object-contain opacity-90 drop-shadow" />
           </div>
 
           <div className="flex items-center gap-1.5">
