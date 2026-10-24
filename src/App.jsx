@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import * as THREE from 'three';
 import { initializeApp } from 'firebase/app';
-import { initializeAppCheck, ReCaptchaV3Provider, getToken } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import {
@@ -55,10 +55,14 @@ try {
   const app = initializeApp(firebaseConfig);
 
   if (typeof window !== 'undefined' && RECAPTCHA_V3_SITE_KEY) {
-    appCheckInstance = initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
-      isTokenAutoRefreshEnabled: true
-    });
+    try {
+      appCheckInstance = initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
+        isTokenAutoRefreshEnabled: true
+      });
+    } catch (acErr) {
+      console.warn("AppCheck init warning:", acErr);
+    }
   }
 
   db = getFirestore(app);
@@ -1015,14 +1019,11 @@ complete_model();
     if (savedCodesRef.current.has(codeToSave)) return true;
 
     try {
-      // Ensure App Check token is fetched and valid before writing to Firestore
-      if (appCheckInstance) {
-        await getToken(appCheckInstance, false);
-      }
       if (auth && !auth.currentUser) {
         await signInAnonymously(auth).catch(() => {});
       }
       const payload = buildOrderPayload(codeToSave);
+      // Firestore SDK automatically passes AppCheck token in request headers
       await setDoc(doc(db, FIRESTORE_COLLECTION, codeToSave), payload);
       savedCodesRef.current.add(codeToSave);
       setStatusBanner({
@@ -1034,7 +1035,7 @@ complete_model();
       console.error('Could not save to Firestore collection custom_boxes:', e);
       setStatusBanner({
         type: 'error',
-        text: `Firestore/AppCheck Error: ${e.message}. Check that field-matrix.glitchygrizzly.com is added to your Google reCAPTCHA v3 allowed domains!`
+        text: `Save Error: ${e.message}`
       });
       return false;
     }
@@ -1087,9 +1088,6 @@ complete_model();
       return;
     }
     try {
-      if (appCheckInstance) {
-        await getToken(appCheckInstance, false);
-      }
       if (auth && !auth.currentUser) {
         await signInAnonymously(auth).catch(() => {});
       }
