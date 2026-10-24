@@ -49,19 +49,18 @@ const FIRESTORE_COLLECTION = "custom_boxes";
 
 let db = null;
 let auth = null;
-let appCheckInstance = null;
-
 try {
   const app = initializeApp(firebaseConfig);
 
+  // Safe App Check initialization with error trapping
   if (typeof window !== 'undefined' && RECAPTCHA_V3_SITE_KEY) {
     try {
-      appCheckInstance = initializeAppCheck(app, {
+      initializeAppCheck(app, {
         provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
         isTokenAutoRefreshEnabled: true
       });
-    } catch (acErr) {
-      console.warn("AppCheck init warning:", acErr);
+    } catch (appCheckErr) {
+      console.warn("App Check initialization notice:", appCheckErr);
     }
   }
 
@@ -555,7 +554,7 @@ export default function App() {
 
   const generateSpecSheet = () => {
     let spec = `====================================================\n`;
-    spec += `   FIELDMATRIX 3D - PRINT & SHIP SPECIFICATION\n`;
+    spec += `    FIELDMATRIX 3D - PRINT & SHIP SPECIFICATION\n`;
     spec += `====================================================\n`;
     spec += `Design Code  : ${designCode || 'UNSAVED'}\n`;
     spec += `Product Line : ${
@@ -677,8 +676,6 @@ gusset_h  = 4.8;
 base_indices = [-2, 0, 2];
 lid_indices  = [-1, 1];
 
-// CORRECTED: mirror([0, 1, 0]) flips Y-axis so when the lid folds 180° over the X-axis hinge,
-// the text is right-side up AND reads left-to-right from the front latch!
 module render_lid_text() {
     if (box_text_1 != "") {
         mirror([0, 1, 0]) {
@@ -775,7 +772,7 @@ module lid_bore_tunnel(r, len) {
         circle(r=r, $fn=48);
         polygon([
             [-r * 0.7071, r * 0.7071],
-            [0,           r * 1.32],
+            [0,            r * 1.32],
             [ r * 0.7071, r * 0.7071]
         ]);
     }
@@ -860,12 +857,12 @@ module lid_box() {
 
                     polyhedron(
                         points = [
-                            [-armW/2, 0,       height + 3.65],
-                            [ armW/2, 0,       height + 3.65],
-                            [-armW/2, -0.80,   height + 4.45],
-                            [ armW/2, -0.80,   height + 4.45],
-                            [-armW/2, 0,       height + 5.80],
-                            [ armW/2, 0,       height + 5.80]
+                            [-armW/2, 0,        height + 3.65],
+                            [ armW/2, 0,        height + 3.65],
+                            [-armW/2, -0.80,    height + 4.45],
+                            [ armW/2, -0.80,    height + 4.45],
+                            [-armW/2, 0,        height + 5.80],
+                            [ armW/2, 0,        height + 5.80]
                         ],
                         faces = [[0,2,3,1], [2,4,5,3], [0,1,5,4], [0,4,2], [1,3,5]]
                     );
@@ -960,22 +957,18 @@ complete_model();
   };
 
   const buildOrderPayload = (codeToSave) => {
-    const isStorage = activeTab === 'storage';
-    // For Bench Matrix, scadCode stores the complete configuration spec sheet
-    const codeContent = isStorage ? generateSpecSheet() : generateScadCode('full');
-
     const basePayload = {
       designCode: codeToSave,
       productLine: activeTab,
-      width: Number(isStorage ? width : cargoWidth),
-      length: Number(isStorage ? depth : cargoLength),
-      height: Number(isStorage ? height : cargoHeight),
-      scadCode: String(codeContent),
       createdAt: serverTimestamp()
     };
 
-    if (isStorage) {
+    if (activeTab === 'storage') {
       return Object.assign(basePayload, {
+        width: Number(width),
+        length: Number(depth),
+        height: Number(height),
+        scadCode: generateSpecSheet(),
         tiers,
         drawersPerTier,
         opening,
@@ -992,6 +985,13 @@ complete_model();
     }
 
     return Object.assign(basePayload, {
+      width: Number(cargoWidth),
+      length: Number(cargoLength),
+      height: Number(cargoHeight * 2),
+      scadCode: generateScadCode('full'),
+      cargoWidth,
+      cargoLength,
+      cargoHeight,
       cargoCompX,
       cargoCompY,
       cargoBoxColorId,
@@ -1004,31 +1004,20 @@ complete_model();
     });
   };
 
-  const savedCodesRef = useRef(new Set());
-
   const saveDesignToFirestore = async (codeToSave) => {
-    if (!db || !codeToSave) return false;
-    if (savedCodesRef.current.has(codeToSave)) return true;
-
+    if (!db) return;
     try {
       if (auth && !auth.currentUser) {
         await signInAnonymously(auth).catch(() => {});
       }
       const payload = buildOrderPayload(codeToSave);
       await setDoc(doc(db, FIRESTORE_COLLECTION, codeToSave), payload);
-      savedCodesRef.current.add(codeToSave);
-      setStatusBanner({
-        type: 'success',
-        text: `Design ${codeToSave} saved! Redirecting to Etsy...`
-      });
-      return true;
     } catch (e) {
-      console.error('Firestore save error:', e);
+      console.error('Could not save to Firestore collection custom_boxes:', e);
       setStatusBanner({
         type: 'error',
-        text: `Save Error: ${e.message}`
+        text: `Firestore save error: ${e.message}`
       });
-      return false;
     }
   };
 
@@ -1040,35 +1029,15 @@ complete_model();
     setCodeCopied(false);
     setModalTab('spec');
     setShowModal(true);
-
-    try {
-      navigator.clipboard.writeText(newCode);
-      setCodeCopied(true);
-    } catch (err) {
-      // Ignored until button click
-    }
   };
 
-  const handleEtsyOrderClick = async (e) => {
-    e.preventDefault();
-    const targetUrl = activeTab === 'storage' ? ETSY_BENCH_URL : ETSY_CARGO_URL;
-
+  const handleEtsyOrderClick = async () => {
     if (designCode) {
-      try {
-        await navigator.clipboard.writeText(designCode);
-        setCodeCopied(true);
-      } catch (err) {
-        // Fallback
-      }
-      setIsSavingOrder(true);
+      navigator.clipboard.writeText(designCode);
+      setCodeCopied(true);
       await saveDesignToFirestore(designCode);
-      setIsSavingOrder(false);
     }
-
-    window.open(targetUrl, '_blank', 'noopener,noreferrer');
   };
-
-  const [isSavingOrder, setIsSavingOrder] = useState(false);
 
   const handleAdminRecall = async () => {
     if (!recallCode.trim() || !db) {
@@ -1106,9 +1075,9 @@ complete_model();
           setDrawerColorId(data.drawerColorId || 'matte-latte-brown');
         } else {
           setActiveTab('cargo');
-          setCargoWidth(data.width ?? 120);
-          setCargoLength(data.length ?? 90);
-          setCargoHeight(data.height ?? 20);
+          setCargoWidth(data.cargoWidth ?? data.width ?? 120);
+          setCargoLength(data.cargoLength ?? data.length ?? 90);
+          setCargoHeight(data.cargoHeight ?? (data.height ? data.height / 2 : 20));
           setCargoCompX(data.cargoCompX ?? 2);
           setCargoCompY(data.cargoCompY ?? 2);
           if (data.cargoBoxColorId) setCargoBoxColorId(data.cargoBoxColorId);
@@ -1521,7 +1490,6 @@ complete_model();
             }
           }
 
-          // Base front catch wedge
           const catchSpan = armW - 0.4;
           const wedgeShape = new THREE.Shape();
           wedgeShape.moveTo(0, -0.2);
@@ -1540,7 +1508,6 @@ complete_model();
           catchMesh.position.set(0, cargoHeight, cargoLength / 2);
           shellGroup.add(catchMesh);
         } else {
-          // Lid outer flexing snap-latch arm + finger pull tab + inward hook tooth
           const armT = 1.4;
           const armH = 5.8;
           const latchGroup = new THREE.Group();
@@ -1828,7 +1795,7 @@ complete_model();
                   )}
                 </h3>
                 <p className="text-[11px] text-[#94a3b8]">
-                  Click "Copy Code &amp; Order on Etsy" below to save your design code and open Etsy.
+                  Copy your Design Code or Spec Sheet and include it in your Etsy personalization box.
                 </p>
               </div>
               <button onClick={() => setShowModal(false)} className="text-[#94a3b8] hover:text-white text-sm font-bold px-2">
@@ -1940,19 +1907,15 @@ complete_model();
                 </div>
               )}
 
-              <button
-                type="button"
-                disabled={isSavingOrder}
+              <a
+                href={activeTab === 'storage' ? ETSY_BENCH_URL : ETSY_CARGO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 onClick={handleEtsyOrderClick}
-                className="px-5 py-2 rounded-lg bg-[#f43f5e] hover:bg-[#fb7185] disabled:opacity-60 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                className="px-5 py-2 rounded-lg bg-[#f43f5e] hover:bg-[#fb7185] text-white font-bold text-xs flex items-center gap-1.5"
               >
-                {isSavingOrder
-                  ? 'Saving Design...'
-                  : codeCopied
-                  ? 'Code Copied! Order on Etsy'
-                  : 'Copy Code & Order on Etsy'}{' '}
-                <ExternalLink size={14} />
-              </button>
+                {codeCopied ? 'Code Copied! Order on Etsy' : 'Copy Code & Order on Etsy'} <ExternalLink size={14} />
+              </a>
             </div>
           </div>
         </div>
@@ -2312,7 +2275,7 @@ complete_model();
             </>
           ) : (
             /* ==========================================
-               THE CARGO MATRIX SIDEBAR CONTROLS
+                THE CARGO MATRIX SIDEBAR CONTROLS
             ========================================== */
             <div className="space-y-3.5">
               {/* CUSTOM LID TEXT & BORDER */}
