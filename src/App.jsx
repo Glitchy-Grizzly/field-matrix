@@ -53,8 +53,8 @@ let auth = null;
 try {
   const app = initializeApp(firebaseConfig);
 
-  // Initialize Firebase App Check with reCAPTCHA v3
-  if (typeof window !== 'undefined' && RECAPTCHA_V3_SITE_KEY && RECAPTCHA_V3_SITE_KEY !== "6Lf9XvctAAAAAJGGYSp43IqkYUCieUidOg-cxWwk") {
+  // Initialize Firebase App Check with reCAPTCHA v3 unconditionally
+  if (typeof window !== 'undefined' && RECAPTCHA_V3_SITE_KEY) {
     initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
       isTokenAutoRefreshEnabled: true
