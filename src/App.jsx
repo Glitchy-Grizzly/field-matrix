@@ -42,8 +42,7 @@ const firebaseConfig = {
 };
 
 const RECAPTCHA_V3_SITE_KEY = "6LeqWv4tAAAAALkuL2q5NNooELUIXc8xgxhknqfU";
-const FIRESTORE_COLLECTION = "custom_boxes";
-
+const FIRESTORE_COLLECTION = "fieldmatrix_orders";
 // ==========================================
 // 2. MODULAR PRODUCT CATALOG REGISTRY
 // ==========================================
@@ -1171,6 +1170,7 @@ complete_model();
       }
       const cleanCode = recallCode.trim().toUpperCase();
       const snap = await getDoc(doc(db, FIRESTORE_COLLECTION, cleanCode));
+
       if (snap.exists()) {
         const data = snap.data();
         const cfg = data.configuration || data;
@@ -1209,7 +1209,7 @@ complete_model();
         }
         setStatusBanner({
           type: 'success',
-          text: `Loaded ${ data.productName || cleanCode } (${cleanCode})`
+          text: `Loaded ${data.productName || cleanCode} (${cleanCode})`
         });
         setAdminMode(false);
         setShowModal(true);
@@ -1220,7 +1220,6 @@ complete_model();
       setStatusBanner({ type: 'error', text: `Error recalling order: ${e.message}` });
     }
   };
-
   // ==========================================
   // THREE.JS VIEWPORT SETUP
   // ==========================================
