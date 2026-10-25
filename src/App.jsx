@@ -1300,15 +1300,44 @@ complete_model();
     let downY = 0;
 
     const domElem = renderer.domElement;
+    domElem.style.touchAction = 'none'; // Prevents mobile browser scroll-hijacking (fixes choppiness)
+
+    let activePointers = new Map();
+    let prevPinchDist = null;
+
     const onPointerDown = (e) => {
-      controlsState.current.isDragging = true;
-      controlsState.current.isPanning = e.button === 2 || e.shiftKey;
-      controlsState.current.prevX = e.clientX;
-      controlsState.current.prevY = e.clientY;
-      downX = e.clientX;
-      downY = e.clientY;
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (activePointers.size === 1) {
+        controlsState.current.isDragging = true;
+        controlsState.current.isPanning = e.button === 2 || e.shiftKey;
+        controlsState.current.prevX = e.clientX;
+        controlsState.current.prevY = e.clientY;
+        downX = e.clientX;
+        downY = e.clientY;
+      } else if (activePointers.size === 2) {
+        controlsState.current.isDragging = false;
+        const pts = Array.from(activePointers.values());
+        prevPinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      }
     };
+
     const onPointerMove = (e) => {
+      if (activePointers.has(e.pointerId)) {
+        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      }
+
+      // Two-finger pinch-to-zoom on mobile
+      if (activePointers.size === 2) {
+        const pts = Array.from(activePointers.values());
+        const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        if (prevPinchDist !== null) {
+          const delta = prevPinchDist - dist;
+          controlsState.current.radius = Math.max(100, Math.min(3500, controlsState.current.radius + delta * 1.5));
+        }
+        prevPinchDist = dist;
+        return;
+      }
+
       if (!controlsState.current.isDragging) return;
       const dx = e.clientX - controlsState.current.prevX;
       const dy = e.clientY - controlsState.current.prevY;
@@ -1321,8 +1350,12 @@ complete_model();
         controlsState.current.phi = Math.max(0.15, Math.min(Math.PI / 2 - 0.02, controlsState.current.phi - dy * 0.0085));
       }
     };
+
     const onPointerUp = (e) => {
-      controlsState.current.isDragging = false;
+      activePointers.delete(e.pointerId);
+      if (activePointers.size < 2) prevPinchDist = null;
+      if (activePointers.size === 0) controlsState.current.isDragging = false;
+
       const moveDist = Math.hypot(e.clientX - downX, e.clientY - downY);
       if (moveDist < 5) {
         const rect = domElem.getBoundingClientRect();
@@ -1351,6 +1384,7 @@ complete_model();
     domElem.addEventListener('pointerdown', onPointerDown);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
     domElem.addEventListener('wheel', onWheel, { passive: false });
     domElem.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -1385,10 +1419,10 @@ complete_model();
       cancelAnimationFrame(reqId);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
       window.removeEventListener('resize', handleResize);
       renderer.dispose();
     };
-  }, []);
 
   // ==========================================
   // BUILD 3D GEOMETRY FOR ACTIVE PRODUCT TAB
@@ -1799,7 +1833,7 @@ complete_model();
   }, [swingOpenAmount, openDrawersMap, explodedView, opening, drawersPerTier]);
 
   return (
-    <div className="flex flex-col-reverse md:flex-row h-screen w-screen overflow-hidden bg-[#0b0f19] text-[#e2e8f0] font-sans select-none">
+    <div className="flex flex-col-reverse md:flex-row h-[100dvh] w-full overflow-hidden bg-[#0b0f19] text-[#e2e8f0] font-sans select-none">
       <style>{`
         .box-studio-slider {
           -webkit-appearance: none;
@@ -2051,7 +2085,7 @@ complete_model();
       )}
 
       {/* LEFT SIDEBAR CONTROLS */}
-      <aside className="w-full md:w-[390px] lg:w-[400px] shrink-0 h-[54vh] md:h-full bg-[#111827] border-t md:border-t-0 md:border-r border-[#1e293b] flex flex-col z-20 shadow-2xl">
+      <aside className="w-full md:w-[390px] lg:w-[400px] shrink-0 h-[56dvh] md:h-full min-h-0 bg-[#111827] border-t md:border-t-0 md:border-r border-[#1e293b] flex flex-col z-20 shadow-2xl">
         <div className="px-4 py-3 border-b border-[#1e293b] bg-[#0f172a]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -2624,7 +2658,7 @@ complete_model();
         </div>
 
         {/* STICKY FOOTER */}
-        <div className="p-3.5 bg-[#0f172a] border-t border-[#1e293b] space-y-2">
+        <div className="shrink-0 p-3 pb-4 md:p-3.5 bg-[#0f172a] border-t border-[#1e293b] space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-[#94a3b8]">
               {activeTab === 'storage'
@@ -2638,13 +2672,13 @@ complete_model();
             onClick={handleOpenSpecModal}
             className="w-full py-2.5 px-4 rounded-lg font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 bg-[#f43f5e] hover:bg-[#fb7185] text-white shadow-lg"
           >
-            <FileText size={15} /> Generate Print Spec Sheet
+            <FileText size={15} /> Get Spec Code &amp; Order on Etsy
           </button>
         </div>
       </aside>
 
       {/* RIGHT 3D VIEWPORT */}
-      <main className="flex-1 h-[46vh] md:h-full flex flex-col relative bg-[#0d121d] overflow-hidden">
+      <main className="flex-1 h-[44dvh] md:h-full min-h-0 flex flex-col relative bg-[#0d121d] overflow-hidden">
         {statusBanner && (
           <div
             className={`px-4 py-2 text-xs font-semibold flex items-center justify-between ${
@@ -2658,7 +2692,7 @@ complete_model();
           </div>
         )}
 
-        <header className="bg-[#0f172a] border-b border-[#1e293b] px-4 py-2 flex items-center justify-between gap-2 z-10">
+        <header className="bg-[#0f172a] border-b border-[#1e293b] px-2.5 md:px-4 py-1.5 md:py-2 flex flex-wrap items-center justify-between gap-1.5 z-10">
           <div className="flex items-center gap-3">
             <span className="text-xs font-bold uppercase tracking-wider text-[#38bdf8] flex items-center gap-1.5">
               <Sparkles size={14} /> 3D Preview
@@ -2692,7 +2726,7 @@ complete_model();
             )}
           </div>
 
-          {/* CENTER BANNER LOGO (Uses /(whatever logo assigned) if uploaded, falls back to /favicon.png) */}
+          {/* CENTER BANNER LOGO (Uses /textlogo.png if uploaded, falls back to /favicon.png) */}
           <div className="hidden md:flex items-center justify-center">
             <img
               src="/textlogo.png"
@@ -2754,8 +2788,10 @@ complete_model();
           </div>
         </header>
 
-        <div ref={mountRef} className="flex-1 w-full h-full cursor-grab active:cursor-grabbing" />
+        <div ref={mountRef} className="flex-1 w-full h-full cursor-grab active:cursor-grabbing touch-none" />
       </main>
     </div>
+  );
+}
   );
 }
