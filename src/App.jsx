@@ -2701,7 +2701,7 @@ complete_model();
                 e.currentTarget.src = '/favicon.png';
               }}
               alt="FieldMatrix Logo"
-              className="w-7 h-7 object-contain opacity-90 drop-shadow"
+              className="h-8 w-auto max-w-[220px] object-contain drop-shadow"
             />
           </div>
 
