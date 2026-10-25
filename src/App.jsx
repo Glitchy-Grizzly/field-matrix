@@ -1423,7 +1423,12 @@ complete_model();
       window.removeEventListener('resize', handleResize);
       renderer.dispose();
     };
+  }, []);
 
+  // ==========================================
+  // BUILD 3D GEOMETRY FOR ACTIVE PRODUCT TAB
+  // ==========================================
+  
   // ==========================================
   // BUILD 3D GEOMETRY FOR ACTIVE PRODUCT TAB
   // ==========================================
@@ -2791,7 +2796,5 @@ complete_model();
         <div ref={mountRef} className="flex-1 w-full h-full cursor-grab active:cursor-grabbing touch-none" />
       </main>
     </div>
-  );
-}
   );
 }
