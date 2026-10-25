@@ -2692,10 +2692,10 @@ complete_model();
             )}
           </div>
 
-          {/* CENTER BANNER LOGO (Uses /logotransparent.png if uploaded, falls back to /favicon.png) */}
+          {/* CENTER BANNER LOGO (Uses /(whatever logo assigned) if uploaded, falls back to /favicon.png) */}
           <div className="hidden md:flex items-center justify-center">
             <img
-              src="/logotransparent.png"
+              src="/textlogo.png"
               onError={(e) => {
                 e.currentTarget.onerror = null;
                 e.currentTarget.src = '/favicon.png';
