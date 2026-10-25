@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import * as THREE from 'three';
 import { initializeApp } from 'firebase/app';
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import {
@@ -12,7 +12,6 @@ import {
   RotateCcw,
   Maximize2,
   Eye,
-  AlertTriangle,
   Sliders,
   Tag,
   Palette,
@@ -30,7 +29,7 @@ import {
 } from 'lucide-react';
 
 // ==========================================
-// FIREBASE, APP CHECK & ETSY CONFIGURATION
+// 1. FIREBASE, APP CHECK & ETSY CONFIGURATION
 // ==========================================
 const firebaseConfig = {
   apiKey: "AIzaSyB8ZEOzGOGeWRUYyWbZrkM_5Bl2OR37tyc",
@@ -43,17 +42,36 @@ const firebaseConfig = {
 };
 
 const RECAPTCHA_V3_SITE_KEY = "6LeqWv4tAAAAALkuL2q5NNooELUIXc8xgxhknqfU";
-
-const ETSY_BENCH_URL = "https://www.etsy.com/shop/GlitchyGrizzly";
-const ETSY_CARGO_URL = "https://www.etsy.com/shop/GlitchyGrizzly";
 const FIRESTORE_COLLECTION = "custom_boxes";
+
+// ==========================================
+// 2. MODULAR PRODUCT CATALOG REGISTRY
+// ==========================================
+// Future FieldMatrix products can be added right here!
+const PRODUCT_CATALOG = {
+  storage: {
+    id: 'storage',
+    codePrefix: 'BENCH-',
+    name: 'The Bench Matrix',
+    subtitle: 'Modular Swing-Drawer Storage System',
+    etsyUrl: 'https://www.etsy.com/shop/GlitchyGrizzly',
+    hasOpenScadGenerator: false
+  },
+  cargo: {
+    id: 'cargo',
+    codePrefix: 'CARGO-',
+    name: 'The Cargo Matrix',
+    subtitle: 'Print-in-Place Hinged Clamshell Case',
+    etsyUrl: 'https://www.etsy.com/shop/GlitchyGrizzly',
+    hasOpenScadGenerator: true
+  }
+};
 
 let db = null;
 let auth = null;
 try {
   const app = initializeApp(firebaseConfig);
 
-  // Safe App Check initialization with Fraud Defense (reCAPTCHA Enterprise)
   if (typeof window !== 'undefined' && RECAPTCHA_V3_SITE_KEY) {
     try {
       initializeAppCheck(app, {
@@ -75,7 +93,7 @@ try {
 }
 
 // ==========================================
-// BAMBU LAB PLA COLOR PALETTE (20 COLORS)
+// 3. BAMBU LAB PLA COLOR PALETTE (20 COLORS)
 // ==========================================
 const BAMBU_PLA_COLORS = [
   { id: 'matte-charcoal', name: 'Matte Charcoal', hex: '#1F2022', roughness: 0.78 },
@@ -311,6 +329,7 @@ export default function App() {
   const logoClickRef = useRef({ count: 0, timer: null });
 
   const ADMIN_SECRET_PIN = '1024';
+  const currentProductMeta = PRODUCT_CATALOG[activeTab] || PRODUCT_CATALOG.storage;
 
   const triggerHiddenAdmin = useCallback(() => {
     setAdminMode(true);
@@ -362,7 +381,9 @@ export default function App() {
   const toggleSection = (key) =>
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  // Bench Matrix State
+  // ==========================================
+  // PRODUCT 1 STATE: THE BENCH MATRIX
+  // ==========================================
   const [sizePreset, setSizePreset] = useState('Medium');
   const [tiers, setTiers] = useState(2);
   const [drawersPerTier, setDrawersPerTier] = useState(5);
@@ -396,7 +417,9 @@ export default function App() {
   const [xrayMode, setXrayMode] = useState(false);
   const [showDimensions, setShowDimensions] = useState(true);
 
-  // Cargo Matrix State
+  // ==========================================
+  // PRODUCT 2 STATE: THE CARGO MATRIX
+  // ==========================================
   const [cargoWidth, setCargoWidth] = useState(120);
   const [cargoLength, setCargoLength] = useState(90);
   const [cargoHeight, setCargoHeight] = useState(20);
@@ -558,9 +581,7 @@ export default function App() {
     spec += `    FIELDMATRIX 3D - PRINT & SHIP SPECIFICATION\n`;
     spec += `====================================================\n`;
     spec += `Design Code  : ${designCode || 'UNSAVED'}\n`;
-    spec += `Product Line : ${
-      activeTab === 'storage' ? 'The Bench Matrix (Modular Drawer Storage)' : 'The Cargo Matrix (Print-in-Place Clamshell)'
-    }\n`;
+    spec += `Product Line : ${currentProductMeta.name} (${currentProductMeta.subtitle})\n`;
     spec += `Est. Price   : $${calculatePrice().toFixed(2)}\n\n`;
 
     if (activeTab === 'storage') {
@@ -642,8 +663,16 @@ export default function App() {
     );
     const fontSizeMm = Math.max(5.5, computedFontSize).toFixed(2);
 
-    return `// Print-in-Place Hinged Box (Bambu P1S V12 - Responsive & Multi-Color)
-// Design Code: ${designCode || 'CUSTOM'}
+    return `// =========================================================================
+// FIELDMATRIX 3D - THE CARGO MATRIX (PRINT-IN-PLACE CLAMSHELL V12)
+// Design Code : ${designCode || 'CUSTOM'}
+// Dimensions  : ${cargoWidth}mm (W) x ${cargoLength}mm (L) x ${cargoHeight}mm (Half-H) / ${cargoHeight * 2}mm (Closed)
+// Grid Layout : ${cargoCompX} Columns (X) x ${cargoCompY} Rows (Y) (${cargoCompX * cargoCompY} Compartments)
+// Colors      : Body=${activeCargoBoxColor.name} (${activeCargoBoxColor.hex}) | Inlay=${activeCargoTextColor.name} (${activeCargoTextColor.hex})
+// Lid Inlay   : Text="${cleanLine1}${cleanLine2 ? ' / ' + cleanLine2 : ''}" | Font=${cargoFont} | Border=${cargoBorder ? 'YES' : 'NO'}
+// Export Mode : ${mode.toUpperCase()}
+// =========================================================================
+
 export_part = "${mode}";
 
 width = ${cargoWidth};
@@ -936,18 +965,35 @@ complete_model();
 `;
   };
 
-  const downloadScadFile = (mode = scadExportMode) => {
-    const safeText = (cargoText || '').replace(/[^a-zA-Z0-9\s_-]/g, '').trim() || 'BOX';
+  // ==========================================
+  // DESCRIPTIVE CARGO MATRIX .SCAD FILE NAMING
+  // ==========================================
+  const getCargoScadFilename = (mode = scadExportMode) => {
+    const cleanCode = designCode || `CARGO-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const safeText = (cargoText || '')
+      .replace(/[^a-zA-Z0-9\s_-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .toUpperCase() || 'NO-TEXT';
+
+    const dims = `${cargoWidth}x${cargoLength}x${cargoHeight}mm`;
+    const grid = `${cargoCompX}x${cargoCompY}Grid`;
+    const colors = `${cargoBoxColorId}_inlay-${cargoTextColorId}`;
+    const borderTag = cargoBorder ? 'Border-YES' : 'Border-NO';
+
     const typeMap = {
       full: 'FULL-3MF-V12',
       box_only: 'BOX-ONLY-V12',
-      text_only: 'TEXT-ONLY-V12',
+      text_only: 'INLAY-ONLY-V12',
       hinge: 'HINGE-TEST-V12',
       latch: 'LATCH-TEST-V12'
     };
-    const codeSuffix = designCode || Math.random().toString(36).substring(2, 6).toUpperCase();
-    const filename = `${safeText}_${cargoWidth}x${cargoLength}x${cargoHeight}_${typeMap[mode]}_${codeSuffix}.scad`;
 
+    return `${cleanCode}_${safeText}_${dims}_${grid}_${colors}_${borderTag}_${typeMap[mode] || 'V12'}.scad`;
+  };
+
+  const downloadScadFile = (mode = scadExportMode) => {
+    const filename = getCargoScadFilename(mode);
     const blob = new Blob([generateScadCode(mode)], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -957,15 +1003,55 @@ complete_model();
     URL.revokeObjectURL(url);
   };
 
+  // ==========================================
+  // MODULAR FIRESTORE PAYLOAD BUILDER (V2 SCHEMA + BACKWARD COMPATIBLE)
+  // ==========================================
   const buildOrderPayload = (codeToSave) => {
+    const productMeta = PRODUCT_CATALOG[activeTab] || PRODUCT_CATALOG.storage;
+    const estPrice = Number(calculatePrice().toFixed(2));
+
     const basePayload = {
+      schemaVersion: '2.0-modular',
       designCode: codeToSave,
       productLine: activeTab,
+      productName: productMeta.name,
+      estimatedPrice: estPrice,
       createdAt: serverTimestamp()
     };
 
     if (activeTab === 'storage') {
-      return Object.assign(basePayload, {
+      const benchConfig = {
+        sizePreset,
+        tiers,
+        drawersPerTier,
+        opening,
+        handlePos,
+        width: Number(width),
+        depth: Number(depth),
+        height: Number(height),
+        singleTierHeightMm,
+        totalStackedHeightMm,
+        enableLabelSlot,
+        labelWidth,
+        labelHeight,
+        labelFont,
+        labels,
+        drawerDividers,
+        casingColorId,
+        casingColorHex: activeCasingColor.hex,
+        drawerColorId,
+        drawerColorHex: activeDrawerColor.hex
+      };
+
+      return {
+        ...basePayload,
+        dimensionsSummary: `${width}W x ${depth}D x ${totalStackedHeightMm}H mm (${tiers} Tiers, ${tiers * drawersPerTier} Drawers)`,
+        colorsSummary: `Casing: ${activeCasingColor.name} / Drawers: ${activeDrawerColor.name}`,
+        configuration: benchConfig,
+        productionOutput: {
+          specSheet: generateSpecSheet()
+        },
+        // Flat top-level fields preserved for seamless backward-compatibility
         width: Number(width),
         length: Number(depth),
         height: Number(height),
@@ -982,14 +1068,44 @@ complete_model();
         drawerDividers,
         casingColorId,
         drawerColorId
-      });
+      };
     }
 
-    return Object.assign(basePayload, {
+    const cargoConfig = {
+      cargoWidth: Number(cargoWidth),
+      cargoLength: Number(cargoLength),
+      cargoHeight: Number(cargoHeight),
+      closedTotalHeight: Number(cargoHeight * 2),
+      cargoCompX: Number(cargoCompX),
+      cargoCompY: Number(cargoCompY),
+      totalCompartments: Number(cargoCompX * cargoCompY),
+      cargoBoxColorId,
+      cargoBoxColorName: activeCargoBoxColor.name,
+      cargoBoxColorHex: activeCargoBoxColor.hex,
+      cargoTextColorId,
+      cargoTextColorName: activeCargoTextColor.name,
+      cargoTextColorHex: activeCargoTextColor.hex,
+      cargoText,
+      cargoFont,
+      cargoBorder
+    };
+
+    return {
+      ...basePayload,
+      dimensionsSummary: `${cargoWidth}W x ${cargoLength}L x ${cargoHeight}H mm (${cargoCompX}x${cargoCompY} Grid)`,
+      colorsSummary: `Body: ${activeCargoBoxColor.name} / Inlay: ${activeCargoTextColor.name}`,
+      configuration: cargoConfig,
+      productionOutput: {
+        scadFilename: getCargoScadFilename('full'),
+        scadCode: generateScadCode('full'),
+        specSheet: generateSpecSheet()
+      },
+      // Flat top-level fields preserved for seamless backward-compatibility
       width: Number(cargoWidth),
       length: Number(cargoLength),
       height: Number(cargoHeight * 2),
       scadCode: generateScadCode('full'),
+      scadFilename: getCargoScadFilename('full'),
       cargoWidth,
       cargoLength,
       cargoHeight,
@@ -1002,7 +1118,7 @@ complete_model();
       cargoText,
       cargoFont,
       cargoBorder
-    });
+    };
   };
 
   const saveDesignToFirestore = async (codeToSave) => {
@@ -1023,7 +1139,7 @@ complete_model();
   };
 
   const handleOpenSpecModal = () => {
-    const prefix = activeTab === 'storage' ? 'BENCH-' : 'CARGO-';
+    const prefix = currentProductMeta.codePrefix;
     const randomChars = Math.random().toString(36).substring(2, 8).toUpperCase();
     const newCode = `${prefix}${randomChars}`;
     setDesignCode(newCode);
@@ -1040,6 +1156,7 @@ complete_model();
     }
   };
 
+  // Supports both new Modular V2 documents and earlier flat documents
   const handleAdminRecall = async () => {
     if (!recallCode.trim() || !db) {
       setStatusBanner({
@@ -1056,38 +1173,44 @@ complete_model();
       const snap = await getDoc(doc(db, FIRESTORE_COLLECTION, cleanCode));
       if (snap.exists()) {
         const data = snap.data();
+        const cfg = data.configuration || data;
         setDesignCode(cleanCode);
+
         if (data.productLine === 'storage') {
           setActiveTab('storage');
-          setTiers(data.tiers ?? 2);
-          setDrawersPerTier(data.drawersPerTier ?? 5);
-          setOpening(data.opening ?? 'Left');
-          setHandlePos(data.handlePos ?? 'Front');
-          setWidth(data.width ?? 140);
-          setDepth(data.length ?? 120);
-          setHeight(data.height ?? 15.4);
-          setEnableLabelSlot(data.enableLabelSlot ?? true);
-          setLabelWidth(data.labelWidth ?? 30);
-          setLabelHeight(data.labelHeight ?? 11);
-          setLabelFont(data.labelFont ?? 'Inter');
-          setLabels(data.labels || {});
-          setDrawerDividers(data.drawerDividers || {});
-          setCasingColorId(data.casingColorId || 'cocoa-brown');
-          setDrawerColorId(data.drawerColorId || 'matte-latte-brown');
+          if (cfg.sizePreset) setSizePreset(cfg.sizePreset);
+          setTiers(cfg.tiers ?? 2);
+          setDrawersPerTier(cfg.drawersPerTier ?? 5);
+          setOpening(cfg.opening ?? 'Left');
+          setHandlePos(cfg.handlePos ?? 'Front');
+          setWidth(cfg.width ?? 140);
+          setDepth(cfg.depth ?? cfg.length ?? 120);
+          setHeight(cfg.height ?? 15.4);
+          setEnableLabelSlot(cfg.enableLabelSlot ?? true);
+          setLabelWidth(cfg.labelWidth ?? 30);
+          setLabelHeight(cfg.labelHeight ?? 11);
+          setLabelFont(cfg.labelFont ?? 'Inter');
+          setLabels(cfg.labels || {});
+          setDrawerDividers(cfg.drawerDividers || {});
+          setCasingColorId(cfg.casingColorId || 'cocoa-brown');
+          setDrawerColorId(cfg.drawerColorId || 'matte-latte-brown');
         } else {
           setActiveTab('cargo');
-          setCargoWidth(data.cargoWidth ?? data.width ?? 120);
-          setCargoLength(data.cargoLength ?? data.length ?? 90);
-          setCargoHeight(data.cargoHeight ?? (data.height ? data.height / 2 : 20));
-          setCargoCompX(data.cargoCompX ?? 2);
-          setCargoCompY(data.cargoCompY ?? 2);
-          if (data.cargoBoxColorId) setCargoBoxColorId(data.cargoBoxColorId);
-          if (data.cargoTextColorId) setCargoTextColorId(data.cargoTextColorId);
-          if (data.cargoText !== undefined) setCargoText(data.cargoText);
-          if (data.cargoFont) setCargoFont(data.cargoFont);
-          if (data.cargoBorder !== undefined) setCargoBorder(data.cargoBorder);
+          setCargoWidth(cfg.cargoWidth ?? data.width ?? 120);
+          setCargoLength(cfg.cargoLength ?? data.length ?? 90);
+          setCargoHeight(cfg.cargoHeight ?? (data.height ? data.height / 2 : 20));
+          setCargoCompX(cfg.cargoCompX ?? 2);
+          setCargoCompY(cfg.cargoCompY ?? 2);
+          if (cfg.cargoBoxColorId) setCargoBoxColorId(cfg.cargoBoxColorId);
+          if (cfg.cargoTextColorId) setCargoTextColorId(cfg.cargoTextColorId);
+          if (cfg.cargoText !== undefined) setCargoText(cfg.cargoText);
+          if (cfg.cargoFont) setCargoFont(cfg.cargoFont);
+          if (cfg.cargoBorder !== undefined) setCargoBorder(cfg.cargoBorder);
         }
-        setStatusBanner({ type: 'success', text: `Loaded customer order ${cleanCode}` });
+        setStatusBanner({
+          type: 'success',
+          text: `Loaded ${ data.productName || cleanCode } (${cleanCode})`
+        });
         setAdminMode(false);
         setShowModal(true);
       } else {
@@ -1787,7 +1910,7 @@ complete_model();
               <div>
                 <h3 className="text-sm font-bold text-[#38bdf8] uppercase tracking-wider flex items-center gap-2">
                   <span>
-                    FieldMatrix 3D • Design Code: <span className="text-white">{designCode}</span>
+                    {currentProductMeta.name} • Code: <span className="text-white">{designCode}</span>
                   </span>
                   {adminUnlocked && (
                     <span className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/50 text-[10px] text-emerald-300">
@@ -1804,7 +1927,7 @@ complete_model();
               </button>
             </div>
 
-            {adminUnlocked && activeTab === 'cargo' && (
+            {adminUnlocked && currentProductMeta.hasOpenScadGenerator && (
               <div className="px-5 pt-3 bg-[#111827] flex flex-wrap items-center justify-between gap-2 border-b border-[#1e293b]">
                 <div className="flex gap-2">
                   <button
@@ -1852,16 +1975,22 @@ complete_model();
               </div>
             )}
 
+            {adminUnlocked && currentProductMeta.hasOpenScadGenerator && modalTab === 'scad' && (
+              <div className="px-5 py-2 bg-[#090d16] border-b border-[#1e293b] text-[11px] font-mono text-[#38bdf8] truncate">
+                Save Filename: <span className="text-white">{getCargoScadFilename(scadExportMode)}</span>
+              </div>
+            )}
+
             <div className="p-4 overflow-y-auto flex-1 bg-[#0b0f19] m-4 rounded-lg border border-[#1e293b]">
               <pre className="text-xs font-mono text-[#e2e8f0] whitespace-pre-wrap leading-relaxed">
-                {adminUnlocked && activeTab === 'cargo' && modalTab === 'scad'
+                {adminUnlocked && currentProductMeta.hasOpenScadGenerator && modalTab === 'scad'
                   ? generateScadCode(scadExportMode)
                   : generateSpecSheet()}
               </pre>
             </div>
 
             <div className="px-5 py-3.5 bg-[#0f172a] border-t border-[#1e293b] flex flex-wrap items-center justify-between gap-2">
-              {adminUnlocked && activeTab === 'cargo' && modalTab === 'scad' ? (
+              {adminUnlocked && currentProductMeta.hasOpenScadGenerator && modalTab === 'scad' ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => {
@@ -1909,7 +2038,7 @@ complete_model();
               )}
 
               <a
-                href={activeTab === 'storage' ? ETSY_BENCH_URL : ETSY_CARGO_URL}
+                href={currentProductMeta.etsyUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={handleEtsyOrderClick}
@@ -1927,6 +2056,7 @@ complete_model();
         <div className="px-4 py-3 border-b border-[#1e293b] bg-[#0f172a]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
+              {/* Cube icon for 5-click admin unlock (NO hover tooltip text) */}
               <div
                 onClick={handleLogoSecretClick}
                 className="w-8 h-8 rounded-lg bg-[#38bdf8]/15 border border-[#38bdf8]/40 flex items-center justify-center text-[#38bdf8] cursor-pointer"
@@ -1948,7 +2078,6 @@ complete_model();
               <button
                 onClick={() => setAdminMode(true)}
                 className="px-3 py-1.5 bg-slate-800 text-amber-400 rounded-lg shadow hover:bg-slate-700 transition border border-amber-500/40 flex items-center gap-1.5 text-xs font-medium"
-                title="Open Admin Config Panel"
               >
                 <span>🔑</span>
                 <span>Admin</span>
@@ -1956,27 +2085,21 @@ complete_model();
             )}
           </div>
 
+          {/* DYNAMIC PRODUCT CATALOG SELECTOR */}
           <div className="grid grid-cols-2 gap-1.5 bg-[#090d16] p-1 rounded-lg border border-[#1e293b] mt-2.5">
-            <button
-              onClick={() => setActiveTab('storage')}
-              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                activeTab === 'storage'
-                  ? 'bg-[#1e293b] text-[#38bdf8] border border-[#38bdf8]/40'
-                  : 'text-[#94a3b8] hover:text-white'
-              }`}
-            >
-              <Sliders size={13} /> The Bench Matrix
-            </button>
-            <button
-              onClick={() => setActiveTab('cargo')}
-              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                activeTab === 'cargo'
-                  ? 'bg-[#1e293b] text-[#38bdf8] border border-[#38bdf8]/40'
-                  : 'text-[#94a3b8] hover:text-white'
-              }`}
-            >
-              <Box size={13} /> The Cargo Matrix
-            </button>
+            {Object.values(PRODUCT_CATALOG).map((prod) => (
+              <button
+                key={prod.id}
+                onClick={() => setActiveTab(prod.id)}
+                className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  activeTab === prod.id
+                    ? 'bg-[#1e293b] text-[#38bdf8] border border-[#38bdf8]/40'
+                    : 'text-[#94a3b8] hover:text-white'
+                }`}
+              >
+                {prod.id === 'storage' ? <Sliders size={13} /> : <Box size={13} />} {prod.name}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -2570,9 +2693,17 @@ complete_model();
             )}
           </div>
 
-          {/* CENTER LOGO IMAGE */}
+          {/* CENTER BANNER LOGO (Uses /logotransparent.png if uploaded, falls back to /favicon.png) */}
           <div className="hidden md:flex items-center justify-center">
-            <img src="/logotransparent.png" alt="FieldMatrix Logo" className="w-7 h-7 object-contain opacity-90 drop-shadow" />
+            <img
+              src="/logotransparent.png"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = '/favicon.png';
+              }}
+              alt="FieldMatrix Logo"
+              className="w-7 h-7 object-contain opacity-90 drop-shadow"
+            />
           </div>
 
           <div className="flex items-center gap-1.5">
