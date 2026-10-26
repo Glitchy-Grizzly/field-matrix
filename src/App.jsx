@@ -51,7 +51,7 @@ const SQUARE_CHECKOUT_URL = "https://squareup.com/checkout";
 // 2. PRESET DEFINITIONS (BENCH & CARGO)
 // ==========================================
 const BENCH_PRESETS = {
-  Small: {
+  Trace: {
     id: 'Trace',
     label: 'Trace',
     summary: '1 Tier • 5 Drawers',
@@ -61,7 +61,7 @@ const BENCH_PRESETS = {
     depth: 95,
     height: 14.0
   },
-  Medium: {
+  Trail: {
     id: 'Trail',
     label: 'Trail',
     summary: '2 Tiers • 4 Drawers/Tier (8 Total)',
@@ -71,7 +71,7 @@ const BENCH_PRESETS = {
     depth: 110,
     height: 15.5
   },
-  Large: {
+  Pursuit: {
     id: 'Pursuit',
     label: 'Pursuit',
     summary: '2 Tiers • 5 Drawers/Tier (10 Total)',
@@ -81,7 +81,7 @@ const BENCH_PRESETS = {
     depth: 120,
     height: 17.0
   },
-  XL: {
+  Frontier: {
     id: 'Frontier',
     label: 'Frontier',
     summary: '3 Tiers • 5 Drawers/Tier (15 Total)',
@@ -94,7 +94,7 @@ const BENCH_PRESETS = {
 };
 
 const CARGO_PRESETS = {
-  Compact: {
+  Trace: {
     id: 'Trace',
     label: 'Trace',
     summary: '80×60×16mm (32mm Closed)',
@@ -104,7 +104,7 @@ const CARGO_PRESETS = {
     compX: 2,
     compY: 1
   },
-  Standard: {
+  Trail: {
     id: 'Trail',
     label: 'Trail',
     summary: '120×90×20mm (40mm Closed)',
@@ -114,7 +114,7 @@ const CARGO_PRESETS = {
     compX: 2,
     compY: 2
   },
-  Large: {
+  Pursuit: {
     id: 'Pursuit',
     label: 'Pursuit',
     summary: '160×120×25mm (50mm Closed)',
@@ -124,7 +124,7 @@ const CARGO_PRESETS = {
     compX: 3,
     compY: 2
   },
-  XL: {
+  Frontier: {
     id: 'Frontier',
     label: 'Frontier',
     summary: '200×150×35mm (70mm Closed)',
