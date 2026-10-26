@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 
 // ==========================================
-// 1. FIREBASE, APP CHECK & ETSY CONFIGURATION
+// 1. FIREBASE, APP CHECK & CHECKOUT CONFIGURATION
 // ==========================================
 const firebaseConfig = {
   apiKey: "AIzaSyB8ZEOzGOGeWRUYyWbZrkM_5Bl2OR37tyc",
@@ -43,10 +43,102 @@ const firebaseConfig = {
 
 const RECAPTCHA_V3_SITE_KEY = "6LeqWv4tAAAAALkuL2q5NNooELUIXc8xgxhknqfU";
 const FIRESTORE_COLLECTION = "fieldmatrix_orders";
+
+// Paste your Square Checkout / Payment Link URL here when ready for Direct Traffic
+const SQUARE_CHECKOUT_URL = "https://squareup.com/checkout";
+
 // ==========================================
-// 2. MODULAR PRODUCT CATALOG REGISTRY
+// 2. PRESET DEFINITIONS (BENCH & CARGO)
 // ==========================================
-// Future FieldMatrix products can be added right here!
+const BENCH_PRESETS = {
+  Small: {
+    id: 'Small',
+    label: 'Small',
+    summary: '1 Tier • 5 Drawers',
+    tiers: 1,
+    drawersPerTier: 5,
+    width: 110,
+    depth: 95,
+    height: 14.0
+  },
+  Medium: {
+    id: 'Medium',
+    label: 'Medium',
+    summary: '2 Tiers • 4 Drawers/Tier (8 Total)',
+    tiers: 2,
+    drawersPerTier: 4,
+    width: 140,
+    depth: 110,
+    height: 15.5
+  },
+  Large: {
+    id: 'Large',
+    label: 'Large',
+    summary: '2 Tiers • 5 Drawers/Tier (10 Total)',
+    tiers: 2,
+    drawersPerTier: 5,
+    width: 165,
+    depth: 120,
+    height: 17.0
+  },
+  XL: {
+    id: 'XL',
+    label: 'XL',
+    summary: '3 Tiers • 5 Drawers/Tier (15 Total)',
+    tiers: 3,
+    drawersPerTier: 5,
+    width: 185,
+    depth: 120,
+    height: 18.0
+  }
+};
+
+const CARGO_PRESETS = {
+  Compact: {
+    id: 'Compact',
+    label: 'Compact',
+    summary: '80×60×16mm (32mm Closed)',
+    width: 80,
+    length: 60,
+    height: 16,
+    compX: 2,
+    compY: 1
+  },
+  Standard: {
+    id: 'Standard',
+    label: 'Standard',
+    summary: '120×90×20mm (40mm Closed)',
+    width: 120,
+    length: 90,
+    height: 20,
+    compX: 2,
+    compY: 2
+  },
+  Large: {
+    id: 'Large',
+    label: 'Large',
+    summary: '160×120×25mm (50mm Closed)',
+    width: 160,
+    length: 120,
+    height: 25,
+    compX: 3,
+    compY: 2
+  },
+  XL: {
+    id: 'XL',
+    label: 'XL',
+    summary: '200×150×35mm (70mm Closed)',
+    width: 200,
+    length: 150,
+    height: 35,
+    compX: 4,
+    compY: 3
+  }
+};
+
+// ==========================================
+// 3. MODULAR PRODUCT CATALOG REGISTRY
+// ==========================================
 const PRODUCT_CATALOG = {
   storage: {
     id: 'storage',
@@ -54,6 +146,7 @@ const PRODUCT_CATALOG = {
     name: 'The Bench Matrix',
     subtitle: 'Modular Swing-Drawer Storage System',
     etsyUrl: 'https://www.etsy.com/shop/GlitchyGrizzly',
+    squareUrl: SQUARE_CHECKOUT_URL,
     hasOpenScadGenerator: false
   },
   cargo: {
@@ -62,6 +155,7 @@ const PRODUCT_CATALOG = {
     name: 'The Cargo Matrix',
     subtitle: 'Print-in-Place Hinged Clamshell Case',
     etsyUrl: 'https://www.etsy.com/shop/GlitchyGrizzly',
+    squareUrl: SQUARE_CHECKOUT_URL,
     hasOpenScadGenerator: true
   }
 };
@@ -92,7 +186,7 @@ try {
 }
 
 // ==========================================
-// 3. BAMBU LAB PLA COLOR PALETTE (20 COLORS)
+// 4. BAMBU LAB PLA COLOR PALETTE (20 COLORS)
 // ==========================================
 const BAMBU_PLA_COLORS = [
   { id: 'matte-charcoal', name: 'Matte Charcoal', hex: '#1F2022', roughness: 0.78 },
@@ -327,6 +421,35 @@ export default function App() {
   const [scadCopied, setScadCopied] = useState(false);
   const logoClickRef = useRef({ count: 0, timer: null });
 
+  // ==========================================
+  // CHANNEL ROUTING: ETSY MODE VS. DIRECT MODE
+  // ==========================================
+  const [isEtsyMode, setIsEtsyMode] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const params = new URLSearchParams(window.location.search);
+    const src = (params.get('source') || params.get('mode') || '').toLowerCase();
+    if (src === 'etsy') {
+      try { sessionStorage.setItem('fm_channel', 'etsy'); } catch (e) {}
+      return true;
+    }
+    if (src === 'direct') {
+      try { sessionStorage.setItem('fm_channel', 'direct'); } catch (e) {}
+      return false;
+    }
+    try {
+      return sessionStorage.getItem('fm_channel') === 'etsy';
+    } catch (e) {
+      return false;
+    }
+  });
+
+  const toggleChannelMode = (etsyActive) => {
+    setIsEtsyMode(etsyActive);
+    try {
+      sessionStorage.setItem('fm_channel', etsyActive ? 'etsy' : 'direct');
+    } catch (e) {}
+  };
+
   const ADMIN_SECRET_PIN = '1024';
   const currentProductMeta = PRODUCT_CATALOG[activeTab] || PRODUCT_CATALOG.storage;
 
@@ -384,13 +507,13 @@ export default function App() {
   // PRODUCT 1 STATE: THE BENCH MATRIX
   // ==========================================
   const [sizePreset, setSizePreset] = useState('Medium');
-  const [tiers, setTiers] = useState(2);
-  const [drawersPerTier, setDrawersPerTier] = useState(5);
+  const [tiers, setTiers] = useState(BENCH_PRESETS.Medium.tiers);
+  const [drawersPerTier, setDrawersPerTier] = useState(BENCH_PRESETS.Medium.drawersPerTier);
   const [opening, setOpening] = useState('Left');
   const [handlePos, setHandlePos] = useState('Front');
-  const [width, setWidth] = useState(140);
-  const [depth, setDepth] = useState(120);
-  const [height, setHeight] = useState(15.4);
+  const [width, setWidth] = useState(BENCH_PRESETS.Medium.width);
+  const [depth, setDepth] = useState(BENCH_PRESETS.Medium.depth);
+  const [height, setHeight] = useState(BENCH_PRESETS.Medium.height);
   const [lockToP1S, setLockToP1S] = useState(false);
 
   const [enableLabelSlot, setEnableLabelSlot] = useState(true);
@@ -398,9 +521,9 @@ export default function App() {
   const [labelHeight, setLabelHeight] = useState(11);
   const [labelFont, setLabelFont] = useState('Inter');
   const [labels, setLabels] = useState({
-    tier_1_box_4: 'M3 Bolts',
-    tier_1_box_3: 'Hex Nuts',
-    tier_0_box_4: 'Nozzles'
+    tier_1_box_3: 'M3 Bolts',
+    tier_1_box_2: 'Hex Nuts',
+    tier_0_box_3: 'Nozzles'
   });
 
   const [drawerDividers, setDrawerDividers] = useState({});
@@ -419,17 +542,50 @@ export default function App() {
   // ==========================================
   // PRODUCT 2 STATE: THE CARGO MATRIX
   // ==========================================
-  const [cargoWidth, setCargoWidth] = useState(120);
-  const [cargoLength, setCargoLength] = useState(90);
-  const [cargoHeight, setCargoHeight] = useState(20);
-  const [cargoCompX, setCargoCompX] = useState(2);
-  const [cargoCompY, setCargoCompY] = useState(2);
+  const [cargoPreset, setCargoPreset] = useState('Standard');
+  const [cargoWidth, setCargoWidth] = useState(CARGO_PRESETS.Standard.width);
+  const [cargoLength, setCargoLength] = useState(CARGO_PRESETS.Standard.length);
+  const [cargoHeight, setCargoHeight] = useState(CARGO_PRESETS.Standard.height);
+  const [cargoCompX, setCargoCompX] = useState(CARGO_PRESETS.Standard.compX);
+  const [cargoCompY, setCargoCompY] = useState(CARGO_PRESETS.Standard.compY);
   const [cargoBoxColorId, setCargoBoxColorId] = useState('hot-pink');
   const [cargoTextColorId, setCargoTextColorId] = useState('matte-charcoal');
   const [cargoText, setCargoText] = useState('FIELD KIT');
   const [cargoFont, setCargoFont] = useState('Impact');
   const [cargoBorder, setCargoBorder] = useState(true);
   const [foldAngle, setFoldAngle] = useState(35);
+
+  const applyBenchPreset = useCallback((presetKey) => {
+    const p = BENCH_PRESETS[presetKey];
+    if (!p) return;
+    setSizePreset(presetKey);
+    setTiers(p.tiers);
+    setDrawersPerTier(p.drawersPerTier);
+    setWidth(p.width);
+    setDepth(p.depth);
+    setHeight(p.height);
+  }, []);
+
+  const applyCargoPreset = useCallback((presetKey) => {
+    const p = CARGO_PRESETS[presetKey];
+    if (!p) return;
+    setCargoPreset(presetKey);
+    setCargoWidth(p.width);
+    setCargoLength(p.length);
+    setCargoHeight(p.height);
+    setCargoCompX(p.compX);
+    setCargoCompY(p.compY);
+  }, []);
+
+  // When entering Etsy Mode, snap any custom freeform dimensions back to the selected preset
+  useEffect(() => {
+    if (isEtsyMode) {
+      const bKey = BENCH_PRESETS[sizePreset] ? sizePreset : 'Medium';
+      applyBenchPreset(bKey);
+      const cKey = CARGO_PRESETS[cargoPreset] ? cargoPreset : 'Standard';
+      applyCargoPreset(cKey);
+    }
+  }, [isEtsyMode, sizePreset, cargoPreset, applyBenchPreset, applyCargoPreset]);
 
   const activeCargoBoxColor = useMemo(
     () => BAMBU_PLA_COLORS.find((c) => c.id === cargoBoxColorId) || BAMBU_PLA_COLORS[17],
@@ -499,29 +655,6 @@ export default function App() {
     return Math.max(10, Math.min(30, Math.floor(raw * 10) / 10));
   }, [drawersPerTier]);
 
-  const applyPreset = (preset) => {
-    setSizePreset(preset);
-    if (preset === 'Small') {
-      setTiers(1);
-      setDrawersPerTier(4);
-      setWidth(100);
-      setDepth(90);
-      setHeight(14);
-    } else if (preset === 'Medium') {
-      setTiers(2);
-      setDrawersPerTier(5);
-      setWidth(140);
-      setDepth(120);
-      setHeight(15.4);
-    } else if (preset === 'Large') {
-      setTiers(3);
-      setDrawersPerTier(6);
-      setWidth(180);
-      setDepth(120);
-      setHeight(18);
-    }
-  };
-
   const getDividerForDrawer = useCallback(
     (t, b) => {
       return drawerDividers[`tier_${t}_box_${b}`] || { h: 1, v: 1 };
@@ -580,12 +713,17 @@ export default function App() {
     spec += `    FIELDMATRIX 3D - PRINT & SHIP SPECIFICATION\n`;
     spec += `====================================================\n`;
     spec += `Design Code  : ${designCode || 'UNSAVED'}\n`;
+    spec += `Order Channel: ${isEtsyMode ? 'ETSY PRESET ORDER' : 'DIRECT CUSTOM ORDER (SQUARE)'}\n`;
     spec += `Product Line : ${currentProductMeta.name} (${currentProductMeta.subtitle})\n`;
-    spec += `Est. Price   : $${calculatePrice().toFixed(2)}\n\n`;
+    if (isEtsyMode) {
+      spec += `Etsy Option  : ${activeTab === 'storage' ? `${sizePreset} (${tiers}T x ${drawersPerTier}D)` : `${cargoPreset} (${cargoWidth}x${cargoLength}x${cargoHeight}mm)`}\n\n`;
+    } else {
+      spec += `Est. Price   : $${calculatePrice().toFixed(2)}\n\n`;
+    }
 
     if (activeTab === 'storage') {
       spec += `[ 1. GEOMETRY & CONFIGURATION ]\n`;
-      spec += `- Preset Size        : ${sizePreset}\n`;
+      spec += `- Preset Tier        : ${sizePreset}\n`;
       spec += `- Number of Tiers    : ${tiers}\n`;
       spec += `- Drawers per Tier   : ${drawersPerTier} (${tiers * drawersPerTier} Total Drawers)\n`;
       spec += `- Single Tier Height : ${singleTierHeightMm} mm (Max 250.0 mm Solid Pivot Rod)\n`;
@@ -618,6 +756,7 @@ export default function App() {
       }
     } else {
       spec += `[ 1. CARGO MATRIX DIMENSIONS & GRID ]\n`;
+      spec += `- Preset Size        : ${cargoPreset}\n`;
       spec += `- Box Width (X)      : ${cargoWidth} mm\n`;
       spec += `- Box Length (Y)     : ${cargoLength} mm\n`;
       spec += `- Half Height (Z)    : ${cargoHeight} mm (${cargoHeight * 2} mm Closed Total)\n`;
@@ -665,6 +804,7 @@ export default function App() {
     return `// =========================================================================
 // FIELDMATRIX 3D - THE CARGO MATRIX (PRINT-IN-PLACE CLAMSHELL V12)
 // Design Code : ${designCode || 'CUSTOM'}
+// Preset Tier : ${cargoPreset}
 // Dimensions  : ${cargoWidth}mm (W) x ${cargoLength}mm (L) x ${cargoHeight}mm (Half-H) / ${cargoHeight * 2}mm (Closed)
 // Grid Layout : ${cargoCompX} Columns (X) x ${cargoCompY} Rows (Y) (${cargoCompX * cargoCompY} Compartments)
 // Colors      : Body=${activeCargoBoxColor.name} (${activeCargoBoxColor.hex}) | Inlay=${activeCargoTextColor.name} (${activeCargoTextColor.hex})
@@ -988,7 +1128,7 @@ complete_model();
       latch: 'LATCH-TEST-V12'
     };
 
-    return `${cleanCode}_${safeText}_${dims}_${grid}_${colors}_${borderTag}_${typeMap[mode] || 'V12'}.scad`;
+    return `${cleanCode}_${cargoPreset.toUpperCase()}_${safeText}_${dims}_${grid}_${colors}_${borderTag}_${typeMap[mode] || 'V12'}.scad`;
   };
 
   const downloadScadFile = (mode = scadExportMode) => {
@@ -1003,17 +1143,19 @@ complete_model();
   };
 
   // ==========================================
-  // MODULAR FIRESTORE PAYLOAD BUILDER (V2 SCHEMA + BACKWARD COMPATIBLE)
+  // MODULAR FIRESTORE PAYLOAD BUILDER
   // ==========================================
   const buildOrderPayload = (codeToSave) => {
     const productMeta = PRODUCT_CATALOG[activeTab] || PRODUCT_CATALOG.storage;
     const estPrice = Number(calculatePrice().toFixed(2));
 
     const basePayload = {
-      schemaVersion: '2.0-modular',
+      schemaVersion: '2.1-dual-channel',
       designCode: codeToSave,
+      orderChannel: isEtsyMode ? 'etsy' : 'direct_square',
       productLine: activeTab,
       productName: productMeta.name,
+      presetSelected: activeTab === 'storage' ? sizePreset : cargoPreset,
       estimatedPrice: estPrice,
       createdAt: serverTimestamp()
     };
@@ -1044,13 +1186,12 @@ complete_model();
 
       return {
         ...basePayload,
-        dimensionsSummary: `${width}W x ${depth}D x ${totalStackedHeightMm}H mm (${tiers} Tiers, ${tiers * drawersPerTier} Drawers)`,
+        dimensionsSummary: `${sizePreset}: ${width}W x ${depth}D x ${totalStackedHeightMm}H mm (${tiers} Tiers, ${tiers * drawersPerTier} Drawers)`,
         colorsSummary: `Casing: ${activeCasingColor.name} / Drawers: ${activeDrawerColor.name}`,
         configuration: benchConfig,
         productionOutput: {
           specSheet: generateSpecSheet()
         },
-        // Flat top-level fields preserved for seamless backward-compatibility
         width: Number(width),
         length: Number(depth),
         height: Number(height),
@@ -1071,6 +1212,7 @@ complete_model();
     }
 
     const cargoConfig = {
+      cargoPreset,
       cargoWidth: Number(cargoWidth),
       cargoLength: Number(cargoLength),
       cargoHeight: Number(cargoHeight),
@@ -1091,7 +1233,7 @@ complete_model();
 
     return {
       ...basePayload,
-      dimensionsSummary: `${cargoWidth}W x ${cargoLength}L x ${cargoHeight}H mm (${cargoCompX}x${cargoCompY} Grid)`,
+      dimensionsSummary: `${cargoPreset}: ${cargoWidth}W x ${cargoLength}L x ${cargoHeight}H mm (${cargoCompX}x${cargoCompY} Grid)`,
       colorsSummary: `Body: ${activeCargoBoxColor.name} / Inlay: ${activeCargoTextColor.name}`,
       configuration: cargoConfig,
       productionOutput: {
@@ -1099,12 +1241,12 @@ complete_model();
         scadCode: generateScadCode('full'),
         specSheet: generateSpecSheet()
       },
-      // Flat top-level fields preserved for seamless backward-compatibility
       width: Number(cargoWidth),
       length: Number(cargoLength),
       height: Number(cargoHeight * 2),
       scadCode: generateScadCode('full'),
       scadFilename: getCargoScadFilename('full'),
+      cargoPreset,
       cargoWidth,
       cargoLength,
       cargoHeight,
@@ -1129,7 +1271,7 @@ complete_model();
       const payload = buildOrderPayload(codeToSave);
       await setDoc(doc(db, FIRESTORE_COLLECTION, codeToSave), payload);
     } catch (e) {
-      console.error('Could not save to Firestore collection custom_boxes:', e);
+      console.error('Could not save to Firestore collection fieldmatrix_orders:', e);
       setStatusBanner({
         type: 'error',
         text: `Firestore save error: ${e.message}`
@@ -1147,7 +1289,7 @@ complete_model();
     setShowModal(true);
   };
 
-  const handleEtsyOrderClick = async () => {
+  const handleCheckoutActionClick = async () => {
     if (designCode) {
       navigator.clipboard.writeText(designCode);
       setCodeCopied(true);
@@ -1155,7 +1297,6 @@ complete_model();
     }
   };
 
-  // Supports both new Modular V2 documents and earlier flat documents
   const handleAdminRecall = async () => {
     if (!recallCode.trim() || !db) {
       setStatusBanner({
@@ -1180,12 +1321,12 @@ complete_model();
           setActiveTab('storage');
           if (cfg.sizePreset) setSizePreset(cfg.sizePreset);
           setTiers(cfg.tiers ?? 2);
-          setDrawersPerTier(cfg.drawersPerTier ?? 5);
+          setDrawersPerTier(cfg.drawersPerTier ?? 4);
           setOpening(cfg.opening ?? 'Left');
           setHandlePos(cfg.handlePos ?? 'Front');
           setWidth(cfg.width ?? 140);
-          setDepth(cfg.depth ?? cfg.length ?? 120);
-          setHeight(cfg.height ?? 15.4);
+          setDepth(cfg.depth ?? cfg.length ?? 110);
+          setHeight(cfg.height ?? 15.5);
           setEnableLabelSlot(cfg.enableLabelSlot ?? true);
           setLabelWidth(cfg.labelWidth ?? 30);
           setLabelHeight(cfg.labelHeight ?? 11);
@@ -1196,6 +1337,7 @@ complete_model();
           setDrawerColorId(cfg.drawerColorId || 'matte-latte-brown');
         } else {
           setActiveTab('cargo');
+          if (cfg.cargoPreset) setCargoPreset(cfg.cargoPreset);
           setCargoWidth(cfg.cargoWidth ?? data.width ?? 120);
           setCargoLength(cfg.cargoLength ?? data.length ?? 90);
           setCargoHeight(cfg.cargoHeight ?? (data.height ? data.height / 2 : 20));
@@ -1220,6 +1362,7 @@ complete_model();
       setStatusBanner({ type: 'error', text: `Error recalling order: ${e.message}` });
     }
   };
+
   // ==========================================
   // THREE.JS VIEWPORT SETUP
   // ==========================================
@@ -1300,7 +1443,7 @@ complete_model();
     let downY = 0;
 
     const domElem = renderer.domElement;
-    domElem.style.touchAction = 'none'; // Prevents mobile browser scroll-hijacking (fixes choppiness)
+    domElem.style.touchAction = 'none';
 
     let activePointers = new Map();
     let prevPinchDist = null;
@@ -1326,7 +1469,6 @@ complete_model();
         activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       }
 
-      // Two-finger pinch-to-zoom on mobile
       if (activePointers.size === 2) {
         const pts = Array.from(activePointers.values());
         const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
@@ -1425,10 +1567,6 @@ complete_model();
     };
   }, []);
 
-  // ==========================================
-  // BUILD 3D GEOMETRY FOR ACTIVE PRODUCT TAB
-  // ==========================================
-  
   // ==========================================
   // BUILD 3D GEOMETRY FOR ACTIVE PRODUCT TAB
   // ==========================================
@@ -1861,14 +1999,14 @@ complete_model();
         }
       `}</style>
 
-      {/* ADMIN ORDER RECALL MODAL */}
+      {/* ADMIN ORDER RECALL & CHANNEL SWITCHER MODAL */}
       {adminMode && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#111827] border border-[#38bdf8]/40 rounded-xl max-w-md w-full p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-[#1e293b] pb-3">
               <div className="flex items-center gap-2 text-[#38bdf8] font-bold text-sm">
                 <Lock size={16} />
-                <span>{adminUnlocked ? 'Admin Order Recall' : 'Admin Security Gate'}</span>
+                <span>{adminUnlocked ? 'Admin Control Center' : 'Admin Security Gate'}</span>
               </div>
               <button onClick={() => setAdminMode(false)} className="text-[#94a3b8] hover:text-white text-sm font-bold">
                 ✕
@@ -1878,7 +2016,7 @@ complete_model();
             {!adminUnlocked ? (
               <form onSubmit={handleVerifyPin} className="space-y-3">
                 <p className="text-xs text-[#94a3b8]">
-                  Enter your 4-digit Admin PIN to unlock customer order lookup and V12 OpenSCAD exports:
+                  Enter your 4-digit Admin PIN to unlock customer order lookup, channel switching, and V12 OpenSCAD exports:
                 </p>
                 <input
                   type="password"
@@ -1902,25 +2040,59 @@ complete_model();
                 </button>
               </form>
             ) : (
-              <div className="space-y-3">
-                <p className="text-xs text-[#94a3b8]">
-                  Enter a customer Design Code (e.g. <span className="text-white font-mono">BENCH-7F9K2A</span> or <span className="text-white font-mono">CARGO-3X8M1P</span>) or click below to view V12 OpenSCAD for the current Cargo design:
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={recallCode}
-                    onChange={(e) => setRecallCode(e.target.value)}
-                    placeholder="CARGO-XXXXXX"
-                    className="flex-1 bg-[#0b0f19] border border-[#1e293b] rounded-lg px-3 py-2 text-sm font-mono text-white uppercase"
-                  />
-                  <button
-                    onClick={handleAdminRecall}
-                    className="px-4 py-2 rounded-lg bg-[#38bdf8] text-[#0b0f19] font-bold text-xs hover:bg-[#7dd3fc]"
-                  >
-                    Load Order
-                  </button>
+              <div className="space-y-4">
+                {/* CHANNEL MODE PREVIEW SWITCHER */}
+                <div className="p-3 rounded-lg bg-[#0b0f19] border border-[#1e293b] space-y-2">
+                  <div className="text-[11px] font-bold text-[#38bdf8] uppercase tracking-wider">
+                    Storefront Funnel Mode Preview
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleChannelMode(true)}
+                      className={`py-1.5 px-2 rounded text-xs font-bold border transition-all ${
+                        isEtsyMode
+                          ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]'
+                          : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'
+                      }`}
+                    >
+                      Etsy Preset Mode (?source=etsy)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleChannelMode(false)}
+                      className={`py-1.5 px-2 rounded text-xs font-bold border transition-all ${
+                        !isEtsyMode
+                          ? 'bg-[#38bdf8]/20 border-[#38bdf8] text-[#38bdf8]'
+                          : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'
+                      }`}
+                    >
+                      Direct Custom Mode (Square)
+                    </button>
+                  </div>
                 </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs text-[#94a3b8]">
+                    Recall Customer Design Code (<span className="text-white font-mono">BENCH-XXXXXX</span> or <span className="text-white font-mono">CARGO-XXXXXX</span>):
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={recallCode}
+                      onChange={(e) => setRecallCode(e.target.value)}
+                      placeholder="CARGO-XXXXXX"
+                      className="flex-1 bg-[#0b0f19] border border-[#1e293b] rounded-lg px-3 py-2 text-sm font-mono text-white uppercase"
+                    />
+                    <button
+                      onClick={handleAdminRecall}
+                      className="px-4 py-2 rounded-lg bg-[#38bdf8] text-[#0b0f19] font-bold text-xs hover:bg-[#7dd3fc]"
+                    >
+                      Load Order
+                    </button>
+                  </div>
+                </div>
+
                 <div className="pt-2 border-t border-[#1e293b] flex justify-between items-center">
                   <span className="text-[11px] text-emerald-400 font-semibold">✓ Admin V12 .SCAD Unlocked</span>
                   <button
@@ -1957,7 +2129,9 @@ complete_model();
                   )}
                 </h3>
                 <p className="text-[11px] text-[#94a3b8]">
-                  Copy your Design Code or Spec Sheet and include it in your Etsy personalization box.
+                  {isEtsyMode
+                    ? `Select the "${activeTab === 'storage' ? sizePreset : cargoPreset}" option on Etsy and paste your Design Code in the personalization box.`
+                    : `Copy your Design Code and proceed to Square Checkout to complete your custom order.`}
                 </p>
               </div>
               <button onClick={() => setShowModal(false)} className="text-[#94a3b8] hover:text-white text-sm font-bold px-2">
@@ -2075,15 +2249,33 @@ complete_model();
                 </div>
               )}
 
-              <a
-                href={currentProductMeta.etsyUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={handleEtsyOrderClick}
-                className="px-5 py-2 rounded-lg bg-[#f43f5e] hover:bg-[#fb7185] text-white font-bold text-xs flex items-center gap-1.5"
-              >
-                {codeCopied ? 'Code Copied! Order on Etsy' : 'Copy Code & Order on Etsy'} <ExternalLink size={14} />
-              </a>
+              {isEtsyMode ? (
+                <a
+                  href={currentProductMeta.etsyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={handleCheckoutActionClick}
+                  className="px-5 py-2 rounded-lg bg-[#f43f5e] hover:bg-[#fb7185] text-white font-bold text-xs flex items-center gap-1.5"
+                >
+                  {codeCopied
+                    ? `Code Copied! Select "${activeTab === 'storage' ? sizePreset : cargoPreset}" on Etsy`
+                    : `Copy Code & Finish on Etsy (${activeTab === 'storage' ? sizePreset : cargoPreset})`}{' '}
+                  <ExternalLink size={14} />
+                </a>
+              ) : (
+                <a
+                  href={currentProductMeta.squareUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={handleCheckoutActionClick}
+                  className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5"
+                >
+                  {codeCopied
+                    ? `Saved! Proceed to Square ($${calculatePrice().toFixed(2)})`
+                    : `Save & Checkout via Square ($${calculatePrice().toFixed(2)})`}{' '}
+                  <ExternalLink size={14} />
+                </a>
+              )}
             </div>
           </div>
         </div>
@@ -2094,7 +2286,7 @@ complete_model();
         <div className="px-4 py-3 border-b border-[#1e293b] bg-[#0f172a]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              {/* Cube icon for 5-click admin unlock (NO hover tooltip text) */}
+              {/* Cube icon for 5-click admin unlock */}
               <div
                 onClick={handleLogoSecretClick}
                 className="w-8 h-8 rounded-lg bg-[#38bdf8]/15 border border-[#38bdf8]/40 flex items-center justify-center text-[#38bdf8] cursor-pointer"
@@ -2102,16 +2294,22 @@ complete_model();
                 <Package size={18} />
               </div>
               <div>
-                <span className="font-black tracking-wider text-sm text-white uppercase">
-                  FieldMatrix 3D
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-black tracking-wider text-sm text-white uppercase">
+                    FieldMatrix 3D
+                  </span>
+                  {isEtsyMode && (
+                    <span className="px-1.5 py-0.5 rounded bg-[#3b1526] border border-[#f43f5e]/50 text-[9px] font-bold text-[#fecdd3] uppercase">
+                      Etsy Customizer
+                    </span>
+                  )}
+                </div>
                 <p className="text-[11px] text-[#38bdf8] font-medium">
                   Glitchy Grizzly • <span className="text-[#94a3b8]">You configure your Matrix. We print &amp; ship.</span>
                 </p>
               </div>
             </div>
 
-            {/* PERSISTENT KEY BUTTON (Appears ONLY after admin role is unlocked) */}
             {adminUnlocked && (
               <button
                 onClick={() => setAdminMode(true)}
@@ -2144,20 +2342,31 @@ complete_model();
         <div className="flex-1 overflow-y-auto px-4 py-3.5 space-y-3.5 custom-scrollbar">
           {activeTab === 'storage' ? (
             <>
-              <div className="grid grid-cols-3 gap-2">
-                {['Small', 'Medium', 'Large'].map((preset) => (
-                  <button
-                    key={preset}
-                    onClick={() => applyPreset(preset)}
-                    className={`py-1.5 px-3 rounded-lg border text-xs font-semibold transition-all ${
-                      sizePreset === preset
-                        ? 'bg-[#3b1526] border-[#f43f5e]/60 text-[#fecdd3]'
-                        : 'bg-[#0f172a] border-[#1e293b] text-[#94a3b8] hover:text-white'
-                    }`}
-                  >
-                    {preset}
-                  </button>
-                ))}
+              {/* 4 BENCH MATRIX PRESET SIZES */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] text-[#94a3b8] px-0.5">
+                  <span className="font-bold uppercase tracking-wider text-[#38bdf8]">
+                    {isEtsyMode ? 'Select Etsy Size Tier:' : 'Preset Starting Sizes:'}
+                  </span>
+                  <span className="text-[#fecdd3] font-semibold">
+                    {BENCH_PRESETS[sizePreset]?.summary || 'Custom Size'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {Object.keys(BENCH_PRESETS).map((presetKey) => (
+                    <button
+                      key={presetKey}
+                      onClick={() => applyBenchPreset(presetKey)}
+                      className={`py-1.5 px-2 rounded-lg border text-xs font-bold transition-all ${
+                        sizePreset === presetKey
+                          ? 'bg-[#3b1526] border-[#f43f5e]/80 text-[#fecdd3] shadow'
+                          : 'bg-[#0f172a] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                      }`}
+                    >
+                      {presetKey}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* CONFIGURATION */}
@@ -2167,52 +2376,13 @@ complete_model();
                   className="w-full px-3.5 py-2.5 flex items-center justify-between text-[11px] font-bold tracking-widest uppercase text-[#38bdf8] border-b border-[#1e293b]"
                 >
                   <span className="flex items-center gap-1.5">
-                    <Sliders size={13} /> Configuration
+                    <Sliders size={13} /> {isEtsyMode ? 'Hardware Orientation' : 'Configuration & Dimensions'}
                   </span>
                   {openSections.config ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
                 {openSections.config && (
                   <div className="p-3.5 space-y-3.5">
-                    <div className="flex items-center justify-between bg-[#151e31] px-2.5 py-2 rounded-lg border border-[#1e293b]">
-                      <div className="flex items-center text-xs text-[#cbd5e1]">
-                        {lockToP1S ? <Lock size={13} className="text-[#f43f5e] mr-1.5" /> : <Unlock size={13} className="text-[#64748b] mr-1.5" />}
-                        <span>Lock to 250 mm Max Rod Height</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setLockToP1S(!lockToP1S)}
-                        className={`w-9 h-5 rounded-full transition-colors relative ${lockToP1S ? 'bg-[#f43f5e]' : 'bg-[#334155]'}`}
-                      >
-                        <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${lockToP1S ? 'translate-x-4' : ''}`} />
-                      </button>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-semibold">Number of tiers</span>
-                        <span className="text-[#fecdd3] font-bold">{tiers}</span>
-                      </div>
-                      <input type="range" min="1" max="5" value={tiers} onChange={(e) => setTiers(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-semibold">Drawers per tier ({totalStackedHeightMm} mm)</span>
-                        <span className="text-[#fecdd3] font-bold">{drawersPerTier}</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="1"
-                        max="10"
-                        value={drawersPerTier}
-                        onChange={(e) => {
-                          const v = parseInt(e.target.value, 10);
-                          setDrawersPerTier(lockToP1S ? Math.min(v, maxAllowedDrawersForCurrentHeight) : v);
-                        }}
-                        className="w-full box-studio-slider"
-                      />
-                    </div>
-
+                    {/* Opening & Handle Orientation (Available in BOTH Etsy & Direct Modes) */}
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold">Opening Side</span>
                       <div className="grid grid-cols-2 gap-1 bg-[#090d16] p-0.5 rounded-md border border-[#1e293b]">
@@ -2247,40 +2417,124 @@ complete_model();
                       </div>
                     </div>
 
-                    <div>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-semibold">↔ Width (mm)</span>
-                        <span className="text-[#fecdd3] font-bold">{width} mm</span>
+                    {isEtsyMode ? (
+                      <div className="p-2.5 rounded-lg bg-[#151e31] border border-[#1e293b] text-[11px] text-[#cbd5e1] flex items-center justify-between">
+                        <span>Preset Dimensions ({sizePreset}):</span>
+                        <span className="font-mono font-bold text-[#38bdf8]">
+                          {width}W × {depth}D × {totalStackedHeightMm}H mm
+                        </span>
                       </div>
-                      <input type="range" min="50" max="200" value={width} onChange={(e) => setWidth(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
-                    </div>
+                    ) : (
+                      /* DIRECT MODE ONLY: FULL MILLIMETER SLIDERS */
+                      <>
+                        <div className="flex items-center justify-between bg-[#151e31] px-2.5 py-2 rounded-lg border border-[#1e293b]">
+                          <div className="flex items-center text-xs text-[#cbd5e1]">
+                            {lockToP1S ? <Lock size={13} className="text-[#f43f5e] mr-1.5" /> : <Unlock size={13} className="text-[#64748b] mr-1.5" />}
+                            <span>Lock to 250 mm Max Rod Height</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setLockToP1S(!lockToP1S)}
+                            className={`w-9 h-5 rounded-full transition-colors relative ${lockToP1S ? 'bg-[#f43f5e]' : 'bg-[#334155]'}`}
+                          >
+                            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${lockToP1S ? 'translate-x-4' : ''}`} />
+                          </button>
+                        </div>
 
-                    <div>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-semibold">↗ Depth (mm)</span>
-                        <span className="text-[#fecdd3] font-bold">{depth} mm</span>
-                      </div>
-                      <input type="range" min="58" max="120" value={depth} onChange={(e) => setDepth(parseInt(e.target.value, 10))} className="w-full box-studio-slider" />
-                    </div>
+                        <div>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="font-semibold">Number of tiers</span>
+                            <span className="text-[#fecdd3] font-bold">{tiers}</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="1"
+                            max="5"
+                            value={tiers}
+                            onChange={(e) => {
+                              setSizePreset('Custom');
+                              setTiers(parseInt(e.target.value, 10));
+                            }}
+                            className="w-full box-studio-slider"
+                          />
+                        </div>
 
-                    <div>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-semibold">↕ Drawer Height (mm)</span>
-                        <span className="text-[#fecdd3] font-bold">{height.toFixed(1)} mm</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="10"
-                        max="30"
-                        step="0.1"
-                        value={height}
-                        onChange={(e) => {
-                          const v = parseFloat(e.target.value);
-                          setHeight(lockToP1S ? Math.min(v, maxAllowedHeightForCurrentDrawers) : v);
-                        }}
-                        className="w-full box-studio-slider"
-                      />
-                    </div>
+                        <div>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="font-semibold">Drawers per tier ({totalStackedHeightMm} mm)</span>
+                            <span className="text-[#fecdd3] font-bold">{drawersPerTier}</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="1"
+                            max="10"
+                            value={drawersPerTier}
+                            onChange={(e) => {
+                              setSizePreset('Custom');
+                              const v = parseInt(e.target.value, 10);
+                              setDrawersPerTier(lockToP1S ? Math.min(v, maxAllowedDrawersForCurrentHeight) : v);
+                            }}
+                            className="w-full box-studio-slider"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="font-semibold">↔ Width (mm)</span>
+                            <span className="text-[#fecdd3] font-bold">{width} mm</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="50"
+                            max="200"
+                            value={width}
+                            onChange={(e) => {
+                              setSizePreset('Custom');
+                              setWidth(parseInt(e.target.value, 10));
+                            }}
+                            className="w-full box-studio-slider"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="font-semibold">↗ Depth (mm)</span>
+                            <span className="text-[#fecdd3] font-bold">{depth} mm</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="58"
+                            max="120"
+                            value={depth}
+                            onChange={(e) => {
+                              setSizePreset('Custom');
+                              setDepth(parseInt(e.target.value, 10));
+                            }}
+                            className="w-full box-studio-slider"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="font-semibold">↕ Drawer Height (mm)</span>
+                            <span className="text-[#fecdd3] font-bold">{height.toFixed(1)} mm</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="10"
+                            max="30"
+                            step="0.1"
+                            value={height}
+                            onChange={(e) => {
+                              setSizePreset('Custom');
+                              const v = parseFloat(e.target.value);
+                              setHeight(lockToP1S ? Math.min(v, maxAllowedHeightForCurrentDrawers) : v);
+                            }}
+                            className="w-full box-studio-slider"
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -2452,6 +2706,33 @@ complete_model();
                THE CARGO MATRIX SIDEBAR CONTROLS
             ========================================== */
             <div className="space-y-3.5">
+              {/* 4 CARGO MATRIX PRESET SIZES */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] text-[#94a3b8] px-0.5">
+                  <span className="font-bold uppercase tracking-wider text-[#38bdf8]">
+                    {isEtsyMode ? 'Select Etsy Case Size:' : 'Preset Case Sizes:'}
+                  </span>
+                  <span className="text-[#fecdd3] font-semibold">
+                    {CARGO_PRESETS[cargoPreset]?.summary || 'Custom Size'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {Object.keys(CARGO_PRESETS).map((presetKey) => (
+                    <button
+                      key={presetKey}
+                      onClick={() => applyCargoPreset(presetKey)}
+                      className={`py-1.5 px-2 rounded-lg border text-xs font-bold transition-all ${
+                        cargoPreset === presetKey
+                          ? 'bg-[#3b1526] border-[#f43f5e]/80 text-[#fecdd3] shadow'
+                          : 'bg-[#0f172a] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                      }`}
+                    >
+                      {presetKey}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* CUSTOM LID TEXT & BORDER */}
               <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3">
                 <div className="flex items-center justify-between">
@@ -2519,54 +2800,75 @@ complete_model();
               {/* DIMENSIONS & COMPARTMENTS */}
               <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3.5">
                 <div className="text-[11px] font-bold uppercase tracking-widest text-[#38bdf8] flex items-center gap-1.5">
-                  <Box size={13} /> Dimensions &amp; Compartments
+                  <Box size={13} /> {isEtsyMode ? 'Interior Compartment Grid' : 'Dimensions & Compartments'}
                 </div>
 
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="font-semibold">↔ Box Width (X)</span>
-                    <span className="text-[#fecdd3] font-bold">{cargoWidth} mm</span>
+                {isEtsyMode ? (
+                  <div className="p-2.5 rounded-lg bg-[#151e31] border border-[#1e293b] text-[11px] text-[#cbd5e1] flex items-center justify-between">
+                    <span>Preset Case ({cargoPreset}):</span>
+                    <span className="font-mono font-bold text-[#38bdf8]">
+                      {cargoWidth}W × {cargoLength}L × {cargoHeight * 2}H mm
+                    </span>
                   </div>
-                  <input
-                    type="range"
-                    min="50"
-                    max="220"
-                    value={cargoWidth}
-                    onChange={(e) => setCargoWidth(parseInt(e.target.value, 10))}
-                    className="w-full box-studio-slider"
-                  />
-                </div>
+                ) : (
+                  <>
+                    <div>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="font-semibold">↔ Box Width (X)</span>
+                        <span className="text-[#fecdd3] font-bold">{cargoWidth} mm</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="50"
+                        max="220"
+                        value={cargoWidth}
+                        onChange={(e) => {
+                          setCargoPreset('Custom');
+                          setCargoWidth(parseInt(e.target.value, 10));
+                        }}
+                        className="w-full box-studio-slider"
+                      />
+                    </div>
 
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="font-semibold">↗ Box Length (Y)</span>
-                    <span className="text-[#fecdd3] font-bold">{cargoLength} mm</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="40"
-                    max="180"
-                    value={cargoLength}
-                    onChange={(e) => setCargoLength(parseInt(e.target.value, 10))}
-                    className="w-full box-studio-slider"
-                  />
-                </div>
+                    <div>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="font-semibold">↗ Box Length (Y)</span>
+                        <span className="text-[#fecdd3] font-bold">{cargoLength} mm</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="40"
+                        max="180"
+                        value={cargoLength}
+                        onChange={(e) => {
+                          setCargoPreset('Custom');
+                          setCargoLength(parseInt(e.target.value, 10));
+                        }}
+                        className="w-full box-studio-slider"
+                      />
+                    </div>
 
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="font-semibold">↕ Half-Shell Height (Z)</span>
-                    <span className="text-[#fecdd3] font-bold">{cargoHeight} mm ({cargoHeight * 2} mm closed)</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="12"
-                    max="50"
-                    value={cargoHeight}
-                    onChange={(e) => setCargoHeight(parseInt(e.target.value, 10))}
-                    className="w-full box-studio-slider"
-                  />
-                </div>
+                    <div>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="font-semibold">↕ Half-Shell Height (Z)</span>
+                        <span className="text-[#fecdd3] font-bold">{cargoHeight} mm ({cargoHeight * 2} mm closed)</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="12"
+                        max="50"
+                        value={cargoHeight}
+                        onChange={(e) => {
+                          setCargoPreset('Custom');
+                          setCargoHeight(parseInt(e.target.value, 10));
+                        }}
+                        className="w-full box-studio-slider"
+                      />
+                    </div>
+                  </>
+                )}
 
+                {/* Compartment Grid Sliders (Available in BOTH Etsy & Direct Modes) */}
                 <div className="grid grid-cols-2 gap-3 pt-1 border-t border-[#1e293b]">
                   <div>
                     <div className="flex justify-between text-xs mb-1">
@@ -2670,14 +2972,23 @@ complete_model();
                 ? `${tiers} Tiers • ${tiers * drawersPerTier} Drawers`
                 : `${cargoWidth}×${cargoLength}×${cargoHeight}mm • ${cargoCompX * cargoCompY} Cells`}
             </span>
-            <span className="text-lg font-black text-[#38bdf8]">${calculatePrice().toFixed(2)}</span>
+            {isEtsyMode ? (
+              <span className="px-2.5 py-0.5 rounded bg-[#3b1526] border border-[#f43f5e]/60 text-xs font-bold text-[#fecdd3]">
+                Etsy Tier: {activeTab === 'storage' ? sizePreset : cargoPreset}
+              </span>
+            ) : (
+              <span className="text-lg font-black text-[#38bdf8]">${calculatePrice().toFixed(2)}</span>
+            )}
           </div>
 
           <button
             onClick={handleOpenSpecModal}
             className="w-full py-2.5 px-4 rounded-lg font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 bg-[#f43f5e] hover:bg-[#fb7185] text-white shadow-lg"
           >
-            <FileText size={15} /> Get Spec Code &amp; Order on Etsy
+            <FileText size={15} />{' '}
+            {isEtsyMode
+              ? `Get Etsy Design Code (${activeTab === 'storage' ? sizePreset : cargoPreset})`
+              : `Review Spec & Checkout ($${calculatePrice().toFixed(2)})`}
           </button>
         </div>
       </aside>
@@ -2731,7 +3042,7 @@ complete_model();
             )}
           </div>
 
-          {/* CENTER BANNER LOGO (Uses /textlogo.png if uploaded, falls back to /favicon.png) */}
+          {/* CENTER BANNER LOGO */}
           <div className="hidden md:flex items-center justify-center">
             <img
               src="/textlogo.png"
