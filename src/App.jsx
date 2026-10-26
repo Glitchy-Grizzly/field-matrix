@@ -2628,7 +2628,7 @@ complete_model();
                         onClick={() => applyBatchDividers(n, batchV)}
                         className={`w-5 h-5 rounded text-[10px] font-bold ${batchH === n ? 'bg-[#f43f5e] text-white' : 'bg-[#0b0f19] text-[#94a3b8]'}`}
                       >
-                        {n}
+                        {n - 1}
                       </button>
                     ))}
                     <span className="text-[10px] text-[#94a3b8] ml-2">V:</span>
@@ -2638,7 +2638,7 @@ complete_model();
                         onClick={() => applyBatchDividers(batchH, n)}
                         className={`w-5 h-5 rounded text-[10px] font-bold ${batchV === n ? 'bg-[#f43f5e] text-white' : 'bg-[#0b0f19] text-[#94a3b8]'}`}
                       >
-                        {n}
+                        {n - 1}
                       </button>
                     ))}
                   </div>
@@ -2675,7 +2675,7 @@ complete_model();
                                       onClick={() => setDividerForDrawer(t, b, 'h', n)}
                                       className={`w-4 h-4 rounded ${div.h === n ? 'bg-[#f43f5e] text-white' : 'bg-[#0b0f19] text-[#64748b]'}`}
                                     >
-                                      {n}
+                                      {n - 1}
                                     </button>
                                   ))}
                                 </div>
@@ -2687,7 +2687,7 @@ complete_model();
                                       onClick={() => setDividerForDrawer(t, b, 'v', n)}
                                       className={`w-4 h-4 rounded ${div.v === n ? 'bg-[#f43f5e] text-white' : 'bg-[#0b0f19] text-[#64748b]'}`}
                                     >
-                                      {n}
+                                      {n - 1}
                                     </button>
                                   ))}
                                 </div>
