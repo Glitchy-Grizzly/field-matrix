@@ -4,6 +4,7 @@ import { initializeApp } from 'firebase/app';
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from "firebase/functions";
 import {
   Package,
   Box,
@@ -406,6 +407,12 @@ function createDrawerContourPoints(hw, hd, cornerR, notchR, openSide, handlePos,
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('storage');
+  const [isSuccessPage, setIsSuccessPage] = useState(false);
+  useEffect(() => {
+    if (window.location.pathname === '/success') {
+      setIsSuccessPage(true);
+    }
+  }, []);
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
@@ -1294,6 +1301,29 @@ complete_model();
       navigator.clipboard.writeText(designCode);
       setCodeCopied(true);
       await saveDesignToFirestore(designCode);
+      
+      // New Square Checkout integration
+      try {
+        const functions = getFunctions();
+        const createCheckoutLink = httpsCallable(functions, "createCheckoutLink");
+        
+        // Dynamically calculate the final price for whichever product is currently active
+        const finalPrice = Number(calculatePrice().toFixed(2));
+        
+        const response = await createCheckoutLink({ 
+          price: finalPrice, 
+          designCode: designCode 
+        });
+
+        // Redirect user to Square
+        console.log("SQUARE LINK:", response.data.url);
+        alert("Generated URL: " + response.data.url);
+        // window.location.href = response.data.url;
+        
+      } catch (error) {
+        console.error("Checkout Error:", error);
+        alert("Unable to initiate checkout. Please try again.");
+      }
     }
   };
 
@@ -1974,6 +2004,30 @@ complete_model();
       item.targetAngle = pivotSign * ratio * maxSwingRad;
     });
   }, [swingOpenAmount, openDrawersMap, explodedView, opening, drawersPerTier]);
+  // ADD SUCCESS VIEW HERE
+  if (isSuccessPage) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[100dvh] w-full bg-[#0b0f19] text-[#e2e8f0] font-sans p-6 text-center">
+        <div className="max-w-md w-full bg-[#111827] border border-[#38bdf8]/40 rounded-2xl p-8 shadow-2xl space-y-4">
+          <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+            ✓
+          </div>
+          <h1 className="text-xl font-black text-white uppercase tracking-wider">Payment Successful!</h1>
+          <p className="text-xs text-[#94a3b8] leading-relaxed">
+            Thank you for your custom FieldMatrix order. Your payment has been processed successfully through Square, and your build specs have been logged for printing.
+          </p>
+          <a
+            href="/"
+            className="block w-full py-2.5 rounded-lg bg-[#38bdf8] text-[#0b0f19] font-bold text-xs uppercase tracking-wider hover:bg-[#7dd3fc] transition-all"
+          >
+            Create Another Matrix
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  // YOUR EXISTING MAIN RETURN STAYS HERE
 
   return (
     <div className="flex flex-col-reverse md:flex-row h-[100dvh] w-full overflow-hidden bg-[#0b0f19] text-[#e2e8f0] font-sans select-none">
@@ -2263,19 +2317,17 @@ complete_model();
                   <ExternalLink size={14} />
                 </a>
               ) : (
-                <a
-                  href={currentProductMeta.squareUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={handleCheckoutActionClick}
-                  className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5"
-                >
-                  {codeCopied
-                    ? `Saved! Proceed to Square ($${calculatePrice().toFixed(2)})`
-                    : `Save & Checkout via Square ($${calculatePrice().toFixed(2)})`}{' '}
-                  <ExternalLink size={14} />
-                </a>
-              )}
+                  <button
+                    type="button"
+                    onClick={handleCheckoutActionClick}
+                    className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-2 transition-all shadow-lg"
+                  >
+                    {codeCopied
+                      ? `Saved! Proceed to Square ($${calculatePrice().toFixed(2)})`
+                      : `Save & Checkout via Square ($${calculatePrice().toFixed(2)})`}{' '}
+                    <ExternalLink size={14} />
+                  </button>
+                )}
             </div>
           </div>
         </div>
