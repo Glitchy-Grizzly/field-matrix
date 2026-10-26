@@ -506,14 +506,14 @@ export default function App() {
   // ==========================================
   // PRODUCT 1 STATE: THE BENCH MATRIX
   // ==========================================
-  const [sizePreset, setSizePreset] = useState('Medium');
-  const [tiers, setTiers] = useState(BENCH_PRESETS.Medium.tiers);
-  const [drawersPerTier, setDrawersPerTier] = useState(BENCH_PRESETS.Medium.drawersPerTier);
+  const [sizePreset, setSizePreset] = useState('Trail');
+  const [tiers, setTiers] = useState(BENCH_PRESETS.Trail.tiers);
+  const [drawersPerTier, setDrawersPerTier] = useState(BENCH_PRESETS.Trail.drawersPerTier);
   const [opening, setOpening] = useState('Left');
   const [handlePos, setHandlePos] = useState('Front');
-  const [width, setWidth] = useState(BENCH_PRESETS.Medium.width);
-  const [depth, setDepth] = useState(BENCH_PRESETS.Medium.depth);
-  const [height, setHeight] = useState(BENCH_PRESETS.Medium.height);
+  const [width, setWidth] = useState(BENCH_PRESETS.Trail.width);
+  const [depth, setDepth] = useState(BENCH_PRESETS.Trail.depth);
+  const [height, setHeight] = useState(BENCH_PRESETS.Trail.height);
   const [lockToP1S, setLockToP1S] = useState(false);
 
   const [enableLabelSlot, setEnableLabelSlot] = useState(true);
@@ -542,12 +542,12 @@ export default function App() {
   // ==========================================
   // PRODUCT 2 STATE: THE CARGO MATRIX
   // ==========================================
-  const [cargoPreset, setCargoPreset] = useState('Standard');
-  const [cargoWidth, setCargoWidth] = useState(CARGO_PRESETS.Standard.width);
-  const [cargoLength, setCargoLength] = useState(CARGO_PRESETS.Standard.length);
-  const [cargoHeight, setCargoHeight] = useState(CARGO_PRESETS.Standard.height);
-  const [cargoCompX, setCargoCompX] = useState(CARGO_PRESETS.Standard.compX);
-  const [cargoCompY, setCargoCompY] = useState(CARGO_PRESETS.Standard.compY);
+  const [cargoPreset, setCargoPreset] = useState('Trail');
+  const [cargoWidth, setCargoWidth] = useState(CARGO_PRESETS.Trail.width);
+  const [cargoLength, setCargoLength] = useState(CARGO_PRESETS.Trail.length);
+  const [cargoHeight, setCargoHeight] = useState(CARGO_PRESETS.Trail.height);
+  const [cargoCompX, setCargoCompX] = useState(CARGO_PRESETS.Trail.compX);
+  const [cargoCompY, setCargoCompY] = useState(CARGO_PRESETS.Trail.compY);
   const [cargoBoxColorId, setCargoBoxColorId] = useState('hot-pink');
   const [cargoTextColorId, setCargoTextColorId] = useState('matte-charcoal');
   const [cargoText, setCargoText] = useState('FIELD KIT');
