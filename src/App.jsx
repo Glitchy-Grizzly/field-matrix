@@ -52,8 +52,8 @@ const SQUARE_CHECKOUT_URL = "https://squareup.com/checkout";
 // ==========================================
 const BENCH_PRESETS = {
   Small: {
-    id: 'Small',
-    label: 'Small',
+    id: 'Trace',
+    label: 'Trace',
     summary: '1 Tier • 5 Drawers',
     tiers: 1,
     drawersPerTier: 5,
@@ -62,8 +62,8 @@ const BENCH_PRESETS = {
     height: 14.0
   },
   Medium: {
-    id: 'Medium',
-    label: 'Medium',
+    id: 'Trail',
+    label: 'Trail',
     summary: '2 Tiers • 4 Drawers/Tier (8 Total)',
     tiers: 2,
     drawersPerTier: 4,
@@ -72,8 +72,8 @@ const BENCH_PRESETS = {
     height: 15.5
   },
   Large: {
-    id: 'Large',
-    label: 'Large',
+    id: 'Pursuit',
+    label: 'Pursuit',
     summary: '2 Tiers • 5 Drawers/Tier (10 Total)',
     tiers: 2,
     drawersPerTier: 5,
@@ -82,8 +82,8 @@ const BENCH_PRESETS = {
     height: 17.0
   },
   XL: {
-    id: 'XL',
-    label: 'XL',
+    id: 'Frontier',
+    label: 'Frontier',
     summary: '3 Tiers • 5 Drawers/Tier (15 Total)',
     tiers: 3,
     drawersPerTier: 5,
@@ -95,8 +95,8 @@ const BENCH_PRESETS = {
 
 const CARGO_PRESETS = {
   Compact: {
-    id: 'Compact',
-    label: 'Compact',
+    id: 'Trace',
+    label: 'Trace',
     summary: '80×60×16mm (32mm Closed)',
     width: 80,
     length: 60,
@@ -105,8 +105,8 @@ const CARGO_PRESETS = {
     compY: 1
   },
   Standard: {
-    id: 'Standard',
-    label: 'Standard',
+    id: 'Trail',
+    label: 'Trail',
     summary: '120×90×20mm (40mm Closed)',
     width: 120,
     length: 90,
@@ -115,8 +115,8 @@ const CARGO_PRESETS = {
     compY: 2
   },
   Large: {
-    id: 'Large',
-    label: 'Large',
+    id: 'Pursuit',
+    label: 'Pursuit',
     summary: '160×120×25mm (50mm Closed)',
     width: 160,
     length: 120,
@@ -125,8 +125,8 @@ const CARGO_PRESETS = {
     compY: 2
   },
   XL: {
-    id: 'XL',
-    label: 'XL',
+    id: 'Frontier',
+    label: 'Frontier',
     summary: '200×150×35mm (70mm Closed)',
     width: 200,
     length: 150,
