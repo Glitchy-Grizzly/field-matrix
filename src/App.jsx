@@ -1296,34 +1296,100 @@ complete_model();
     setShowModal(true);
   };
 
-  const handleCheckoutActionClick = async () => {
-    if (designCode) {
-      navigator.clipboard.writeText(designCode);
-      setCodeCopied(true);
-      await saveDesignToFirestore(designCode);
-      
-      // New Square Checkout integration
-      try {
-        const functions = getFunctions();
-        const createCheckoutLink = httpsCallable(functions, "createCheckoutLink");
-        
-        // Dynamically calculate the final price for whichever product is currently active
-        const finalPrice = Number(calculatePrice().toFixed(2));
-        
-        const response = await createCheckoutLink({ 
-          price: finalPrice, 
-          designCode: designCode 
-        });
+  const [cart, setCart] = useState([]);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
-        // Redirect user to Square
-        console.log("SQUARE LINK:", response.data.url);
-        alert("Generated URL: " + response.data.url);
-        // window.location.href = response.data.url;
-        
-      } catch (error) {
-        console.error("Checkout Error:", error);
-        alert("Unable to initiate checkout. Please try again.");
+  const handleAddToCart = async () => {
+    if (!designCode) return;
+
+    navigator.clipboard.writeText(designCode);
+    setCodeCopied(true);
+    await saveDesignToFirestore(designCode);
+
+    const currentPrice = Number(calculatePrice().toFixed(2));
+
+    setCart((prevCart) => {
+      const existingIndex = prevCart.findIndex(
+        (item) => item.designCode === designCode
+      );
+      if (existingIndex > -1) {
+        const updated = [...prevCart];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          quantity: updated[existingIndex].quantity + 1,
+        };
+        return updated;
       }
+      return [
+        ...prevCart,
+        {
+          designCode,
+          price: currentPrice,
+          quantity: 1,
+        },
+      ];
+    });
+  };
+
+  const handleUpdateCartQty = (code, delta) => {
+    setCart((prevCart) =>
+      prevCart
+        .map((item) =>
+          item.designCode === code
+            ? { ...item, quantity: item.quantity + delta }
+            : item
+        )
+        .filter((item) => item.quantity > 0)
+    );
+  };
+
+  const handleCheckoutActionClick = async () => {
+    if (isEtsyMode) {
+      if (designCode) {
+        navigator.clipboard.writeText(designCode);
+        setCodeCopied(true);
+        await saveDesignToFirestore(designCode);
+      }
+      return;
+    }
+
+    try {
+      setIsCheckingOut(true);
+      let itemsToCheckout = [...cart];
+
+      // If the cart is empty, automatically save & check out the current build on screen
+      if (itemsToCheckout.length === 0 && designCode) {
+        navigator.clipboard.writeText(designCode);
+        setCodeCopied(true);
+        await saveDesignToFirestore(designCode);
+        itemsToCheckout = [
+          {
+            designCode,
+            price: Number(calculatePrice().toFixed(2)),
+            quantity: 1,
+          },
+        ];
+      }
+
+      if (itemsToCheckout.length === 0) {
+        setIsCheckingOut(false);
+        return;
+      }
+
+      const functions = getFunctions();
+      const createCheckoutLink = httpsCallable(functions, "createCheckoutLink");
+
+      const response = await createCheckoutLink({
+        items: itemsToCheckout,
+      });
+
+      console.log("SQUARE LINK:", response.data.url);
+      window.location.href = response.data.url;
+    } catch (error) {
+      console.error("Checkout Error:", error);
+      alert("Unable to initiate checkout. Please try again.");
+    } finally {
+      setIsCheckingOut(false);
     }
   };
 
@@ -2317,17 +2383,68 @@ complete_model();
                   <ExternalLink size={14} />
                 </a>
               ) : (
-                  <button
-                    type="button"
-                    onClick={handleCheckoutActionClick}
-                    className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-2 transition-all shadow-lg"
-                  >
-                    {codeCopied
-                      ? `Saved! Proceed to Square ($${calculatePrice().toFixed(2)})`
-                      : `Save & Checkout via Square ($${calculatePrice().toFixed(2)})`}{' '}
-                    <ExternalLink size={14} />
-                  </button>
-                )}
+                <div className="flex flex-col items-end gap-2">
+                  {/* Mini Cart Summary Pills (shows when 1 or more items are in the cart) */}
+                  {cart.length > 0 && (
+                    <div className="flex flex-wrap items-center justify-end gap-1.5 bg-slate-900/90 border border-slate-700 px-3 py-1.5 rounded-lg text-xs text-slate-200 shadow-md">
+                      <span className="font-semibold text-slate-400 mr-1">Cart:</span>
+                      {cart.map((item) => (
+                        <div
+                          key={item.designCode}
+                          className="flex items-center gap-1.5 bg-slate-800 border border-slate-600 px-2 py-0.5 rounded text-[11px]"
+                        >
+                          <span className="font-mono text-emerald-400">{item.designCode}</span>
+                          <span className="text-slate-400">(${item.price.toFixed(2)})</span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateCartQty(item.designCode, -1)}
+                            className="px-1.5 hover:bg-slate-700 rounded text-slate-300 font-bold"
+                            title="Decrease quantity"
+                          >
+                            -
+                          </button>
+                          <span className="font-bold text-white">{item.quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateCartQty(item.designCode, 1)}
+                            className="px-1.5 hover:bg-slate-700 rounded text-slate-300 font-bold"
+                            title="Increase quantity"
+                          >
+                            +
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Action Buttons: Add to Cart + Checkout */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow"
+                    >
+                      + Add Current Build (${calculatePrice().toFixed(2)})
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isCheckingOut}
+                      onClick={handleCheckoutActionClick}
+                      className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold flex items-center gap-2 transition-all shadow-lg"
+                    >
+                      {isCheckingOut
+                        ? 'Redirecting to Square...'
+                        : cart.length > 0
+                        ? `Checkout Cart (${cart.reduce((s, i) => s + i.quantity, 0)} items — $${cart
+                            .reduce((s, i) => s + i.price * i.quantity, 0)
+                            .toFixed(2)})`
+                        : `Buy Current Build ($${calculatePrice().toFixed(2)})`}{' '}
+                      <ExternalLink size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
