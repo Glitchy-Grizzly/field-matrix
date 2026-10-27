@@ -2592,10 +2592,10 @@ complete_model();
                         <span className="font-mono font-bold text-[#38bdf8]">
                           {width}W × {depth}D × {totalStackedHeightMm}H mm
                         </span>
-                      </div>
-                    ) : (
+                    </div>
+                  ) : (
+                    <>
                       {/* DIRECT MODE ONLY: FULL MILLIMETER SLIDERS */}
-                      <>
                       <div className="flex items-center justify-between bg-[#151e31] px-2.5 py-2 rounded-lg border border-[#1e293b]">
                         <div className="flex items-center text-xs text-[#cbd5e1]">
                           <Lock size={13} className="text-emerald-400 mr-1.5" />
