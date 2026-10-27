@@ -521,7 +521,7 @@ export default function App() {
   const [width, setWidth] = useState(BENCH_PRESETS.Trail.width);
   const [depth, setDepth] = useState(BENCH_PRESETS.Trail.depth);
   const [height, setHeight] = useState(BENCH_PRESETS.Trail.height);
-  const [lockToP1S, setLockToP1S] = useState(false);
+  const [lockToP1S, setLockToP1S] = useState(true);
 
   const [enableLabelSlot, setEnableLabelSlot] = useState(true);
   const [labelWidth, setLabelWidth] = useState(30);
@@ -2594,13 +2594,21 @@ complete_model();
                         </span>
                       </div>
                     ) : (
-                      /* DIRECT MODE ONLY: FULL MILLIMETER SLIDERS */
+                      {/* DIRECT MODE ONLY: FULL MILLIMETER SLIDERS */}
                       <>
-                        <div className="flex items-center justify-between bg-[#151e31] px-2.5 py-2 rounded-lg border border-[#1e293b]">
-                          <div className="flex items-center text-xs text-[#cbd5e1]">
-                            {lockToP1S ? <Lock size={13} className="text-[#f43f5e] mr-1.5" /> : <Unlock size={13} className="text-[#64748b] mr-1.5" />}
-                            <span>Lock to 250 mm Max Rod Height</span>
-                          </div>
+                      <div className="flex items-center justify-between bg-[#151e31] px-2.5 py-2 rounded-lg border border-[#1e293b]">
+                        <div className="flex items-center text-xs text-[#cbd5e1]">
+                          <Lock size={13} className="text-emerald-400 mr-1.5" />
+                          <span>Lock to 250 mm Max Rod Height</span>
+                        </div>
+
+                        {/* Locked status pill */}
+                        <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          Enforced
+                        </span>
+
+                        {/* 
+                          TODO: Re-enable toggle when a larger printer is available
                           <button
                             type="button"
                             onClick={() => setLockToP1S(!lockToP1S)}
@@ -2608,7 +2616,8 @@ complete_model();
                           >
                             <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${lockToP1S ? 'translate-x-4' : ''}`} />
                           </button>
-                        </div>
+                        */}
+                      </div>
 
                         <div>
                           <div className="flex justify-between text-xs mb-1">
