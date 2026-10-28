@@ -5,7 +5,6 @@ import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-ch
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { Lock, ExternalLink, RotateCcw } from 'lucide-react';
 import {
   Package,
   Box,
@@ -1355,9 +1354,9 @@ complete_model();
     } else {
       // Cargo Matrix default direct dimensions
       // Adjust these fallback values to match your specific Cargo Matrix defaults
-      setCargoWidth.(120);
-      setCargoDepth.(90);
-      setCargoHeight.(20);
+      setCargoWidth(120);
+      setCargoDepth(90);
+      setCargoHeight(20);
     }
   };
 
