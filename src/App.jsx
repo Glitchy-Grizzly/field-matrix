@@ -2635,10 +2635,6 @@ complete_model();
                           </button>
                         </div>
 
-                        {/* Locked status pill */}
-                        <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          Enforced
-                        </span>
 
                         {/* 
                           TODO: Re-enable toggle when a larger printer is available
