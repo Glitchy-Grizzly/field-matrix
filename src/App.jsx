@@ -5,6 +5,7 @@ import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-ch
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from "firebase/functions";
+import { Lock, ExternalLink, RotateCcw } from 'lucide-react';
 import {
   Package,
   Box,
@@ -1343,6 +1344,23 @@ complete_model();
     );
   };
 
+  const handleResetDirectDimensions = () => {
+    if (activeTab === 'storage') {
+      // Storage / Bench Matrix default direct dimensions
+      setWidth(140);
+      setDepth(110);
+      setHeight(15.5);
+      setTiers(2);
+      setDrawersPerTier(4);
+    } else {
+      // Cargo Matrix default direct dimensions
+      // Adjust these fallback values to match your specific Cargo Matrix defaults
+      setCargoWidth.(120);
+      setCargoDepth.(90);
+      setCargoHeight.(20);
+    }
+  };
+
   const handleCheckoutActionClick = async () => {
     if (isEtsyMode) {
       if (designCode) {
@@ -2600,6 +2618,22 @@ complete_model();
                         <div className="flex items-center text-xs text-[#cbd5e1]">
                           <Lock size={13} className="text-emerald-400 mr-1.5" />
                           <span>Lock to 250 mm Max Rod Height</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            Enforced
+                          </span>
+                      
+                          {/* Reset all dimensions to default */}
+                          <button
+                            type="button"
+                            onClick={handleResetDirectDimensions}
+                            title="Reset dimensions to default"
+                            className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                          >
+                            <RotateCcw size={13} />
+                          </button>
                         </div>
 
                         {/* Locked status pill */}
