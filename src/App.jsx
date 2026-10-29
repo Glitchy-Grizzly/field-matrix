@@ -477,21 +477,6 @@ export default function App() {
   const [scadCopied, setScadCopied] = useState(false);
   const logoClickRef = useRef({ count: 0, timer: null });
 
-  // --- AMMO MATRIX STATE ---
-  const [ammoCaliber, setAmmoCaliber] = useState('22lr');
-  const [ammoCols, setAmmoCols] = useState(10);
-  const [ammoRows, setAmmoRows] = useState(5);
-  const [ammoPreset, setAmmoPreset] = useState('50');
-  const [ammoBaseColor, setAmmoBaseColor] = useState('#5c5346'); // FDE / Coyote Tan
-  const [ammoLidColor, setAmmoLidColor] = useState('#5c5346');
-  const [ammoTrayColor, setAmmoTrayColor] = useState('#1e293b'); // Matte Slate
-  const [ammoAccentColor, setAmmoAccentColor] = useState('#ea580c'); // Ballistic Orange (Latches & Feet)
-  const [ammoLidTitle, setAmmoLidTitle] = useState('.22 LR');
-  const [ammoLidSubtitle, setAmmoLidSubtitle] = useState('50 RDS // FM-VAULT');
-  const [ammoHingeAngle, setAmmoHingeAngle] = useState(75);
-  const [ammoTrayPose, setAmmoTrayPose] = useState('extracted'); // 'seated' | 'extracted' | 'bench'
-  const [showAmmoRounds, setShowAmmoRounds] = useState(true);
-  const [showMagnetXray, setShowMagnetXray] = useState(false);
 
   // Derived Ammo Matrix Geometry
   const currentCalSpec = AMMO_CALIBERS[ammoCaliber] || AMMO_CALIBERS['22lr'];
@@ -696,6 +681,27 @@ const currentProductMeta = PRODUCT_META[activeTab] || PRODUCT_META.storage;
   const [cargoFont, setCargoFont] = useState('Impact');
   const [cargoBorder, setCargoBorder] = useState(true);
   const [foldAngle, setFoldAngle] = useState(35);
+
+  // ==========================================
+  // PRODUCT 3 STATE: THE AMMO MATRIX
+  // ==========================================
+  const [ammoCaliber, setAmmoCaliber] = useState('9mm');
+  const [ammoCols, setAmmoCols] = useState(10);
+  const [ammoRows, setAmmoRows] = useState(5);
+  
+  // Colors are stored as hex strings from the BAMBU_PETG_COLORS array
+  const [ammoBaseColor, setAmmoBaseColor] = useState(BAMBU_PETG_COLORS.find(c => c.id === 'petg-pine-green')?.hex || '#2C4C3B');
+  const [ammoLidColor, setAmmoLidColor] = useState(BAMBU_PETG_COLORS.find(c => c.id === 'petg-black')?.hex || '#222222');
+  const [ammoTrayColor, setAmmoTrayColor] = useState(BAMBU_PETG_COLORS.find(c => c.id === 'petg-dark-beige')?.hex || '#9E8569');
+  const [ammoAccentColor, setAmmoAccentColor] = useState(BAMBU_PETG_COLORS.find(c => c.id === 'petg-orange')?.hex || '#F36B21');
+
+  // Text & Viewport States
+  const [ammoLidTitle, setAmmoLidTitle] = useState('FIELD KIT');
+  const [ammoLidSubtitle, setAmmoLidSubtitle] = useState('');
+  const [ammoHingeAngle, setAmmoHingeAngle] = useState(0); 
+  const [ammoTrayPose, setAmmoTrayPose] = useState('seated'); // 'seated', 'extracted', 'bench'
+  const [showAmmoRounds, setShowAmmoRounds] = useState(true);
+  const [showMagnetXray, setShowMagnetXray] = useState(false);
 
   const applyBenchPreset = useCallback((presetKey) => {
     const p = BENCH_PRESETS[presetKey];
