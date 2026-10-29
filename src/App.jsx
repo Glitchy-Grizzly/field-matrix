@@ -26,7 +26,8 @@ import {
   ArrowLeftRight,
   ExternalLink,
   Download,
-  Code
+  Code,
+  Shield
 } from 'lucide-react';
 
 // ==========================================
@@ -158,6 +159,15 @@ const PRODUCT_CATALOG = {
     etsyUrl: 'https://www.etsy.com/shop/GlitchyGrizzly',
     squareUrl: SQUARE_CHECKOUT_URL,
     hasOpenScadGenerator: true
+  },
+  ammo:{
+    id: 'ammo',
+    codePrefix: 'AMMO-',
+    name: 'The Ammo Matrix',
+    subtitle: 'Ballistic Vault Series',
+    etsyUrl: 'https://www.etsy.com/shop/GlitchyGrizzly',
+    squareUrl: SQUARE_CHECKOUT_URL,
+    hasOpenScadGenerator: true
   }
 };
 
@@ -213,6 +223,26 @@ const BAMBU_PLA_COLORS = [
 ];
 
 const P1S_MAX_HEIGHT_MM = 250.0;
+const AMMO_CALIBERS = {
+  '22lr':   { id: '22lr',   name: '.22 Long Rifle',        short: '22LR',   category: 'Rimfire', holeDia: 6.0,  pitch: 7.8,  oal: 25.4, trayZ: 14.5, shellZ: 36.0, badge: 'LAUNCH' },
+  '17hmr':  { id: '17hmr',  name: '.17 HMR',               short: '.17HMR', category: 'Rimfire', holeDia: 6.0,  pitch: 7.8,  oal: 34.3, trayZ: 18.0, shellZ: 45.0 },
+  '9mm':    { id: '9mm',    name: '9x19mm Parabellum',     short: '9MM',    category: 'Pistol',  holeDia: 10.3, pitch: 12.2, oal: 29.7, trayZ: 16.5, shellZ: 40.5 },
+  '45acp':  { id: '45acp',  name: '.45 ACP',               short: '.45ACP', category: 'Pistol',  holeDia: 12.5, pitch: 14.5, oal: 32.4, trayZ: 18.0, shellZ: 43.0 },
+  '357mag': { id: '357mag', name: '.38 Spl / .357 Mag',    short: '.357',   category: 'Pistol',  holeDia: 10.2, pitch: 12.2, oal: 40.4, trayZ: 22.0, shellZ: 51.0 },
+  '223rem': { id: '223rem', name: '.223 Rem / 5.56 NATO',  short: '5.56',   category: 'Rifle',   holeDia: 10.0, pitch: 12.0, oal: 57.4, trayZ: 28.0, shellZ: 68.0 },
+  '308win': { id: '308win', name: '.308 Win / 7.62 NATO',  short: '.308',   category: 'Rifle',   holeDia: 12.4, pitch: 14.6, oal: 71.1, trayZ: 34.0, shellZ: 82.0 },
+  '270win': { id: '270win', name: '.270 Winchester',       short: '.270',   category: 'Rifle',   holeDia: 12.4, pitch: 14.6, oal: 84.8, trayZ: 40.0, shellZ: 95.5 },
+  '3006':   { id: '3006',   name: '.30-06 Springfield',    short: '.30-06', category: 'Rifle',   holeDia: 12.4, pitch: 14.6, oal: 84.8, trayZ: 40.0, shellZ: 95.5 },
+  '300wm':  { id: '300wm',  name: '.300 Win Mag',          short: '.300WM', category: 'Rifle',   holeDia: 13.8, pitch: 16.2, oal: 85.0, trayZ: 40.0, shellZ: 96.0 },
+  '20ga':   { id: '20ga',   name: '20 Gauge (2.75" / 3")', short: '20GA',   category: 'Shotgun', holeDia: 19.8, pitch: 22.0, oal: 70.0, trayZ: 35.0, shellZ: 81.0 },
+  '12ga':   { id: '12ga',   name: '12 Gauge (2.75" / 3")', short: '12GA',   category: 'Shotgun', holeDia: 21.2, pitch: 23.5, oal: 70.0, trayZ: 35.0, shellZ: 81.0 },
+};
+
+const AMMO_ETSY_PRESETS = [
+  { id: '50',  rounds: 50,  cols: 10, rows: 5,  label: 'Standard Retail Box' },
+  { id: '100', rounds: 100, cols: 10, rows: 10, label: 'Weekend Range Pack' },
+  { id: '250', rounds: 250, cols: 25, rows: 10, label: 'Half-Brick Bulk Case' },
+];
 const TIER_CLEARANCE_PER_DRAWER_MM = 2.15;
 const TIER_FRAME_BASE_TOP_MM = 1.5;
 
@@ -428,6 +458,77 @@ export default function App() {
   const [scadCopied, setScadCopied] = useState(false);
   const logoClickRef = useRef({ count: 0, timer: null });
 
+  // --- AMMO MATRIX STATE ---
+  const [ammoCaliber, setAmmoCaliber] = useState('22lr');
+  const [ammoCols, setAmmoCols] = useState(10);
+  const [ammoRows, setAmmoRows] = useState(5);
+  const [ammoPreset, setAmmoPreset] = useState('50');
+  const [ammoBaseColor, setAmmoBaseColor] = useState('#5c5346'); // FDE / Coyote Tan
+  const [ammoLidColor, setAmmoLidColor] = useState('#5c5346');
+  const [ammoTrayColor, setAmmoTrayColor] = useState('#1e293b'); // Matte Slate
+  const [ammoAccentColor, setAmmoAccentColor] = useState('#ea580c'); // Ballistic Orange (Latches & Feet)
+  const [ammoLidTitle, setAmmoLidTitle] = useState('.22 LR');
+  const [ammoLidSubtitle, setAmmoLidSubtitle] = useState('50 RDS // FM-VAULT');
+  const [ammoHingeAngle, setAmmoHingeAngle] = useState(75);
+  const [ammoTrayPose, setAmmoTrayPose] = useState('extracted'); // 'seated' | 'extracted' | 'bench'
+  const [showAmmoRounds, setShowAmmoRounds] = useState(true);
+  const [showMagnetXray, setShowMagnetXray] = useState(false);
+
+  // Derived Ammo Matrix Geometry
+  const currentCalSpec = AMMO_CALIBERS[ammoCaliber] || AMMO_CALIBERS['22lr'];
+  const maxSafeGrid = Math.min(25, Math.floor((236 - 19.2) / currentCalSpec.pitch));
+  const clampedAmmoCols = Math.min(Math.max(3, ammoCols), maxSafeGrid);
+  const clampedAmmoRows = Math.min(Math.max(3, ammoRows), maxSafeGrid);
+  const ammoTotalRounds = clampedAmmoCols * clampedAmmoRows;
+
+  // Standing Tray & Exterior Shell Millimeter Math
+  const ammoTrayX = Number((clampedAmmoCols * currentCalSpec.pitch + 6.4).toFixed(1));
+  const ammoTrayY = Number((clampedAmmoRows * currentCalSpec.pitch + 6.4).toFixed(1));
+  const ammoTrayZ = currentCalSpec.trayZ;
+
+  const ammoShellX = Number((ammoTrayX + 12.8).toFixed(1));
+  const ammoShellY = Number((ammoTrayY + 12.8).toFixed(1));
+  const ammoShellZ = currentCalSpec.shellZ;
+
+  // Magnet scaling: 4 pairs (8 magnets) under 150mm, 6 pairs (12 magnets) at or above 150mm
+  const ammoMagnetPairs = ammoShellX >= 150 ? 6 : 4;
+  const ammoTotalMagnets = ammoMagnetPairs * 2;
+
+  // Dynamic Lid Character Limit based on physical lid width
+  const ammoMaxLidChars = Math.max(6, Math.min(28, Math.floor((ammoShellX - 28) / 5.5)));
+
+  // Estimated PETG Mass (grams) & Print Time (hours)
+  const ammoEstimatedGrams = Math.round(
+    ((ammoShellX * ammoShellY * 3.2 + (ammoShellX + ammoShellY) * 2 * ammoShellZ * 2.8) * 0.00127) +
+    ((ammoTrayX * ammoTrayY * ammoTrayZ * 0.38) * 0.00127)
+  );
+  const ammoEstimatedHours = Number((ammoEstimatedGrams / 28).toFixed(1));
+
+  // Switch caliber helper (clamps grid to P1S bed & updates default lid title)
+  const handleSelectAmmoCaliber = (calId) => {
+    const spec = AMMO_CALIBERS[calId];
+    if (!spec) return;
+    setAmmoCaliber(calId);
+    const maxG = Math.min(25, Math.floor((236 - 19.2) / spec.pitch));
+    const nextCols = Math.min(ammoCols, maxG);
+    const nextRows = Math.min(ammoRows, maxG);
+    setAmmoCols(nextCols);
+    setAmmoRows(nextRows);
+    setAmmoLidTitle(spec.short);
+    setAmmoLidSubtitle(`${nextCols * nextRows} RDS`);
+  };
+
+  // Preset helper for 50 / 100 / 250 boxes
+  const handleSelectAmmoPreset = (preset) => {
+    const maxG = Math.min(25, Math.floor((236 - 19.2) / currentCalSpec.pitch));
+    const nextCols = Math.min(preset.cols, maxG);
+    const nextRows = Math.min(preset.rows, maxG);
+    setAmmoPreset(preset.id);
+    setAmmoCols(nextCols);
+    setAmmoRows(nextRows);
+    setAmmoLidSubtitle(`${nextCols * nextRows} RDS`);
+  };
+
   // ==========================================
   // CHANNEL ROUTING: ETSY MODE VS. DIRECT MODE
   // ==========================================
@@ -458,7 +559,22 @@ export default function App() {
   };
 
   const ADMIN_SECRET_PIN = '1024';
-  const currentProductMeta = PRODUCT_CATALOG[activeTab] || PRODUCT_CATALOG.storage;
+  const PRODUCT_META = {
+  storage: {
+    name: 'Bench Matrix',
+    subtitle: 'Modular Drawer System',
+  },
+  cargo: {
+    name: 'Cargo Matrix',
+    subtitle: 'Rugged Case System',
+  },
+  ammo: {
+    name: 'AmmoMatrix',
+    subtitle: 'Ballistic Vault Series',
+  },
+};
+
+const currentProductMeta = PRODUCT_META[activeTab] || PRODUCT_META.storage;
 
   const triggerHiddenAdmin = useCallback(() => {
     setAdminMode(true);
@@ -706,6 +822,14 @@ export default function App() {
         }
       }
       return basePrice + tierFrameCost + drawersCost + dividerCellsExtra;
+    } else if (activeTab === 'ammo') {
+      const basePrice = 14;
+      const vol = (ammoShellX * ammoShellY * ammoShellZ) / 30000;
+      const roundsExtra = ammoTotalRounds * 0.08;
+      const hardwareExtra = ammoTotalMagnets * 0.25 + 1.5; // 8x3mm magnets + M3x20mm hardware
+      const textExtra =
+        ammoLidTitle.trim() !== '' || ammoLidSubtitle.trim() !== '' ? 2.5 : 0;
+      return basePrice + vol * 2.2 + roundsExtra + hardwareExtra + textExtra;  
     } else {
       const basePrice = 14;
       const vol = (cargoWidth * cargoLength * (cargoHeight * 2)) / 30000;
@@ -715,6 +839,220 @@ export default function App() {
     }
   };
 
+  const generateAmmoMatrixScad = () => {
+    return `// ============================================================================
+// FIELD MATRIX // AMMOMATRIX BALLISTIC VAULT — PARAMETRIC OPENSCAD
+// Design Code : ${designCode}
+// Caliber     : ${currentCalSpec.name} (${ammoTotalRounds} Rounds: ${clampedAmmoCols}x${clampedAmmoRows})
+// Shell Size  : ${ammoShellX} x ${ammoShellY} x ${ammoShellZ} mm
+// Tray Size   : ${ammoTrayX} x ${ammoTrayY} x ${ammoTrayZ} mm
+// Hardware    : 4x M3x20mm SHCS + 4x M3 Hex Nuts + ${ammoTotalMagnets}x (8x3mm) Neodymium Magnets
+// ============================================================================
+
+$fn = 48;
+
+// --- 1. PARAMETERS ---
+cols = ${clampedAmmoCols};
+rows = ${clampedAmmoRows};
+hole_dia = ${currentCalSpec.holeDia};
+pitch = ${currentCalSpec.pitch};
+tray_z = ${ammoTrayZ};
+shell_z = ${ammoShellZ};
+
+tray_x = cols * pitch + 6.4;
+tray_y = rows * pitch + 6.4;
+foot_h = 4.5;
+
+wall_t = 3.2;
+clearance = 0.6; // Tray-to-shell sliding clearance per side
+shell_x = tray_x + (wall_t + clearance) * 2 + 5.2; // Includes external armor rib envelope
+shell_y = tray_y + (wall_t + clearance) * 2 + 5.2;
+
+lid_z = 12.0;
+base_z = shell_z - lid_z;
+
+// Magnet Pockets (8x3mm magnet with +0.15mm glue tolerance)
+mag_d = 8.15;
+mag_h = 3.15;
+use_center_magnets = ${ammoShellX >= 150 ? 'true' : 'false'};
+
+// M3x20mm Hardware Dimensions
+m3_Clearance = 3.4;
+m3_Nut_Flat = 5.65; // M3 hex nut across flats
+m3_Nut_Depth = 2.6;
+
+// Custom Lid Text (AMS Inlay / 0.4mm Relief)
+lid_title = "${ammoLidTitle.slice(0, ammoMaxLidChars)}";
+lid_subtitle = "${ammoLidSubtitle.slice(0, ammoMaxLidChars)}";
+
+// Render Part Selector: "all", "base", "lid", "lid_inlay", "tray", "latch"
+render_part = "all";
+
+// --- 2. MAGNET POSITIONS (Relative to Tray Center) ---
+function magnet_coords() =
+    let(
+        mx = tray_x/2 - 7.5,
+        my = tray_y/2 - 7.5
+    )
+    use_center_magnets
+    ? [[-mx, -my], [mx, -my], [-mx, my], [mx, my], [0, -my], [0, my]]
+    : [[-mx, -my], [mx, -my], [-mx, my], [mx, my]];
+
+// --- 3. REMOVABLE SELF-STANDING TRAY ---
+module ammo_tray() {
+    difference() {
+        union() {
+            // Main perforated block
+            translate([-tray_x/2, -tray_y/2, foot_h])
+                rounded_box(tray_x, tray_y, tray_z - foot_h, 2.5);
+
+            // Self-standing flared bench feet (house the 8x3mm magnets)
+            for (pt = magnet_coords()) {
+                translate([pt[0], pt[1], 0])
+                    cylinder(d1 = 13.0, d2 = 14.5, h = foot_h + 0.5);
+            }
+        }
+
+        // Cartridge Grid Cavities
+        start_x = -((cols - 1) * pitch) / 2;
+        start_y = -((rows - 1) * pitch) / 2;
+        for (c = [0 : cols - 1]) {
+            for (r = [0 : rows - 1]) {
+                cx = start_x + c * pitch;
+                cy = start_y + r * pitch;
+                // Main bore
+                translate([cx, cy, foot_h + 2.0])
+                    cylinder(d = hole_dia, h = tray_z);
+                // Top lead-in chamfer for effortless round insertion
+                translate([cx, cy, tray_z - 1.2])
+                    cylinder(d1 = hole_dia, d2 = hole_dia + 1.2, h = 1.3);
+            }
+        }
+
+        // Bottom 8.15 x 3.15mm Magnet Pockets (CA Glue Seat)
+        for (pt = magnet_coords()) {
+            translate([pt[0], pt[1], -0.05])
+                cylinder(d = mag_d, h = mag_h + 0.05);
+        }
+    }
+}
+
+// --- 4. ARMORED LOWER SHELL ---
+module armored_base() {
+    inner_x = tray_x + clearance * 2;
+    inner_y = tray_y + clearance * 2;
+    floor_t = 4.2; // Thick floor to house 3.15mm magnet pockets
+
+    difference() {
+        union() {
+            // Main shell body
+            translate([-shell_x/2, -shell_y/2, 0])
+                rounded_box(shell_x, shell_y, base_z, 4.0);
+
+            // Rear M3x20mm Hinge Knuckles (Left & Right)
+            for (hx = [-shell_x/4, shell_x/4]) {
+                translate([hx, shell_y/2 + 2.5, base_z - 4.0])
+                    rotate([0, 90, 0])
+                        cylinder(d = 9.0, h = 20.0, center = true);
+            }
+
+            // Front Cam Latch Mount Knuckles
+            for (lx = [-shell_x/4, shell_x/4]) {
+                translate([lx, -shell_y/2 - 2.5, base_z - 9.0])
+                    rotate([0, 90, 0])
+                        cylinder(d = 8.5, h = 20.0, center = true);
+            }
+        }
+
+        // Interior Tray Cavity
+        translate([-inner_x/2, -inner_y/2, floor_t])
+            rounded_box(inner_x, inner_y, base_z, 2.5);
+
+        // Interior Floor Magnet Pockets (aligned with tray feet)
+        for (pt = magnet_coords()) {
+            translate([pt[0], pt[1], floor_t - mag_h])
+                cylinder(d = mag_d, h = mag_h + 0.1);
+        }
+
+        // M3x20mm Through-Holes & Captive Hex Nut Traps on Rear Hinges
+        for (hx = [-shell_x/4, shell_x/4]) {
+            translate([hx, shell_y/2 + 2.5, base_z - 4.0])
+                rotate([0, 90, 0]) {
+                    cylinder(d = m3_Clearance, h = 24.0, center = true);
+                    translate([0, 0, 10.0 - m3_Nut_Depth])
+                        cylinder(d = m3_Nut_Flat / cos(30), h = m3_Nut_Depth + 0.5, $fn = 6);
+                }
+        }
+
+        // M3x20mm Through-Holes & Captive Hex Nut Traps on Front Latch Mounts
+        for (lx = [-shell_x/4, shell_x/4]) {
+            translate([lx, -shell_y/2 - 2.5, base_z - 9.0])
+                rotate([0, 90, 0]) {
+                    cylinder(d = m3_Clearance, h = 24.0, center = true);
+                    translate([0, 0, 10.0 - m3_Nut_Depth])
+                        cylinder(d = m3_Nut_Flat / cos(30), h = m3_Nut_Depth + 0.5, $fn = 6);
+                }
+        }
+
+        // Bottom Interlocking Stacking Groove
+        translate([-(shell_x - 14)/2, -(shell_y - 14)/2, -0.1])
+            rounded_box(shell_x - 14, shell_y - 14, 2.2, 2.0);
+    }
+}
+
+// --- 5. ARMORED UPPER LID (WITH AMS TEXT INLAY & STACKING BOSS) ---
+module armored_lid() {
+    inner_x = tray_x + clearance * 2;
+    inner_y = tray_y + clearance * 2;
+
+    difference() {
+        union() {
+            translate([-shell_x/2, -shell_y/2, 0])
+                rounded_box(shell_x, shell_y, lid_z, 4.0);
+
+            // Top Interlocking Stacking Boss
+            translate([-(shell_x - 15.2)/2, -(shell_y - 15.2)/2, lid_z - 0.1])
+                rounded_box(shell_x - 15.2, shell_y - 15.2, 2.0, 2.0);
+        }
+
+        // Interior Lid Headspace Cavity
+        translate([-inner_x/2, -inner_y/2, -0.1])
+            rounded_box(inner_x, inner_y, lid_z - 3.0, 2.5);
+
+        // Top Lid Text Relief (0.6mm deep for AMS multi-color inlay or crisp deboss)
+        translate([0, 4, lid_z + 1.9 - 0.6])
+            linear_extrude(0.7)
+                text(lid_title, size = 7.5, font = "Liberation Sans:style=Bold", halign = "center", valign = "center");
+        translate([0, -6, lid_z + 1.9 - 0.6])
+            linear_extrude(0.7)
+                text(lid_subtitle, size = 4.5, font = "Liberation Mono:style=Bold", halign = "center", valign = "center");
+    }
+}
+
+// --- 6. HELPER: ROUNDED BOX ---
+module rounded_box(x, y, z, r) {
+    hull() {
+        translate([r, r, 0]) cylinder(r = r, h = z);
+        translate([x - r, r, 0]) cylinder(r = r, h = z);
+        translate([r, y - r, 0]) cylinder(r = r, h = z);
+        translate([x - r, y - r, 0]) cylinder(r = r, h = z);
+    }
+}
+
+// --- 7. ASSEMBLY / BUILD PLATE LAYOUT ---
+if (render_part == "all") {
+    armored_base();
+    translate([0, 0, 4.5]) ammo_tray();
+    translate([shell_x + 15, 0, 0]) armored_lid();
+} else if (render_part == "base") {
+    armored_base();
+} else if (render_part == "lid") {
+    armored_lid();
+} else if (render_part == "tray") {
+    ammo_tray();
+}
+`;
+  };
   const generateSpecSheet = () => {
     let spec = `====================================================\n`;
     spec += `    FIELDMATRIX 3D - PRINT & SHIP SPECIFICATION\n`;
@@ -723,12 +1061,30 @@ export default function App() {
     spec += `Order Channel: ${isEtsyMode ? 'ETSY PRESET ORDER' : 'DIRECT CUSTOM ORDER (SQUARE)'}\n`;
     spec += `Product Line : ${currentProductMeta.name} (${currentProductMeta.subtitle})\n`;
     if (isEtsyMode) {
-      spec += `Etsy Option  : ${activeTab === 'storage' ? `${sizePreset} (${tiers}T x ${drawersPerTier}D)` : `${cargoPreset} (${cargoWidth}x${cargoLength}x${cargoHeight}mm)`}\n\n`;
+      const etsyOptLabel =
+        activeTab === 'storage'
+          ? `${sizePreset} (${tiers}T x ${drawersPerTier}D)`
+          : activeTab === 'ammo'
+          ? `${ammoPreset} Rounds (${clampedAmmoCols}x${clampedAmmoRows} ${currentCalSpec.short})`
+          : `${cargoSizePreset}`; // (or whatever variable sits at the end of your existing line)
+      spec += `Etsy Option  : ${etsyOptLabel}\n\n`;
     } else {
       spec += `Est. Price   : $${calculatePrice().toFixed(2)}\n\n`;
     }
 
-    if (activeTab === 'storage') {
+    if (activeTab === 'ammo') {
+      spec += `[ 1. BALLISTIC VAULT CONFIGURATION ]\n`;
+      spec += `- Caliber           : ${currentCalSpec.name} (${currentCalSpec.short})\n`;
+      spec += `- Capacity          : ${ammoTotalRounds} Rounds (${clampedAmmoCols} Cols x ${clampedAmmoRows} Rows)\n`;
+      spec += `- Exterior Shell    : ${ammoShellX} x ${ammoShellY} x ${ammoShellZ} mm\n`;
+      spec += `- Standing Tray     : ${ammoTrayX} x ${ammoTrayY} x ${ammoTrayZ} mm\n`;
+      spec += `- Bore & Pitch      : Ø${currentCalSpec.holeDia} mm Hole / ${currentCalSpec.pitch} mm Pitch\n`;
+      spec += `- Hardware BOM      : 4x M3x20mm SHCS, 4x M3 Hex Nuts, ${ammoTotalMagnets}x (8x3mm) Magnets\n`;
+      spec += `- Colors (B/L/T/A)  : ${ammoBaseColor} / ${ammoLidColor} / ${ammoTrayColor} / ${ammoAccentColor}\n`;
+      spec += `- Lid Inlay Text    : "${ammoLidTitle}" / "${ammoLidSubtitle}"\n\n`;
+      spec += `[ 2. PARAMETRIC OPENSCAD SCRIPT ]\n\n`;
+      spec += generateAmmoMatrixScad();
+    } else if (activeTab === 'storage') {
       spec += `[ 1. GEOMETRY & CONFIGURATION ]\n`;
       spec += `- Preset Tier        : ${sizePreset}\n`;
       spec += `- Number of Tiers    : ${tiers}\n`;
@@ -1168,56 +1524,103 @@ complete_model();
     };
 
     if (activeTab === 'storage') {
-      const benchConfig = {
-        sizePreset,
-        tiers,
-        drawersPerTier,
-        opening,
-        handlePos,
-        width: Number(width),
-        depth: Number(depth),
-        height: Number(height),
-        singleTierHeightMm,
-        totalStackedHeightMm,
-        enableLabelSlot,
-        labelWidth,
-        labelHeight,
-        labelFont,
-        labels,
-        drawerDividers,
-        casingColorId,
-        casingColorHex: activeCasingColor.hex,
-        drawerColorId,
-        drawerColorHex: activeDrawerColor.hex
-      };
+    const benchConfig = {
+      sizePreset,
+      tiers,
+      drawersPerTier,
+      opening,
+      handlePos,
+      width: Number(width),
+      depth: Number(depth),
+      height: Number(height),
+      singleTierHeightMm,
+      totalStackedHeightMm,
+      enableLabelSlot,
+      labelWidth,
+      labelHeight,
+      labelFont,
+      labels,
+      drawerDividers,
+      casingColorId,
+      casingColorHex: activeCasingColor.hex,
+      drawerColorId,
+      drawerColorHex: activeDrawerColor.hex
+    };
 
-      return {
-        ...basePayload,
-        dimensionsSummary: `${sizePreset}: ${width}W x ${depth}D x ${totalStackedHeightMm}H mm (${tiers} Tiers, ${tiers * drawersPerTier} Drawers)`,
-        colorsSummary: `Casing: ${activeCasingColor.name} / Drawers: ${activeDrawerColor.name}`,
-        configuration: benchConfig,
-        productionOutput: {
-          specSheet: generateSpecSheet()
-        },
-        width: Number(width),
-        length: Number(depth),
-        height: Number(height),
-        scadCode: generateSpecSheet(),
-        tiers,
-        drawersPerTier,
-        opening,
-        handlePos,
-        enableLabelSlot,
-        labelWidth,
-        labelHeight,
-        labelFont,
-        labels,
-        drawerDividers,
-        casingColorId,
-        drawerColorId
-      };
-    }
+    return {
+      ...basePayload,
+      dimensionsSummary: `${sizePreset}: ${width}W x ${depth}D x ${totalStackedHeightMm}H mm (${tiers} Tiers, ${tiers * drawersPerTier} Drawers)`,
+      colorsSummary: `Casing: ${activeCasingColor.name} / Drawers: ${activeDrawerColor.name}`,
+      configuration: benchConfig,
+      productionOutput: {
+        specSheet: generateSpecSheet()
+      },
+      width: Number(width),
+      length: Number(depth),
+      height: Number(height),
+      scadCode: generateSpecSheet(),
+      tiers,
+      drawersPerTier,
+      opening,
+      handlePos,
+      enableLabelSlot,
+      labelWidth,
+      labelHeight,
+      labelFont,
+      labels,
+      drawerDividers,
+      casingColorId,
+      drawerColorId
+    };
+  } else if (activeTab === 'ammo') {
+    const ammoConfig = {
+      ammoCaliber,
+      cols: Number(clampedAmmoCols),
+      rows: Number(clampedAmmoRows),
+      totalRounds: Number(ammoTotalRounds),
+      preset: ammoPreset,
+      shellX: Number(ammoShellX),
+      shellY: Number(ammoShellY),
+      shellZ: Number(ammoShellZ),
+      trayX: Number(ammoTrayX),
+      trayY: Number(ammoTrayY),
+      trayZ: Number(ammoTrayZ),
+      baseColor: ammoBaseColor,
+      lidColor: ammoLidColor,
+      trayColor: ammoTrayColor,
+      accentColor: ammoAccentColor,
+      lidTitle: ammoLidTitle,
+      lidSubtitle: ammoLidSubtitle,
+      magnetsCount: Number(ammoTotalMagnets)
+    };
 
+    return {
+      ...basePayload,
+      dimensionsSummary: `${currentCalSpec.name} (${ammoTotalRounds} Rds): ${ammoShellX}W x ${ammoShellY}L x ${ammoShellZ}H mm`,
+      colorsSummary: `Base: ${ammoBaseColor} / Lid: ${ammoLidColor} / Tray: ${ammoTrayColor}`,
+      configuration: ammoConfig,
+      productionOutput: {
+        scadFilename: `ammomatrix_${ammoCaliber}_${clampedAmmoCols}x${clampedAmmoRows}.scad`,
+        scadCode: generateAmmoMatrixScad(),
+        specSheet: generateSpecSheet()
+      },
+      width: Number(ammoShellX),
+      length: Number(ammoShellY),
+      height: Number(ammoShellZ),
+      scadCode: generateAmmoMatrixScad(),
+      scadFilename: `ammomatrix_${ammoCaliber}_${clampedAmmoCols}x${clampedAmmoRows}.scad`,
+      ammoCaliber,
+      ammoCols: clampedAmmoCols,
+      ammoRows: clampedAmmoRows,
+      ammoPreset,
+      ammoBaseColor,
+      ammoLidColor,
+      ammoTrayColor,
+      ammoAccentColor,
+      ammoLidTitle,
+      ammoLidSubtitle
+    };
+  } else {
     const cargoConfig = {
       cargoPreset,
       cargoWidth: Number(cargoWidth),
@@ -1267,7 +1670,8 @@ complete_model();
       cargoFont,
       cargoBorder
     };
-  };
+  }
+};
 
   const saveDesignToFirestore = async (codeToSave) => {
     if (!db) return;
@@ -1351,12 +1755,15 @@ complete_model();
       setHeight(15.5);
       setTiers(2);
       setDrawersPerTier(4);
-    } else {
-      // Cargo Matrix default direct dimensions
-      // Adjust these fallback values to match your specific Cargo Matrix defaults
+    } else if (activeTab === 'cargo') {
       setCargoWidth(120);
       setCargoDepth(90);
       setCargoHeight(20);
+    } else if (activeTab === 'ammo') {
+      setAmmoCaliber('22lr');
+      setAmmoCols(10);
+      setAmmoRows(5);
+      setAmmoPreset('50');
     }
   };
 
@@ -1448,6 +1855,18 @@ complete_model();
           setDrawerDividers(cfg.drawerDividers || {});
           setCasingColorId(cfg.casingColorId || 'cocoa-brown');
           setDrawerColorId(cfg.drawerColorId || 'matte-latte-brown');
+        } else if (data.productLine === 'ammo' || cfg.ammoCaliber) {
+          setActiveTab('ammo');
+          if (cfg.ammoCaliber) setAmmoCaliber(cfg.ammoCaliber);
+          if (cfg.ammoCols) setAmmoCols(cfg.ammoCols);
+          if (cfg.ammoRows) setAmmoRows(cfg.ammoRows);
+          if (cfg.ammoPreset) setAmmoPreset(cfg.ammoPreset);
+          if (cfg.ammoBaseColor) setAmmoBaseColor(cfg.ammoBaseColor);
+          if (cfg.ammoLidColor) setAmmoLidColor(cfg.ammoLidColor);
+          if (cfg.ammoTrayColor) setAmmoTrayColor(cfg.ammoTrayColor);
+          if (cfg.ammoAccentColor) setAmmoAccentColor(cfg.ammoAccentColor);
+          if (cfg.ammoLidTitle !== undefined) setAmmoLidTitle(cfg.ammoLidTitle);
+          if (cfg.ammoLidSubtitle !== undefined) setAmmoLidSubtitle(cfg.ammoLidSubtitle);
         } else {
           setActiveTab('cargo');
           if (cfg.cargoPreset) setCargoPreset(cfg.cargoPreset);
@@ -1832,7 +2251,153 @@ complete_model();
         hSprite.position.set(width / 2 + 38, singleTierH / 2, depth / 2);
         group.add(hSprite);
       }
-    } else {
+    } else if (activeTab === 'ammo') {
+      // ==========================================
+      // THE AMMOMATRIX (BALLISTIC VAULT SERIES)
+      // ==========================================
+      const baseMat = new THREE.MeshStandardMaterial({
+        color: ammoBaseColor,
+        roughness: 0.6,
+        transparent: showMagnetXray,
+        opacity: showMagnetXray ? 0.35 : 1.0
+      });
+      const lidMat = new THREE.MeshStandardMaterial({
+        color: ammoLidColor,
+        roughness: 0.6,
+        transparent: showMagnetXray,
+        opacity: showMagnetXray ? 0.35 : 1.0
+      });
+      const trayMat = new THREE.MeshStandardMaterial({
+        color: ammoTrayColor,
+        roughness: 0.7,
+        transparent: showMagnetXray,
+        opacity: showMagnetXray ? 0.6 : 1.0
+      });
+      const accentMat = new THREE.MeshStandardMaterial({ color: ammoAccentColor, roughness: 0.4 });
+      const brassMat = new THREE.MeshStandardMaterial({ color: '#b5a642', metalness: 0.8, roughness: 0.2 });
+      const leadMat = new THREE.MeshStandardMaterial({ color: '#7a7a7a', metalness: 0.3, roughness: 0.6 });
+      const magMat = new THREE.MeshBasicMaterial({ color: '#06b6d4', wireframe: true });
+      const xrayLineMat = new THREE.LineDashedMaterial({ color: 0x06b6d4, dashSize: 2, gapSize: 2 });
+
+      const baseZ = ammoShellZ - 12.0; 
+      const ammoGroup = new THREE.Group();
+      
+      // 1. Armored Base Shell
+      const baseMesh = new THREE.Mesh(new THREE.BoxGeometry(ammoShellX, baseZ, ammoShellY), baseMat);
+      baseMesh.position.y = baseZ / 2;
+      ammoGroup.add(baseMesh);
+      
+      // Front Cam Latches (Visual representation)
+      const latchW = 20;
+      for (const lx of [-ammoShellX/4, ammoShellX/4]) {
+          const latch = new THREE.Mesh(new THREE.BoxGeometry(latchW, baseZ - 4, 4), accentMat);
+          latch.position.set(lx, baseZ/2, -ammoShellY/2 - 2);
+          ammoGroup.add(latch);
+      }
+      
+      // 2. Articulated Lid
+      const lidPivot = new THREE.Group();
+      lidPivot.position.set(0, baseZ, ammoShellY / 2);
+      lidPivot.rotation.x = THREE.MathUtils.degToRad(-ammoHingeAngle || 0);
+      
+      const lidMesh = new THREE.Mesh(new THREE.BoxGeometry(ammoShellX, 12.0, ammoShellY), lidMat);
+      lidMesh.position.set(0, 6.0, -ammoShellY / 2);
+      lidPivot.add(lidMesh);
+      ammoGroup.add(lidPivot);
+      
+      // 3. Removable Tray & Ammo
+      let trayWorldY = baseZ - 2.0; // Seated default (flush inside cavity)
+      let trayWorldZ = 0;
+      
+      if (ammoTrayPose === 'extracted') {
+          trayWorldY = baseZ + ammoTrayZ + 15; // Hovering above
+      } else if (ammoTrayPose === 'bench') {
+          trayWorldY = ammoTrayZ / 2 + 4.5;
+          trayWorldZ = -ammoShellY - 15; // Placed on the table in front
+      }
+      
+      const trayGroup = new THREE.Group();
+      trayGroup.position.set(0, trayWorldY, trayWorldZ);
+      
+      const trayMesh = new THREE.Mesh(new THREE.BoxGeometry(ammoTrayX, ammoTrayZ, ammoTrayY), trayMat);
+      trayGroup.add(trayMesh);
+      
+      // Corner Feet & Magnets
+      const footH = 4.5;
+      const mx = ammoTrayX / 2 - 7.5;
+      const my = ammoTrayY / 2 - 7.5;
+      const useCenter = ammoShellX >= 150;
+      const magCoords = useCenter ? 
+        [[-mx, -my], [mx, -my], [-mx, my], [mx, my], [0, -my], [0, my]] :
+        [[-mx, -my], [mx, -my], [-mx, my], [mx, my]];
+        
+      magCoords.forEach(([fx, fy]) => {
+          // PETG Flared Foot
+          const foot = new THREE.Mesh(new THREE.CylinderGeometry(6.5, 7.25, footH, 16), accentMat);
+          foot.position.set(fx, -ammoTrayZ / 2 - footH / 2, fy);
+          trayGroup.add(foot);
+          
+          if (showMagnetXray) {
+             // Tray Magnet
+             const trayMag = new THREE.Mesh(new THREE.CylinderGeometry(4.07, 4.07, 3.15, 12), magMat);
+             trayMag.position.set(fx, -ammoTrayZ / 2 - footH + 1.5, fy);
+             trayGroup.add(trayMag);
+             
+             // Shell Floor Magnet & Force Line (only if not placed far away on bench)
+             if (ammoTrayPose !== 'bench') {
+                 const baseMag = new THREE.Mesh(new THREE.CylinderGeometry(4.07, 4.07, 3.15, 12), magMat);
+                 baseMag.position.set(fx, 4.2 + 1.5, fy); // Floor thickness
+                 ammoGroup.add(baseMag);
+                 
+                 // Dash line
+                 const pts = [];
+                 pts.push(new THREE.Vector3(fx, 4.2 + 3.15, fy));
+                 pts.push(new THREE.Vector3(fx, trayWorldY - ammoTrayZ / 2 - footH, fy));
+                 const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+                 const forceLine = new THREE.Line(lineGeo, xrayLineMat);
+                 forceLine.computeLineDistances();
+                 ammoGroup.add(forceLine);
+             }
+          }
+      });
+      
+      // Brass Cartridges
+      if (showAmmoRounds && currentCalSpec) {
+         const startX = -((clampedAmmoCols - 1) * currentCalSpec.pitch) / 2;
+         const startY = -((clampedAmmoRows - 1) * currentCalSpec.pitch) / 2;
+         const caseH = currentCalSpec.oal * 0.7;
+         const bulletH = currentCalSpec.oal * 0.3;
+         const rad = currentCalSpec.holeDia / 2 - 0.15;
+         
+         const bulletGeo = new THREE.Group();
+         const brass = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad, caseH, 16), brassMat);
+         brass.position.y = caseH / 2;
+         bulletGeo.add(brass);
+         const tip = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.4, rad, bulletH, 16), leadMat);
+         tip.position.y = caseH + bulletH / 2;
+         bulletGeo.add(tip);
+         
+         for (let c = 0; c < clampedAmmoCols; c++) {
+             for (let r = 0; r < clampedAmmoRows; r++) {
+                 const b = bulletGeo.clone();
+                 b.position.set(startX + c * currentCalSpec.pitch, -ammoTrayZ / 2 + 1.0, startY + r * currentCalSpec.pitch);
+                 trayGroup.add(b);
+             }
+         }
+      }
+      
+      ammoGroup.add(trayGroup);
+      group.add(ammoGroup);
+      
+      if (showDimensions) {
+        const wSprite = createDimensionSprite(`${ammoShellX} mm W`);
+        wSprite.position.set(0, 10, ammoShellY / 2 + 20);
+        group.add(wSprite);
+        const lSprite = createDimensionSprite(`${ammoShellY} mm L`);
+        lSprite.position.set(ammoShellX / 2 + 20, 10, 0);
+        group.add(lSprite);
+      }
+    } else if (activeTab === 'cargo') {
       // ==========================================
       // THE CARGO MATRIX (PRINT-IN-PLACE CLAMSHELL)
       // ==========================================
@@ -2074,7 +2639,18 @@ complete_model();
     cargoText,
     cargoFont,
     cargoBorder,
-    foldAngle
+    foldAngle,
+    ammoCaliber,
+    ammoCols,
+    ammoRows,
+    ammoBaseColor,
+    ammoLidColor,
+    ammoTrayColor,
+    ammoAccentColor,
+    ammoHingeAngle,
+    ammoTrayPose,
+    showAmmoRounds,
+    showMagnetXray
   ]);
 
   useEffect(() => {
@@ -2508,7 +3084,7 @@ complete_model();
           </div>
 
           {/* DYNAMIC PRODUCT CATALOG SELECTOR */}
-          <div className="grid grid-cols-2 gap-1.5 bg-[#090d16] p-1 rounded-lg border border-[#1e293b] mt-2.5">
+          <div className="grid grid-cols-3 gap-1.5 bg-[#090d16] p-1 rounded-lg border border-[#1e293b] mt-2.5">
             {Object.values(PRODUCT_CATALOG).map((prod) => (
               <button
                 key={prod.id}
@@ -2519,7 +3095,7 @@ complete_model();
                     : 'text-[#94a3b8] hover:text-white'
                 }`}
               >
-                {prod.id === 'storage' ? <Sliders size={13} /> : <Box size={13} />} {prod.name}
+                {prod.id === 'storage' ? <Sliders size={13} /> : prod.id === 'ammo' ? <Shield size={13} className="text-amber-400" /> : <Box size={13} />} {prod.name}
               </button>
             ))}
           </div>
@@ -3308,6 +3884,62 @@ complete_model();
             >
               <RotateCcw size={12} /> Reset
             </button>
+            {activeTab === 'ammo' && (
+              <>
+                {/* Lid Hinge Slider */}
+                <div className="flex items-center gap-2 px-3 py-1 rounded border bg-[#151e31] border-[#1e293b] text-xs text-[#94a3b8]">
+                  <span className="uppercase tracking-wider text-[10px] font-bold">Lid Hinge ({ammoHingeAngle}°)</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={110}
+                    step={5}
+                    value={ammoHingeAngle}
+                    onChange={(e) => setAmmoHingeAngle(Number(e.target.value))}
+                    className="w-20 accent-amber-500 cursor-pointer"
+                  />
+                </div>
+
+                {/* Tray Pose Switcher */}
+                <div className="flex items-center gap-1 px-1 py-1 rounded border bg-[#151e31] border-[#1e293b]">
+                  <span className="text-[#94a3b8] text-[10px] uppercase font-bold tracking-wider px-2">Tray:</span>
+                  {['seated', 'extracted', 'bench'].map((pose) => (
+                    <button
+                      key={pose}
+                      onClick={() => setAmmoTrayPose(pose)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
+                        ammoTrayPose === pose
+                          ? 'bg-amber-500 text-slate-900'
+                          : 'text-[#94a3b8] hover:text-white'
+                      }`}
+                    >
+                      {pose === 'seated' ? 'Seated' : pose === 'extracted' ? 'Extracted' : 'Bench'}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Toggle Switches */}
+                <label className="flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded border bg-[#151e31] border-[#1e293b]">
+                  <input
+                    type="checkbox"
+                    checked={showAmmoRounds}
+                    onChange={(e) => setShowAmmoRounds(e.target.checked)}
+                    className="accent-amber-500"
+                  />
+                  <span className="text-amber-400 text-[10px] font-bold uppercase tracking-wider">Show Rounds</span>
+                </label>
+
+                <label className="flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded border bg-[#151e31] border-[#1e293b]">
+                  <input
+                    type="checkbox"
+                    checked={showMagnetXray}
+                    onChange={(e) => setShowMagnetXray(e.target.checked)}
+                    className="accent-cyan-500"
+                  />
+                  <span className="text-cyan-400 text-[10px] font-bold uppercase tracking-wider">Magnet X-Ray</span>
+                </label>
+              </>
+            )}
           </div>
         </header>
 
