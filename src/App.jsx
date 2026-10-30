@@ -381,25 +381,27 @@ function createCargoLidTexture(text, textHex = '#1A1A1A', fontName = 'Impact', s
 function createBadgeTexture({
   caliberSpec,
   customText,
-  showRoundCount = true,
+  showRoundCount = false,
   fontFamily = 'Impact',
-  lidColorHex = '#222222',
+  lidColorHex = '#000000',
   accentColorHex = '#F36B21',
-  rounds = 50
+  rounds = 50,
+  showBorder = true
 }) {
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
   canvas.height = 512;
   const ctx = canvas.getContext('2d');
 
-  // Fill Background
-  ctx.fillStyle = lidColorHex;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // 1. CLEAR TRANSPARENT BACKGROUND (Eliminates the mismatched rectangle patch!)
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Draw Border
-  ctx.strokeStyle = accentColorHex;
-  ctx.lineWidth = 16;
-  ctx.strokeRect(24, 24, canvas.width - 48, canvas.height - 48);
+  // 2. OPTIONAL BORDER
+  if (showBorder) {
+    ctx.strokeStyle = accentColorHex;
+    ctx.lineWidth = 16;
+    ctx.strokeRect(24, 24, canvas.width - 48, canvas.height - 48);
+  }
 
   ctx.fillStyle = accentColorHex;
   ctx.textAlign = 'center';
@@ -552,6 +554,7 @@ export default function App() {
   const [ammoCols, setAmmoCols] = useState(10);
   const [ammoRows, setAmmoRows] = useState(5);
   const [ammoLidFont, setAmmoLidFont] = useState('Impact');
+  const [enableAmmoLidBorder, setEnableAmmoLidBorder] = useState(true);
   
   // Colors are stored as hex strings from the BAMBU_PETG_COLORS array
   const [ammoBaseColor, setAmmoBaseColor] = useState(BAMBU_PETG_COLORS.find(c => c.id === 'petg-pine-green')?.hex || '#2C4C3B');
@@ -575,13 +578,20 @@ export default function App() {
   const ammoTotalRounds = clampedAmmoCols * clampedAmmoRows;
 
   // Standing Tray & Exterior Shell Millimeter Math
-  const ammoTrayX = Number((clampedAmmoCols * currentCalSpec.pitch + 6.4).toFixed(1));
+  const isOddAmmoCols = clampedAmmoCols % 2 !== 0;
+  const ammoSpineAllowance = clampedAmmoCols > 1
+    ? 6.5 + (isOddAmmoCols ? (currentCalSpec?.pitch || 12) : 0)
+    : 0;
+  const ammoTrayX = currentCalSpec
+    ? Number((clampedAmmoCols * currentCalSpec.pitch + ammoSpineAllowance + 6.4).toFixed(2))
+    : 120;
   const ammoTrayY = Number((clampedAmmoRows * currentCalSpec.pitch + 6.4).toFixed(1));
   const ammoTrayZ = currentCalSpec.trayZ;
 
   const ammoShellX = Number((ammoTrayX + 12.8).toFixed(1));
   const ammoShellY = Number((ammoTrayY + 12.8).toFixed(1));
-  const ammoShellZ = currentCalSpec ? Math.max(currentCalSpec.shellZ, Math.ceil(currentCalSpec.oal + 14.5)) : 40.5;
+// Box shell depth automatically scales to fit the handle & tall rounds!
+  const ammoShellZ = currentCalSpec ? Math.ceil(currentCalSpec.oal + 32) : 58;
 
   // Magnet scaling: 4 pairs (8 magnets) under 150mm, 6 pairs (12 magnets) at or above 150mm
   const ammoMagnetPairs = ammoShellX >= 150 ? 6 : 4;
@@ -937,264 +947,176 @@ export default function App() {
     }
   };
 
-  const generateAmmoMatrixScad = () => {
-    const cal = currentCalSpec || AMMO_CALIBERS['9mm'];
-    const baseZ = +(ammoShellZ - 12.0).toFixed(1);
-    const magCount = ammoShellX >= 150 ? 12 : 8;
-    const twoLatches = ammoShellX >= 130 ? 1 : 0;
+  const generateAmmoMatrixScad = (exportMode = scadExportMode) => {
+    const cal = AMMO_CALIBERS[ammoCaliber] || AMMO_CALIBERS['9mm'];
+    const oal = cal.oal || 29.7;
+    const cols = clampedAmmoCols;
+    const rows = clampedAmmoRows;
+    const totalRounds = cols * rows; // FULL CAPACITY - ZERO ROUNDS SACRIFICED!
+
+    const boreDia = Number((cal.holeDia || 10.3).toFixed(2));
+    const pitch = Number((cal.pitch || (boreDia + 2.0)).toFixed(2));
+    const trayWall = 3.2;
+    const centerGap = 6.5;
+    
+
+    // Total width incorporates the 6.5mm center spine
+    const isOddCols = cols % 2 !== 0;
+    const spineAllowance = cols > 1 ? centerGap + (isOddCols ? pitch : 0) : 0;
+    const trayW = Number((cols * pitch + spineAllowance + trayWall * 2).toFixed(2));
+    const trayD = Number((rows * pitch + trayWall * 2).toFixed(2));
+    const trayH = Number((cal.trayZ || Math.max(16.5, oal * 0.58)).toFixed(2));
+    const tipConicalDepth = 3.5;
+    const floorThick = 2.4;
+    const fingerClearance = 14.0;
+
+    // Caliber-aware handle height calculation
+    const handleTotalH = Number((oal + floorThick + fingerClearance).toFixed(2));
+    const shaftH = Number(Math.max(4.0, handleTotalH - trayH).toFixed(2));
+    const shellInnerZ = Number(Math.max(oal + 6.0, handleTotalH + 3.0).toFixed(2));
+
+    const titleText = (ammoLidTitle || cal.short || '9MM').trim();
+    const subText = showAmmoRoundCount ? `${totalRounds} RDS` : '';
 
     return `// ============================================================================
-// FIELD MATRIX // AMMOMATRIX BALLISTIC VAULT — PARAMETRIC OPENSCAD
+// FIELDMATRIX 3D - AMMO MATRIX (CENTER SPINE SPLIT - 100% CAPACITY)
 // Design Code : ${designCode}
-// Caliber     : ${cal.name} (${ammoTotalRounds} Rounds: ${clampedAmmoCols}x${clampedAmmoRows})
-// Shell Size  : ${ammoShellX} x ${ammoShellY} x ${ammoShellZ} mm
-// Tray Size   : ${ammoTrayX} x ${ammoTrayY} x ${ammoTrayZ} mm
-// Hardware    : 4x M3x20mm SHCS + 4x M3 Hex Nuts + ${magCount}x (8x3mm) Neodymium Magnets
+// Caliber     : ${cal.name} (${cal.short}) - OAL: ${oal}mm
+// Capacity    : ${totalRounds} Rounds (${cols} Cols x ${rows} Rows - All Rounds Kept)
+// Export Mode : ${exportMode.toUpperCase()}
 // ============================================================================
 
 $fn = 48;
 
-// --- 1. PARAMETERS ---
-cols = ${clampedAmmoCols};
-rows = ${clampedAmmoRows};
-hole_dia = ${cal.holeDia};
-pitch = ${cal.pitch};
+export_part = "${exportMode}";
 
-shell_x = ${ammoShellX};
-shell_y = ${ammoShellY};
-shell_z = ${ammoShellZ};
-base_z  = ${baseZ};
-lid_z   = 12.0;
+cols = ${cols};
+rows = ${rows};
+bore_d = ${boreDia};
+pitch = ${pitch};
+round_oal = ${oal};
 
-wall_t    = 3.2;
-floor_t   = 4.2;
-corner_r  = 4.0;
-rib_t     = 1.8;
-rib_w     = 10.0;
+tray_wall = ${trayWall};
+tray_w = ${trayW};
+tray_d = ${trayD};
+tray_h = ${trayH};
+floor_thick = ${floorThick};
+tip_cone_h = ${tipConicalDepth};
+center_gap = ${centerGap};
 
-tray_x = ${ammoTrayX};
-tray_y = ${ammoTrayY};
-tray_z = ${ammoTrayZ};
-foot_h = 4.5;
+shell_clearance = 0.6;
+shell_wall = 3.2;
+inner_z = ${shellInnerZ};
 
-mag_dia = 8.15;
-mag_h   = 3.15;
-m3_bore = 3.2;
+lid_title = "${titleText}";
+lid_sub = "${subText}";
+lid_font = "${ammoLidFont || 'Impact'}";
 
-lid_title    = "${ammoLidTitle}";
-lid_subtitle = "${showAmmoRoundCount ? `${ammoTotalRounds} RDS` : ''}";
-two_latches  = ${twoLatches};
+snap_tol = 0.22;
+handle_total_h = ${handleTotalH};
+shaft_h = ${shaftH};
+tbar_w = min(tray_w * 0.45, max(30, pitch * 2.2));
 
-// --- 2. MAGNET POSITIONS ---
-mx = tray_x / 2 - 7.5;
-my = tray_y / 2 - 7.5;
-mag_coords = (shell_x >= 150)
-    ? [[-mx, -my], [mx, -my], [-mx, my], [mx, my], [0, -my], [0, my]]
-    : [[-mx, -my], [mx, -my], [-mx, my], [mx, my]];
-
-latch_coords = (two_latches == 1)
-    ? [-shell_x * 0.23, shell_x * 0.23]
-    : [0];
-
-// --- 3. ARMORED LOWER SHELL ---
-module armored_lower_shell() {
-    knuckle_w = min(28, shell_x * 0.22);
-    hinge_r   = 4.2;
-    hinge_y   = -shell_y / 2 - hinge_r * 0.65;
-
+module ballistic_tray() {
     difference() {
-        union() {
-            // Main Rounded Outer Shell
-            rounded_box(shell_x, shell_y, base_z, corner_r);
+        hull() {
+            translate([1.2, 1.2, 0])
+                cube([tray_w - 2.4, tray_d - 2.4, 1.2]);
+            translate([0, 0, 1.2])
+                cube([tray_w, tray_d, tray_h - 1.2]);
+        }
 
-            // Exterior-Only Tactical Ribs (Union BEFORE interior subtraction)
-            exterior_ribs(base_z - 2.0);
+        // Generate holes measured around the dead-center 6.5mm spine at tray_w / 2
+        left_cols = ceil(cols / 2);
+        
+        for (r = [0 : rows - 1]) {
+            for (c = [0 : cols - 1]) {
+                col_offset = (c >= left_cols) ? center_gap : 0;
+                cx = (cols == 1)
+                    ? (tray_w / 2)
+                    : (tray_w / 2) - (center_gap / 2) - (left_cols * pitch) + (pitch / 2) + (c * pitch) + col_offset;
+                cy = tray_wall + (r * pitch) + (pitch / 2);
 
-            // Rear M3 Knuckle Hinge Barrels (Left & Right Base Knuckles)
-            for (side = [-1, 1]) {
-                translate([side * (knuckle_w * 1.05), hinge_y, base_z])
-                    rotate([0, 90, 0])
-                    cylinder(r=hinge_r, h=knuckle_w, center=true);
-                // Structural hull gusset to back wall
-                hull() {
-                    translate([side * (knuckle_w * 1.05), hinge_y, base_z])
-                        rotate([0, 90, 0])
-                        cylinder(r=hinge_r, h=knuckle_w, center=true);
-                    translate([side * (knuckle_w * 1.05), -shell_y / 2 + 1.0, base_z - 6.0])
-                        cube([knuckle_w, 2.0, 12.0], center=true);
-                }
-            }
+                translate([cx, cy, 0]) {
+                    translate([0, 0, floor_thick])
+                        cylinder(h = tip_cone_h + 0.05, d1 = bore_d * 0.42, d2 = bore_d);
 
-            // Front Cam-Latch Clevis Mounts
-            for (lx = latch_coords) {
-                for (cx = [-8.5, 8.5]) {
-                    translate([lx + cx, shell_y / 2 + 2.75, base_z - 8.0])
-                        cube([3.2, 5.5, 12.0], center=true);
+                    translate([0, 0, floor_thick + tip_cone_h])
+                        cylinder(h = tray_h, d = bore_d);
+
+                    translate([0, 0, tray_h - 0.9])
+                        cylinder(h = 1.0, d1 = bore_d, d2 = bore_d + 1.2);
                 }
             }
         }
 
-        // Subtract Strictly Hollow Interior Cavity (Guarantees ribs never enter interior!)
-        translate([0, 0, floor_t])
-            rounded_box(shell_x - wall_t * 2, shell_y - wall_t * 2, base_z + 2.0, max(1.0, corner_r - wall_t));
-
-        // Rear M3 Hinge Pin Bore
-        translate([0, hinge_y, base_z])
-            rotate([0, 90, 0])
-            cylinder(d=m3_bore, h=shell_x + 10, center=true);
-
-        // Front M3 Cam-Latch Pivot Pin Bores
-        for (lx = latch_coords) {
-            translate([lx, shell_y / 2 + 3.5, base_z - 6.0])
-                rotate([0, 90, 0])
-                cylinder(d=m3_bore, h=28, center=true);
-        }
-
-        // Base Floor Embedded Magnet Pockets (Ø8x3mm)
-        for (pt = mag_coords) {
-            translate([pt[0], pt[1], floor_t - mag_h + 0.05])
-                cylinder(d=mag_dia, h=mag_h + 0.1);
+        // Center snap-fit sockets built into the dead-center spine (removed handle_offset_x)
+        for (y_off = [-rows * pitch * 0.25, rows * pitch * 0.25]) {
+            translate([tray_w / 2, tray_d / 2 + y_off, 0])
+                snap_socket_cutout();
         }
     }
 }
 
-// --- 4. ARMORED UPPER LID ---
-module armored_upper_lid() {
-    knuckle_w = min(28, shell_x * 0.22);
-    hinge_r   = 4.2;
-    hinge_y   = -shell_y / 2 - hinge_r * 0.65;
+module snap_socket_cutout() {
+    translate([0, 0, tray_h / 2])
+        cube([3.8 + snap_tol * 2, 5.4 + snap_tol * 2, tray_h + 2], center = true);
+
+    translate([0, 0, 1.4])
+        cube([5.4 + snap_tol * 2, 5.6 + snap_tol * 2, 2.9], center = true);
+}
+
+module snap_in_t_handle(print_flat = false) {
+    rotate(print_flat ? [90, 0, 0] : [0, 0, 0])
+    translate(print_flat ? [0, 0, 2.6] : [tray_w / 2, tray_d / 2, 0]) {
+        translate([0, 0, handle_total_h - 2.5])
+            cube([tbar_w, 5.2, 5.0], center = true);
+
+        for (i = [-2 : 2]) {
+            translate([i * 5.0, 0, handle_total_h + 0.4])
+                cube([1.6, 5.2, 1.0], center = true);
+        }
+
+        // Center spine bridge matching the 6.5mm gap
+        translate([0, 0, tray_h + 1.2])
+            cube([center_gap, tray_d - (tray_wall * 2) - 4, 2.4], center = true);
+
+        // Dual posts & prongs
+        for (y_off = [-rows * pitch * 0.25, rows * pitch * 0.25]) {
+            translate([0, y_off, 0])
+                handle_post_and_prong();
+        }
+    }
+}
+
+module handle_post_and_prong() {
+    translate([0, 0, tray_h + shaft_h / 2])
+        cube([3.8, 5.2, shaft_h], center = true);
 
     difference() {
         union() {
-            // Main Rounded Lid Shell
-            rounded_box(shell_x, shell_y, lid_z, corner_r);
+            translate([0, 0, tray_h / 2])
+                cube([3.8, 5.2, tray_h], center = true);
 
-            // Exterior-Only Lid Tactical Ribs
-            exterior_ribs(lid_z - 1.5);
-
-            // Center M3 Hinge Knuckle
             hull() {
-                translate([0, hinge_y, 0])
-                    rotate([0, 90, 0])
-                    cylinder(r=hinge_r, h=knuckle_w - 0.6, center=true);
-                translate([0, -shell_y / 2 + 1.0, 4.0])
-                    cube([knuckle_w - 0.6, 2.0, 8.0], center=true);
-            }
-
-            // Front Upper Latch Catch Hooks
-            for (lx = latch_coords) {
-                translate([lx, shell_y / 2 + 2.2, 3.25])
-                    cube([13.0, 4.5, 6.5], center=true);
+                translate([0, 0, 2.6])
+                    cube([5.2, 5.2, 0.8], center = true);
+                translate([0, 0, 0.4])
+                    cube([3.6, 5.2, 0.8], center = true);
             }
         }
-
-        // Subtract Hollow Lid Interior
-        translate([0, 0, -0.1])
-            rounded_box(shell_x - wall_t * 2, shell_y - wall_t * 2, lid_z - 3.0, max(1.0, corner_r - wall_t));
-
-        // Center Hinge M3 Pin Bore
-        translate([0, hinge_y, 0])
-            rotate([0, 90, 0])
-            cylinder(d=m3_bore, h=knuckle_w + 6, center=true);
-
-        // Recessed Top Badge Cavity & Text Inlay
-        translate([0, 4, lid_z - 0.8])
-            linear_extrude(1.0)
-            text(lid_title, size=min(14, shell_x * 0.09), font="Impact:style=Bold", halign="center", valign="center");
-        translate([0, -shell_y * 0.18, lid_z - 0.8])
-            linear_extrude(1.0)
-            text(lid_subtitle, size=min(8, shell_x * 0.05), font="Liberation Mono:style=Bold", halign="center", valign="center");
+        translate([0, 0, tray_h * 0.35])
+            cube([1.2, 10, tray_h * 0.75], center = true);
     }
 }
 
-// --- 5. REMOVABLE MAGNETIC STANDING TRAY ---
-module standing_ammo_tray() {
-    start_x = -((cols - 1) * pitch) / 2;
-    start_y = -((rows - 1) * pitch) / 2;
-
-    difference() {
-        union() {
-            // Main Tray Block raised by foot_h
-            translate([0, 0, foot_h])
-                rounded_box(tray_x, tray_y, tray_z, 2.5);
-
-            // Tapered Magnetic Standoff Feet
-            for (pt = mag_coords) {
-                translate([pt[0], pt[1], 0])
-                    cylinder(r1=6.5, r2=7.25, h=foot_h + 0.2);
-            }
-        }
-
-        // Precision Cartridge Bores
-        for (c = [0 : cols - 1]) {
-            for (r = [0 : rows - 1]) {
-                translate([start_x + c * pitch, start_y + r * pitch, foot_h + 1.5])
-                    cylinder(d=hole_dia, h=tray_z);
-            }
-        }
-
-        // Underside Foot Magnet Pockets (Ø8x3mm)
-        for (pt = mag_coords) {
-            translate([pt[0], pt[1], -0.05])
-                cylinder(d=mag_dia, h=mag_h + 0.1);
-        }
-    }
-}
-
-// --- 6. HELPER: ROUNDED BOX, EXTERIOR RIBS & CAM LATCH ---
-module rounded_box(w, l, h, r) {
-    hull() {
-        for (dx = [-w / 2 + r, w / 2 - r]) {
-            for (dy = [-l / 2 + r, l / 2 - r]) {
-                translate([dx, dy, 0])
-                    cylinder(r=r, h=h);
-            }
-        }
-    }
-}
-
-module exterior_ribs(h) {
-    for (dir = [-1, 1]) {
-        // Left & Right Exterior Vertical Ribs
-        translate([-shell_x / 2 - rib_t / 2, dir * (shell_y * 0.26), h / 2])
-            cube([rib_t, rib_w, h], center=true);
-        translate([shell_x / 2 + rib_t / 2, dir * (shell_y * 0.26), h / 2])
-            cube([rib_t, rib_w, h], center=true);
-
-        // Front & Back Exterior Vertical Ribs
-        translate([dir * (shell_x * 0.36), shell_y / 2 + rib_t / 2, h / 2])
-            cube([rib_w, rib_t, h], center=true);
-        translate([dir * (shell_x * 0.36), -shell_y / 2 - rib_t / 2, h / 2])
-            cube([rib_w, rib_t, h], center=true);
-    }
-}
-
-module tactical_cam_latch() {
-    difference() {
-        union() {
-            cube([13.2, 22.0, 4.2], center=true);
-            translate([0, -9.25, 1.3])
-                cube([13.2, 3.5, 6.8], center=true);
-        }
-        translate([0, 7.0, 0])
-            rotate([0, 90, 0])
-            cylinder(d=m3_bore, h=16, center=true);
-    }
-}
-
-// --- 7. ASSEMBLY / BUILD PLATE LAYOUT ---
-armored_lower_shell();
-
-translate([0, shell_y + 28, lid_z])
-    rotate([180, 0, 0])
-    armored_upper_lid();
-
-translate([shell_x + 28, 0, 0])
-    standing_ammo_tray();
-
-for (i = [0 : len(latch_coords) - 1]) {
-    translate([shell_x + 28 + i * 22, -shell_y / 2 - 20, 2.1])
-        tactical_cam_latch();
+if (export_part == "full") {
+    ballistic_tray();
+    color("${ammoAccentColor || '#F36B21'}") snap_in_t_handle(false);
+} else if (export_part == "tray_only" || export_part == "box_only") {
+    ballistic_tray();
+} else if (export_part == "handle_only") {
+    snap_in_t_handle(true);
 }
 `;
   };
@@ -1657,7 +1579,7 @@ complete_model();
     let filename = "";
 
     if (activeTab === 'ammo') {
-      scadContent = generateAmmoMatrixScad();
+      scadContent = generateAmmoMatrixScad(scadExportMode);
       filename = `ammomatrix_${ammoCaliber}_${clampedAmmoCols}x${clampedAmmoRows}.scad`;
     } else if (activeTab === 'cargo') {
       // Assuming you have a cargo generator too!
@@ -1777,13 +1699,13 @@ complete_model();
       configuration: ammoConfig,
       productionOutput: {
         scadFilename: `ammomatrix_${ammoCaliber}_${clampedAmmoCols}x${clampedAmmoRows}.scad`,
-        scadCode: generateAmmoMatrixScad(),
+        scadCode: generateAmmoMatrixScad(scadExportMode),
         specSheet: generateSpecSheet()
       },
       width: Number(ammoShellX),
       length: Number(ammoShellY),
       height: Number(ammoShellZ),
-      scadCode: generateAmmoMatrixScad(),
+      scadCode: generateAmmoMatrixScad(scadExportMode),
       scadFilename: `ammomatrix_${ammoCaliber}_${clampedAmmoCols}x${clampedAmmoRows}.scad`,
       ammoCaliber,
       ammoCols: clampedAmmoCols,
@@ -2600,8 +2522,8 @@ complete_model();
         lidPivot.add(catchHook);
       });
 
-      // Map 2D Procedural Texture to Recessed 3D Lid Badge
-      if (currentCalSpec && (ammoLidTitle.trim() !== '' || showAmmoRoundCount)) {
+      // Map 2D Procedural Texture to Lid Surface (Transparent Decal — No Rectangular Patch!)
+      if (currentCalSpec && (ammoLidTitle.trim() !== '' || showAmmoRoundCount || enableAmmoLidBorder)) {
         const badgeTexture = createBadgeTexture({
           caliberSpec: currentCalSpec,
           customText: ammoLidTitle,
@@ -2609,15 +2531,24 @@ complete_model();
           fontFamily: ammoLidFont,
           lidColorHex: ammoLidColor,
           accentColorHex: ammoAccentColor,
-          rounds: ammoTotalRounds
+          rounds: ammoTotalRounds,
+          showBorder: enableAmmoLidBorder
         });
-        const badgeTopMat = new THREE.MeshStandardMaterial({ map: badgeTexture, roughness: 0.5 });
-        const badgeSideMat = new THREE.MeshStandardMaterial({ color: ammoAccentColor, roughness: 0.5 });
+        const badgeMat = new THREE.MeshStandardMaterial({
+          map: badgeTexture,
+          transparent: true,
+          alphaTest: 0.05,
+          roughness: 0.4,
+          metalness: 0.1,
+          polygonOffset: true,
+          polygonOffsetFactor: -1
+        });
         const badge = new THREE.Mesh(
-          new THREE.BoxGeometry(ammoShellX * 0.78, 0.6, ammoShellY * 0.58),
-          [badgeSideMat, badgeSideMat, badgeTopMat, badgeSideMat, badgeSideMat, badgeSideMat]
+          new THREE.PlaneGeometry(ammoShellX * 0.78, ammoShellY * 0.58),
+          badgeMat
         );
-        badge.position.set(0, 12.1, lidOffsetZ);
+        badge.rotation.x = -Math.PI / 2;
+        badge.position.set(0, 12.05, lidOffsetZ);
         lidPivot.add(badge);
       }
       ammoGroup.add(lidPivot);
@@ -2677,56 +2608,172 @@ complete_model();
         }
       });
 
-      // 6. CALIBER-ACCURATE CARTRIDGES (Rifle/Pistol vs. Shotgun Shells)
+      // 6. TRAY, HOLES, AND CALIBER-ACCURATE CARTRIDGES
       if (currentCalSpec) {
-        const startX = -((clampedAmmoCols - 1) * currentCalSpec.pitch) / 2;
-        const startY = -((clampedAmmoRows - 1) * currentCalSpec.pitch) / 2;
+        const leftCols = Math.ceil(clampedAmmoCols / 2);
+        const centerSplitGap = 6.5;
+        const basePitch = currentCalSpec.pitch;
         const rad = currentCalSpec.holeDia / 2 - 0.15;
-        const isShotgun = currentCalSpec.category === 'Shotgun';
 
-        const roundGeo = new THREE.Group();
-        if (isShotgun) {
-          // 12GA / 20GA Shotgun Shell: High-Brass Head + Ribbed Red Hull + Star Crimp
-          const brassHeadH = Math.min(16, currentCalSpec.oal * 0.25);
-          const hullH = currentCalSpec.oal - brassHeadH;
-          const rim = new THREE.Mesh(new THREE.CylinderGeometry(rad * 1.06, rad * 1.06, 1.4, 20), brassMat);
-          rim.position.y = 0.7;
-          const highBrass = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad, brassHeadH, 20), brassMat);
-          highBrass.position.y = brassHeadH / 2;
-          const plasticHull = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.98, rad * 0.98, hullH, 20), hullMat);
-          plasticHull.position.y = brassHeadH + hullH / 2;
-          const starCrimp = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.82, rad * 0.92, 0.8, 12), crimpMat);
-          starCrimp.position.y = currentCalSpec.oal + 0.1;
-          roundGeo.add(rim, highBrass, plasticHull, starCrimp);
-        } else {
-          // Rifle / Pistol Metallic Cartridge
-          const caseH = currentCalSpec.oal * 0.68;
-          const bulletH = currentCalSpec.oal * 0.32;
-          const brass = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.95, rad, caseH, 16), brassMat);
-          brass.position.y = caseH / 2;
-          const tip = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.32, rad * 0.88, bulletH, 16), leadMat);
-          tip.position.y = caseH + bulletH / 2;
-          roundGeo.add(brass, tip);
-        }
+        // Clean, tight tray width with NO empty phantom column on the right!
+        const spineAllowance = clampedAmmoCols > 1 ? centerSplitGap : 0;
+        const effectiveTrayW = (clampedAmmoCols * basePitch) + spineAllowance + 6.4;
+        const effectiveTrayD = (clampedAmmoRows * basePitch) + 6.4;
+
+        // Every column sits flush from left wall to right wall with the 6.5mm spine between leftCols and rightCols
+        const getColCenterX = (c) => {
+          const colOffset = (clampedAmmoCols > 1 && c >= leftCols) ? centerSplitGap : 0;
+          return (-effectiveTrayW / 2) + 3.2 + (basePitch / 2) + (c * basePitch) + colOffset;
+        };
+
+        // Spine X coordinate sits directly in the 6.5mm channel between leftCols and rightCols
+        const spineCenterX = clampedAmmoCols > 1
+          ? (-effectiveTrayW / 2) + 3.2 + (leftCols * basePitch) + (centerSplitGap / 2)
+          : 0;
 
         const holeMat = new THREE.MeshBasicMaterial({ color: 0x090d16 });
+        const pocketBottomY = -ammoTrayZ / 2 + 2.4;
+        const roundOal = currentCalSpec.oal || 29.7;
+        const calUpper = (currentCalSpec.name + ' ' + (currentCalSpec.short || '')).toUpperCase();
+        const is12Ga = calUpper.includes('12GA') || calUpper.includes('12 GA');
+        const is20Ga = calUpper.includes('20GA') || calUpper.includes('20 GA');
+        const isShotgun = is12Ga || is20Ga || currentCalSpec.category === 'Shotgun';
+
+        // --- HOLE POCKETS ---
         for (let c = 0; c < clampedAmmoCols; c++) {
+          const cx = getColCenterX(c);
           for (let r = 0; r < clampedAmmoRows; r++) {
-            const cx = startX + c * currentCalSpec.pitch;
-            const cy = startY + r * currentCalSpec.pitch;
+            const cy = (-effectiveTrayD / 2) + 3.2 + (basePitch / 2) + (r * basePitch);
             const hole = new THREE.Mesh(new THREE.CylinderGeometry(rad + 0.2, rad + 0.2, 0.2, 16), holeMat);
             hole.position.set(cx, ammoTrayZ / 2 + 0.05, cy);
             trayGroup.add(hole);
-            if (showAmmoRounds) {
-              const b = roundGeo.clone();
-              b.position.set(cx, -ammoTrayZ / 2 + 1.5, cy);  // Sinks bullets deeper into the tray
-              trayGroup.add(b);
+          }
+        }
+
+        // --- 1. CALIBER-ACCURATE CARTRIDGES (SHOTGUN SHELLS vs RIFLE/PISTOL) ---
+        if (showAmmoRounds) {
+          const roundBrassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.85, roughness: 0.22 });
+          const copperMat = new THREE.MeshStandardMaterial({ color: 0xb87333, metalness: 0.75, roughness: 0.28 });
+          // Authentic Red hull for 12GA, Sporting Yellow hull for 20GA!
+          const hullMat = new THREE.MeshStandardMaterial({
+            color: is20Ga ? 0xeab308 : 0xd91c24,
+            roughness: 0.45,
+            metalness: 0.05
+          });
+          const primerMat = new THREE.MeshStandardMaterial({ color: 0xc0c0c0, metalness: 0.9, roughness: 0.18 });
+          const primerGapMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
+
+          const rRad = Math.max(2, ((currentCalSpec.holeDia || 10.3) - 0.5) / 2);
+          const totalLen = roundOal;
+          const caseLen = totalLen * 0.65;
+          const bulletLen = totalLen * 0.35;
+          const rimHeight = 1.2;
+          const topY = pocketBottomY + totalLen;
+
+          for (let c = 0; c < clampedAmmoCols; c++) {
+            const cx = getColCenterX(c);
+            for (let r = 0; r < clampedAmmoRows; r++) {
+              const cy = (-effectiveTrayD / 2) + 3.2 + (basePitch / 2) + (r * basePitch);
+              const roundGroup = new THREE.Group();
+
+              if (isShotgun) {
+                // Realistic Shotgun Shell: 8mm high-polish brass head at top + vibrant Red/Yellow ribbed plastic hull!
+                const brassHeadLen = 8.5;
+                const redHullLen = totalLen - rimHeight - brassHeadLen;
+
+                // Slightly wider radius (0.98) so the red plastic hull is clearly visible above the tray pocket!
+                const hullGeo = new THREE.CylinderGeometry(rRad * 0.96, rRad * 0.96, redHullLen, 24);
+                const hullMesh = new THREE.Mesh(hullGeo, hullMat);
+                hullMesh.position.y = pocketBottomY + redHullLen / 2;
+                roundGroup.add(hullMesh);
+
+                const brassHeadGeo = new THREE.CylinderGeometry(rRad * 0.99, rRad * 0.99, brassHeadLen, 24);
+                const brassHeadMesh = new THREE.Mesh(brassHeadGeo, roundBrassMat);
+                brassHeadMesh.position.y = pocketBottomY + redHullLen + brassHeadLen / 2;
+                roundGroup.add(brassHeadMesh);
+
+                // Extruded Brass Rim Flange at the top
+                const shotgunRimGeo = new THREE.CylinderGeometry(rRad * 1.05, rRad * 1.02, rimHeight, 24);
+                const shotgunRimMesh = new THREE.Mesh(shotgunRimGeo, roundBrassMat);
+                shotgunRimMesh.position.y = topY - rimHeight / 2;
+                roundGroup.add(shotgunRimMesh);
+              } else {
+                // Standard Rifle/Pistol Bullet
+                const tipGeo = new THREE.ConeGeometry(rRad * 0.88, bulletLen, 16);
+                tipGeo.rotateX(Math.PI);
+                const tipMesh = new THREE.Mesh(tipGeo, copperMat);
+                tipMesh.position.y = pocketBottomY + bulletLen / 2;
+                roundGroup.add(tipMesh);
+
+                const caseGeo = new THREE.CylinderGeometry(rRad * 0.96, rRad * 0.92, caseLen, 20);
+                const caseMesh = new THREE.Mesh(caseGeo, roundBrassMat);
+                caseMesh.position.y = pocketBottomY + bulletLen + caseLen / 2;
+                roundGroup.add(caseMesh);
+
+                const rimGeo = new THREE.CylinderGeometry(rRad * 0.98, rRad * 0.98, rimHeight, 20);
+                const rimMesh = new THREE.Mesh(rimGeo, roundBrassMat);
+                rimMesh.position.y = topY - rimHeight / 2;
+                roundGroup.add(rimMesh);
+              }
+
+              const pocketRingGeo = new THREE.CylinderGeometry(rRad * 0.44, rRad * 0.44, 0.25, 16);
+              const pocketRingMesh = new THREE.Mesh(pocketRingGeo, primerGapMat);
+              pocketRingMesh.position.y = topY + 0.05;
+              roundGroup.add(pocketRingMesh);
+
+              const primerGeo = new THREE.CylinderGeometry(rRad * 0.38, rRad * 0.38, 0.35, 16);
+              const primerMesh = new THREE.Mesh(primerGeo, primerMat);
+              primerMesh.position.y = topY + 0.1;
+              roundGroup.add(primerMesh);
+
+              roundGroup.position.set(cx, 0, cy);
+              trayGroup.add(roundGroup);
             }
           }
         }
+
+        // --- 2. DUAL-LEG T-HANDLE ---
+        const handleMat = new THREE.MeshStandardMaterial({ color: ammoAccentColor || '#F36B21', roughness: 0.35, metalness: 0.1 });
+        const handleGroup = new THREE.Group();
+        const trayTopY = ammoTrayZ / 2;
+        const fingerClearance = 14.0;
+        const roundTopY = pocketBottomY + roundOal;
+
+        const handleTopY = Math.max(trayTopY + 14.0, roundTopY + fingerClearance);
+        const shaftHeight = handleTopY - trayTopY;
+        const barWidth = Math.min(effectiveTrayW * 0.45, Math.max(28, basePitch * 2.2));
+
+        handleGroup.position.x = spineCenterX;
+
+        const spineBridgeGeo = new THREE.BoxGeometry(6.5, 2.4, clampedAmmoRows * basePitch);
+        const spineBridgeMesh = new THREE.Mesh(spineBridgeGeo, handleMat);
+        spineBridgeMesh.position.set(0, trayTopY + 1.2, 0);
+        handleGroup.add(spineBridgeMesh);
+
+        [-2.0, 2.0].forEach((xOff) => {
+          const postGeo = new THREE.BoxGeometry(2.4, shaftHeight, 5.0);
+          const postMesh = new THREE.Mesh(postGeo, handleMat);
+          postMesh.position.set(xOff, trayTopY + shaftHeight / 2, 0);
+          handleGroup.add(postMesh);
+        });
+
+        const tBarGeo = new THREE.BoxGeometry(barWidth, 4.8, 8.5);
+        const tBarMesh = new THREE.Mesh(tBarGeo, handleMat);
+        tBarMesh.position.set(0, handleTopY, 0);
+        handleGroup.add(tBarMesh);
+
+        for (let i = -2; i <= 2; i++) {
+          const ridgeGeo = new THREE.BoxGeometry(1.4, 1.0, 7.8);
+          const ridgeMesh = new THREE.Mesh(ridgeGeo, handleMat);
+          ridgeMesh.position.set(i * 4.5, handleTopY + 2.7, 0);
+          handleGroup.add(ridgeMesh);
+        }
+
+        trayGroup.add(handleGroup);
+        ammoGroup.add(trayGroup);
+        group.add(ammoGroup);
       }
-      ammoGroup.add(trayGroup);
-      group.add(ammoGroup);
+      
       
       if (showDimensions) {
         const wSprite = createDimensionSprite(`${ammoShellX} mm W`);
@@ -2933,20 +2980,22 @@ complete_model();
         const wSprite = createDimensionSprite(`${cargoWidth} mm W`);
         wSprite.position.set(0, 8, cargoLength + 28);
         group.add(wSprite);
-
+  
         const lSprite = createDimensionSprite(`${cargoLength} mm L`);
         lSprite.position.set(cargoWidth / 2 + 36, 8, cargoLength / 2);
         group.add(lSprite);
-
+  
         const hSprite = createDimensionSprite(`${cargoHeight} mm H (half)`);
         hSprite.position.set(-cargoWidth / 2 - 36, cargoHeight / 2, cargoLength / 2);
         group.add(hSprite);
       }
     }
+
   }, [
     activeTab,
     tiers,
     drawersPerTier,
+    enableAmmoLidBorder,
     opening,
     handlePos,
     width,
@@ -2978,6 +3027,7 @@ complete_model();
     cargoText,
     cargoFont,
     cargoBorder,
+    enableAmmoLidBorder,
     foldAngle,
     ammoCaliber,
     ammoCols,
@@ -3225,15 +3275,23 @@ complete_model();
                 </div>
 
                 {modalTab === 'scad' && (
-                  <div className="flex items-center gap-1 pb-2">
+                  <div className="flex items-center gap-1 pb-2 flex-wrap">
                     <span className="text-[10px] text-[#94a3b8] mr-1">Export Part:</span>
-                    {[
-                      { id: 'full', label: 'Full' },
-                      { id: 'box_only', label: 'Box' },
-                      { id: 'text_only', label: 'Inlay' },
-                      { id: 'hinge', label: 'Hinge Test' },
-                      { id: 'latch', label: 'Latch Test' }
-                    ].map((m) => (
+                    {(activeTab === 'ammo'
+                      ? [
+                          { id: 'full', label: 'Full Assembly' },
+                          { id: 'tray_only', label: 'Standing Tray' },
+                          { id: 'handle_only', label: 'Snap-In T-Handle (Flat)' },
+                          { id: 'text_only', label: 'Lid Inlay' }
+                        ]
+                      : [
+                          { id: 'full', label: 'Full' },
+                          { id: 'box_only', label: 'Box' },
+                          { id: 'text_only', label: 'Inlay' },
+                          { id: 'hinge', label: 'Hinge Test' },
+                          { id: 'latch', label: 'Latch Test' }
+                        ]
+                    ).map((m) => (
                       <button
                         key={m.id}
                         onClick={() => setScadExportMode(m.id)}
@@ -3260,7 +3318,7 @@ complete_model();
             <div className="p-4 overflow-y-auto flex-1 bg-[#0b0f19] m-4 rounded-lg border border-[#1e293b]">
               <pre className="text-xs font-mono text-[#e2e8f0] whitespace-pre-wrap leading-relaxed">
                 {adminUnlocked && currentProductMeta.hasOpenScadGenerator && modalTab === 'scad'
-                  ? generateScadCode(scadExportMode)
+                  ? (activeTab === 'ammo' ? generateAmmoMatrixScad(scadExportMode) : generateScadCode(scadExportMode))
                   : generateSpecSheet()}
               </pre>
             </div>
@@ -3270,7 +3328,9 @@ complete_model();
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(generateScadCode(scadExportMode));
+                      navigator.clipboard.writeText(
+                        activeTab === 'ammo' ? generateAmmoMatrixScad(scadExportMode) : generateScadCode(scadExportMode)
+                      );
                       setScadCopied(true);
                       setTimeout(() => setScadCopied(false), 2000);
                     }}
@@ -3280,7 +3340,7 @@ complete_model();
                     {scadCopied ? 'Copied .SCAD!' : 'Copy .SCAD Code'}
                   </button>
                   <button
-                    onClick={() => downloadScadFile(scadExportMode)}
+                    onClick={() => (activeTab === 'ammo' ? handleDownloadScad() : downloadScadFile(scadExportMode))}
                     className="px-3.5 py-2 rounded-lg bg-[#38bdf8] text-[#0b0f19] font-bold text-xs flex items-center gap-1.5"
                   >
                     <Download size={14} /> Download {scadExportMode.toUpperCase()} .SCAD
@@ -3980,6 +4040,18 @@ complete_model();
                     />
                   </label>
                 </div>
+                {/* ---> THE NEW BORDER TOGGLE <--- */}
+                <div className="flex items-center gap-2 mt-1 bg-[#0f172a] border border-[#1e293b] rounded p-2">
+                  <input
+                    type="checkbox"
+                    checked={enableAmmoLidBorder}
+                    onChange={(e) => setEnableAmmoLidBorder(e.target.checked)}
+                    className="form-checkbox h-4 w-4 text-[#f43f5e] rounded bg-[#090d16] border-[#1e293b] focus:ring-[#f43f5e] focus:ring-offset-[#0f172a]"
+                  />
+                  <span className="text-xs text-[#cbd5e1] font-medium tracking-wide">
+                    Draw Accent Border on Lid
+                  </span>
+                </div>
               </div>
             ) : (
             /* ==========================================
@@ -4288,7 +4360,8 @@ complete_model();
           </div>
         )}
 
-        <header className="relative bg-[#0f172a] border-b border-[#1e293b] px-2.5 md:px-4 py-2.5 flex flex-col gap-3 z-10 overflow-hidden">
+        {/* ADD shrink-0 HERE AND REMOVE overflow-hidden */}
+        <header className="relative shrink-0 bg-[#0f172a] border-b border-[#1e293b] px-2.5 md:px-4 py-2.5 flex flex-col gap-2.5 z-20">
   
           {/* TOP ROW: Logo strictly in its own space */}
           <div className="flex items-center w-full pointer-events-none shrink-0">
@@ -4454,7 +4527,7 @@ complete_model();
           </div>
         </header>
 
-        <div ref={mountRef} className="flex-1 w-full h-full cursor-grab active:cursor-grabbing touch-none" />
+        <div ref={mountRef} className="flex-1 w-full min-h-0 relative overflow-hidden cursor-grab active:cursor-grabbing touch-none" />
       </main>
     </div>
   );
