@@ -1124,43 +1124,56 @@ module snap_socket_cutout() {
 
 // --- 2. SNAP-IN T-HANDLE ---
 module snap_in_t_handle(print_flat = false) {
-    rotate(print_flat ? [90, 0, 0] : [0, 0, 0])
+    leg_y = rows * pitch * 0.25;
+    grip_len = max(tbar_w, leg_y * 2 + 12);
+
+    rotate(print_flat ? [0, 90, 0] : [0, 0, 0])
     translate(print_flat ? [0, 0, 2.6] : [tray_w / 2, tray_d / 2, 0]) {
-        translate([0, 0, handle_total_h - 2.5])
-            cube([tbar_w, 5.2, 5.0], center = true);
+        union() {
+            // Top Grip Bar (Spans along Y-axis across both legs!)
+            translate([0, 0, handle_total_h - 2.5])
+                cube([5.2, grip_len, 5.0], center = true);
 
-        for (i = [-2 : 2]) {
-            translate([i * 5.0, 0, handle_total_h + 0.4])
-                cube([1.6, 5.2, 1.0], center = true);
-        }
+            // Top Grip Ribs (Along Y-axis)
+            for (i = [-2 : 2]) {
+                translate([0, i * 6.0, handle_total_h + 0.4])
+                    cube([5.2, 1.8, 1.0], center = true);
+            }
 
-        translate([0, 0, tray_h + 1.2])
-            cube([center_gap, tray_d - (tray_wall * 2) - 4, 2.4], center = true);
+            // Center Spine Bridge (Rests on top of tray spine)
+            translate([0, 0, tray_h + 1.2])
+                cube([5.2, (rows * pitch) - 2, 2.4], center = true);
 
-        for (y_off = [-rows * pitch * 0.25, rows * pitch * 0.25]) {
-            translate([0, y_off, 0])
-                handle_post_and_prong();
+            // Two Vertical Legs & Snap Prongs
+            for (y_off = [-leg_y, leg_y]) {
+                translate([0, y_off, 0])
+                    handle_post_and_prong();
+            }
         }
     }
 }
 
 module handle_post_and_prong() {
-    translate([0, 0, tray_h + shaft_h / 2])
-        cube([3.8, 5.2, shaft_h], center = true);
+    union() {
+        // Upper Shaft (Extends 2mm into top grip bar so there is zero gap!)
+        translate([0, 0, tray_h + (shaft_h - 2.5) / 2])
+            cube([5.2, 5.2, shaft_h - 2.5], center = true);
 
-    difference() {
-        union() {
-            translate([0, 0, tray_h / 2])
-                cube([3.8, 5.2, tray_h], center = true);
-            hull() {
-                translate([0, 0, 2.6])
-                    cube([5.2, 5.2, 0.8], center = true);
-                translate([0, 0, 0.4])
-                    cube([3.6, 5.2, 0.8], center = true);
+        // Lower Split Snap Prong (Inside Tray Socket)
+        difference() {
+            union() {
+                translate([0, 0, (tray_h + 1.2) / 2])
+                    cube([3.8, 5.2, tray_h + 1.2], center = true);
+                hull() {
+                    translate([0, 0, 2.6])
+                        cube([5.2, 5.2, 0.8], center = true);
+                    translate([0, 0, 0.4])
+                        cube([3.6, 5.2, 0.8], center = true);
+                }
             }
+            translate([0, 0, tray_h * 0.35])
+                cube([1.2, 10, tray_h * 0.75], center = true);
         }
-        translate([0, 0, tray_h * 0.35])
-            cube([1.2, 10, tray_h * 0.75], center = true);
     }
 }
 
@@ -1263,62 +1276,68 @@ module lid_inlay_2d() {
 module vault_lid() {
     knuckle_w = min(28, shell_w * 0.22);
     hinge_r = 4.2;
+    standoff_h = 13.6;
+    ceiling_z = lid_z - 3.0; // 9.0mm roof ceiling
+    leg_y = rows * pitch * 0.25;
+    grip_len = max(tbar_w, leg_y * 2 + 12);
 
-    difference() {
-        union() {
-            translate([-shell_w / 2, -shell_d / 2, 0])
-                cube([shell_w, shell_d, lid_z]);
+    union() {
+        // 1. Hollowed Lid Shell & Exterior Hardware
+        difference() {
+            union() {
+                translate([-shell_w / 2, -shell_d / 2, 0])
+                    cube([shell_w, shell_d, lid_z]);
 
-            // Center Hinge Knuckle
+                // Center Hinge Knuckle
+                translate([0, -shell_d / 2 - hinge_r * 0.65, 0])
+                rotate([0, 90, 0])
+                    cylinder(r = hinge_r, h = knuckle_w, center = true);
+
+                // Front Latch Catch Hooks
+                for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
+                    translate([lx, shell_d / 2 + 2.2, 3.25])
+                        cube([13.0, 4.5, 6.5], center = true);
+                }
+            }
+
+            // Hollow Lid Interior (Carved out BEFORE adding standoff ribs!)
+            translate([-shell_w / 2 + wall_t, -shell_d / 2 + wall_t, -0.1])
+                cube([shell_w - wall_t * 2, shell_d - wall_t * 2, ceiling_z + 0.1]);
+
+            // M3 Hinge Pin Bore
             translate([0, -shell_d / 2 - hinge_r * 0.65, 0])
             rotate([0, 90, 0])
-                cylinder(r = hinge_r, h = knuckle_w, center = true);
+                cylinder(d = 3.4, h = knuckle_w + 2, center = true);
 
-            // Structural Standoff Ribs & Gluing Frame (Bridges the 13.6mm gap so the 4.5mm TPU pad contacts rounds!)
-            standoff_h = 13.6;
-            difference() {
-                union() {
-                    // 4 Load-Bearing Support Rails under the TPU Pad (inset at 22% and 42% of tray depth)
-                    for (dir = [-1, 1]) {
-                        translate([0, dir * (tray_d * 0.42), lid_z - 3.0 - standoff_h / 2])
-                            cube([tray_w - 0.8, 2.4, standoff_h], center = true);
-                        translate([0, dir * (tray_d * 0.22), lid_z - 3.0 - standoff_h / 2])
-                            cube([tray_w - 0.8, 2.4, standoff_h], center = true);
-                    }
-                    // Outer Centering Lip (Steps 1.5mm past the standoff face to lock the TPU pad in place while gluing)
-                    for (dir = [-1, 1]) {
-                        translate([0, dir * (tray_d / 2 + 0.8), lid_z - 3.0 - (standoff_h + 1.5) / 2])
-                            cube([tray_w + 1.6, 1.6, standoff_h + 1.5], center = true);
-                        translate([dir * (tray_w / 2 + 0.8), 0, lid_z - 3.0 - (standoff_h + 1.5) / 2])
-                            cube([1.6, tray_d + 3.2, standoff_h + 1.5], center = true);
-                    }
-                }
-                // Center clearance notch so the ribs never collide with the T-handle
-                translate([0, 0, lid_z - 3.0 - (standoff_h + 2) / 2])
-                    cube([tbar_w + 4.0, 12.0, standoff_h + 4.0], center = true);
-            }
-            
-            // Front Latch Catch Hooks
-            for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
-                translate([lx, shell_d / 2 + 2.2, 3.25])
-                    cube([13.0, 4.5, 6.5], center = true);
-            }
+            // Flush 0.6mm Inlay Cutout on Top Face
+            translate([0, 0, lid_z - 0.6])
+            linear_extrude(0.65)
+                offset(r = 0.02)
+                lid_inlay_2d();
         }
 
-        // Hollow Lid Interior
-        translate([-shell_w / 2 + wall_t, -shell_d / 2 + wall_t, -0.1])
-            cube([shell_w - wall_t * 2, shell_d - wall_t * 2, lid_z - 3.0]);
-
-        // M3 Hinge Pin Bore
-        translate([0, -shell_d / 2 - hinge_r * 0.65, 0])
-        rotate([0, 90, 0])
-            cylinder(d = 3.4, h = knuckle_w + 2, center = true);
-
-        // Flush 0.6mm Inlay Cutout on Top Face
-        translate([0, 0, lid_z - 0.6])
-        linear_extrude(0.65)
-            offset(r = 0.02)
-            lid_inlay_2d();
+        // 2. Structural Standoff Ribs & Gluing Frame (Anchored solidly to ceiling_z!)
+        difference() {
+            union() {
+                // 4 Load-Bearing Support Rails under the TPU Pad
+                for (dir = [-1, 1]) {
+                    translate([0, dir * (tray_d * 0.42), ceiling_z - standoff_h / 2])
+                        cube([tray_w - 0.8, 2.4, standoff_h], center = true);
+                    translate([0, dir * (tray_d * 0.22), ceiling_z - standoff_h / 2])
+                        cube([tray_w - 0.8, 2.4, standoff_h], center = true);
+                }
+                // Outer Centering Lip (1.5mm deeper to frame the TPU pad)
+                for (dir = [-1, 1]) {
+                    translate([0, dir * (tray_d / 2 + 0.8), ceiling_z - (standoff_h + 1.5) / 2])
+                        cube([tray_w + 1.6, 1.6, standoff_h + 1.5], center = true);
+                    translate([dir * (tray_w / 2 + 0.8), 0, ceiling_z - (standoff_h + 1.5) / 2])
+                        cube([1.6, tray_d + 3.2, standoff_h + 1.5], center = true);
+                }
+            }
+            // Center clearance notch along Y-axis for the T-handle
+            translate([0, 0, ceiling_z - (standoff_h + 2) / 2])
+                cube([10.0, grip_len + 4.0, standoff_h + 4.0], center = true);
+        }
     }
 }
 
@@ -1332,11 +1351,25 @@ module lid_inlay_part() {
 module cam_latch() {
     difference() {
         union() {
+            // Main Body
             cube([13.2, 4.2, 22], center = true);
+            
+            // Cam Tooth Hook
             translate([0, 1.3, -9.25])
                 cube([13.2, 6.8, 3.5], center = true);
+                
+            // Finger Pull Lip (Bottom)
+            translate([0, 1.2, 10.5])
+                cube([13.2, 6.8, 3.5], center = true);
+                
+            // Front Grip Ridges
+            for(ry = [-4 : 4 : 4]) {
+                translate([0, -2.6, ry])
+                    cube([11.0, 1.2, 1.0], center = true);
+            }
         }
-        translate([0, -0.5, 8.0])
+        // M3 Pin Bore (Fully enclosed)
+        translate([0, 0, -8.0])
         rotate([0, 90, 0])
             cylinder(d = 3.3, h = 16, center = true);
     }
@@ -1348,7 +1381,7 @@ module tpu_rattle_pad() {
     difference() {
         cube([tray_w - 0.5, tray_d - 0.5, pad_t], center = true);
         // Handle cutout slot + 8.5mm wide so the T-bar nests cleanly inside
-        cube([tbar_w + 2.0, 9.5, pad_t + 2.0], center = true);
+        cube([9.5, max(tbar_w, rows * pitch * 0.5 + 12) + 2.0, pad_t + 2.0], center = true);
     }
 }
 
@@ -1366,7 +1399,10 @@ if (export_part == "full") {
     base_shell();
 } else if (export_part == "lid_only") {
     // Flipped upside down so top face prints flat on build plate!
-    translate([0, 0, lid_z]) rotate([180, 0, 0]) vault_lid();
+    translate([0, 0, lid_z]) rotate([180, 0, 0]) {
+        vault_lid();
+        lid_inlay_part();
+    }
 } else if (export_part == "text_only") {
     translate([0, 0, lid_z]) rotate([180, 0, 0]) lid_inlay_part();
 } else if (export_part == "tray_only" || export_part == "box_only") {
