@@ -338,7 +338,7 @@ function createLabelTexture(text, bgHex = '#1F2022', textHex = '#9B7E64', fontNa
     ctx.fillStyle = textHex;
     const clean = text.trim();
     const fontSize = clean.length > 16 ? 40 : clean.length > 11 ? 52 : 64;
-    ctx.font = `700 ${fontSize}px "${fontName}", sans-serif`;
+    ctx.font = `700 ${fontSize}px "${fontName}"`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(clean, canvas.width / 2, canvas.height / 2 + 2);
@@ -367,7 +367,7 @@ function createCargoLidTexture(text, textHex = '#1A1A1A', fontName = 'Impact', s
     const clean = text.trim();
     ctx.fillStyle = textHex;
     const fontSize = clean.length > 16 ? 78 : clean.length > 10 ? 105 : 132;
-    ctx.font = `900 ${fontSize}px "${fontName}", "Arial Black", sans-serif`;
+    ctx.font = `900 ${fontSize}px "${fontName}"`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(clean, canvas.width / 2, canvas.height / 2);
@@ -420,12 +420,12 @@ function createBadgeTexture({
   // Only attempt to draw text if the string is not empty
   if (title.length > 0) {
     const titleSize = title.length > 14 ? 90 : title.length > 8 ? 120 : 150;
-    ctx.font = `900 ${titleSize}px "${fontFamily}", "Arial Black", sans-serif`;
+    ctx.font = `900 ${titleSize}px "${fontFamily}"`;
     ctx.fillText(title, canvas.width / 2, sub.length > 0 ? canvas.height * 0.42 : canvas.height * 0.5);
   }
 
   if (sub.length > 0) {
-    ctx.font = title.length > 0 ? `700 68px monospace` : `700 110px monospace`;
+    ctx.font = title.length > 0 ? `700 68px "${fontFamily}"` : `700 110px "${fontFamily}"`;
     ctx.fillText(sub, canvas.width / 2, title.length > 0 ? canvas.height * 0.75 : canvas.height * 0.5);
   }
 
@@ -552,6 +552,7 @@ export default function App() {
   const [ammoCaliber, setAmmoCaliber] = useState('9mm');
   const [ammoPreset, setAmmoPreset] = useState('50');
   const [ammoCols, setAmmoCols] = useState(10);
+
   const [ammoRows, setAmmoRows] = useState(5);
   const [ammoLidFont, setAmmoLidFont] = useState('Impact');
   const [enableAmmoLidBorder, setEnableAmmoLidBorder] = useState(true);
@@ -570,18 +571,51 @@ export default function App() {
   const [showAmmoRounds, setShowAmmoRounds] = useState(true);
   const [showMagnetXray, setShowMagnetXray] = useState(false);
 
-  // Derived Ammo Matrix Geometry
+  // Derived Ammo Matrix Geometry (254.5mm max outer shell fits 256x256mm build plate)
   const currentCalSpec = AMMO_CALIBERS[ammoCaliber] || AMMO_CALIBERS['22lr'];
-  const maxSafeGrid = Math.min(25, Math.floor((236 - 19.2) / currentCalSpec.pitch));
-  const clampedAmmoCols = Math.min(Math.max(3, ammoCols), maxSafeGrid);
-  const clampedAmmoRows = Math.min(Math.max(3, ammoRows), maxSafeGrid);
+  
+  // Max even columns & max rows that fit on a 256mm plate (including 6.5mm spine + 6.4mm tray wall + 12.8mm shell wall)
+  const maxSafeCols = Math.min(24, Math.max(2, Math.floor((254.5 - 25.7) / currentCalSpec.pitch / 2) * 2));
+  const maxSafeRows = Math.min(20, Math.max(2, Math.floor((254.5 - 19.2) / currentCalSpec.pitch)));
+
+  // Enforce strictly EVEN columns (2, 4, 6, 8, 10...) so the tray & handle are 100% balanced!
+  const evenAmmoCols = Math.max(2, Math.round(ammoCols / 2) * 2);
+  const clampedAmmoCols = Math.min(Math.max(2, evenAmmoCols), maxSafeCols);
+  const clampedAmmoRows = Math.min(Math.max(2, ammoRows), maxSafeRows);
   const ammoTotalRounds = clampedAmmoCols * clampedAmmoRows;
 
-  // Standing Tray & Exterior Shell Millimeter Math
-  const isOddAmmoCols = clampedAmmoCols % 2 !== 0;
-  const ammoSpineAllowance = clampedAmmoCols > 1
-    ? 6.5 + (isOddAmmoCols ? (currentCalSpec?.pitch || 12) : 0)
-    : 0;
+  // Dynamic Caliber-Aware Presets (Guarantees 3 distinct sizes for EVERY caliber so two buttons never light up together!)
+  const getCaliberPresets = (calSpec = currentCalSpec) => {
+    const mCols = Math.min(24, Math.max(2, Math.floor((254.5 - 25.7) / calSpec.pitch / 2) * 2));
+    const mRows = Math.min(20, Math.max(2, Math.floor((254.5 - 19.2) / calSpec.pitch)));
+
+    if (calSpec.category === 'Shotgun') {
+      // 20GA & 12GA: 3 distinct balanced tiers up to full 10x10 (100 shells) plate max
+      return [
+        { id: '50',  cols: Math.min(6, mCols),  rows: Math.min(4, mRows),  label: 'Standard Retail Box' },
+        { id: '100', cols: Math.min(8, mCols),  rows: Math.min(6, mRows),  label: 'Weekend Range Pack' },
+        { id: '250', cols: mCols,               rows: mRows,               label: 'Half-Brick Bulk Case' },
+      ];
+    }
+    // Rimfire, Pistol & Rifle: Standard (10x5), Weekend (min(10, mCols-2) x min(10, mRows-2)), Bulk (Max Safe Plate)
+    const bulkCols = mCols;
+    const bulkRows = Math.min(12, mRows);
+    const wkndCols = Math.min(10, Math.max(4, bulkCols - 2));
+    const wkndRows = Math.min(10, Math.max(4, bulkRows - 2));
+    const stdCols  = Math.min(10, wkndCols);
+    const stdRows  = Math.min(5, Math.max(3, wkndRows - 2));
+
+    return [
+      { id: '50',  cols: stdCols,  rows: stdRows,  label: 'Standard Retail Box' },
+      { id: '100', cols: wkndCols, rows: wkndRows, label: 'Weekend Range Pack' },
+      { id: '250', cols: bulkCols, rows: bulkRows, label: 'Half-Brick Bulk Case' },
+    ];
+  };
+
+  const activeAmmoPresets = getCaliberPresets(currentCalSpec);
+
+  // Standing Tray & Exterior Shell Millimeter Math (Even columns = zero empty phantom space!)
+  const ammoSpineAllowance = clampedAmmoCols > 1 ? 6.5 : 0;
   const ammoTrayX = currentCalSpec
     ? Number((clampedAmmoCols * currentCalSpec.pitch + ammoSpineAllowance + 6.4).toFixed(2))
     : 120;
@@ -590,7 +624,6 @@ export default function App() {
 
   const ammoShellX = Number((ammoTrayX + 12.8).toFixed(1));
   const ammoShellY = Number((ammoTrayY + 12.8).toFixed(1));
-// Box shell depth automatically scales to fit the handle & tall rounds!
   const ammoShellZ = currentCalSpec ? Math.ceil(currentCalSpec.oal + 32) : 58;
 
   // Magnet scaling: 4 pairs (8 magnets) under 150mm, 6 pairs (12 magnets) at or above 150mm
@@ -607,29 +640,23 @@ export default function App() {
   );
   const ammoEstimatedHours = Number((ammoEstimatedGrams / 28).toFixed(1));
 
-  // Switch caliber helper (clamps grid to P1S bed & updates default lid title)
+  // Switch caliber helper
   const handleSelectAmmoCaliber = (calId) => {
     const nextCal = AMMO_CALIBERS[calId];
     if (!nextCal) return;
     setAmmoCaliber(calId);
     setAmmoLidTitle(nextCal.short);
-    const maxSafe = Math.max(3, Math.floor((226 - 20.8) / nextCal.pitch));
-    const nextCols = Math.min(ammoCols, maxSafe);
-    const nextRows = Math.min(ammoRows, maxSafe);
-    setAmmoCols(nextCols);
-    setAmmoRows(nextRows);
-    
+    const nextPresets = getCaliberPresets(nextCal);
+    // Keep their current preset tier (Standard, Weekend, or Bulk) when switching calibers!
+    const matchingPreset = nextPresets.find((p) => p.id === ammoPreset) || nextPresets[0];
+    setAmmoCols(matchingPreset.cols);
+    setAmmoRows(matchingPreset.rows);
   };
 
   const handleSelectAmmoPreset = (preset) => {
     setAmmoPreset(preset.id);
-    if (preset.cols && preset.rows && currentCalSpec) {
-      const nextCols = Math.min(preset.cols, maxSafeGrid);
-      const nextRows = Math.min(preset.rows, maxSafeGrid);
-      setAmmoCols(nextCols);
-      setAmmoRows(nextRows);
-      
-    }
+    setAmmoCols(preset.cols);
+    setAmmoRows(preset.rows);
   };
 
   // ==========================================
@@ -952,17 +979,14 @@ export default function App() {
     const oal = cal.oal || 29.7;
     const cols = clampedAmmoCols;
     const rows = clampedAmmoRows;
-    const totalRounds = cols * rows; // FULL CAPACITY - ZERO ROUNDS SACRIFICED!
+    const totalRounds = cols * rows;
 
     const boreDia = Number((cal.holeDia || 10.3).toFixed(2));
     const pitch = Number((cal.pitch || (boreDia + 2.0)).toFixed(2));
     const trayWall = 3.2;
     const centerGap = 6.5;
-    
 
-    // Total width incorporates the 6.5mm center spine
-    const isOddCols = cols % 2 !== 0;
-    const spineAllowance = cols > 1 ? centerGap + (isOddCols ? pitch : 0) : 0;
+    const spineAllowance = cols > 1 ? centerGap : 0;
     const trayW = Number((cols * pitch + spineAllowance + trayWall * 2).toFixed(2));
     const trayD = Number((rows * pitch + trayWall * 2).toFixed(2));
     const trayH = Number((cal.trayZ || Math.max(16.5, oal * 0.58)).toFixed(2));
@@ -970,19 +994,25 @@ export default function App() {
     const floorThick = 2.4;
     const fingerClearance = 14.0;
 
-    // Caliber-aware handle height calculation
     const handleTotalH = Number((oal + floorThick + fingerClearance).toFixed(2));
     const shaftH = Number(Math.max(4.0, handleTotalH - trayH).toFixed(2));
-    const shellInnerZ = Number(Math.max(oal + 6.0, handleTotalH + 3.0).toFixed(2));
 
-    const titleText = (ammoLidTitle || cal.short || '9MM').trim();
+    const shellW = Number((trayW + 12.8).toFixed(2));
+    const shellD = Number((trayD + 12.8).toFixed(2));
+    const shellZ = Math.ceil(oal + 32);
+    const baseZ = shellZ - 12.0;
+    const lidZ = 12.0;
+
+    const titleText = (ammoLidTitle || cal.short || '9MM').trim().replace(/"/g, '\\"');
     const subText = showAmmoRoundCount ? `${totalRounds} RDS` : '';
+    const numLatches = shellW >= 130 ? 2 : 1;
+    const magPairs = shellW >= 150 ? 6 : 4;
 
     return `// ============================================================================
-// FIELDMATRIX 3D - AMMO MATRIX (CENTER SPINE SPLIT - 100% CAPACITY)
+// FIELDMATRIX 3D - AMMO MATRIX (FULL MULTI-PART PRODUCTION ASSEMBLY)
 // Design Code : ${designCode}
 // Caliber     : ${cal.name} (${cal.short}) - OAL: ${oal}mm
-// Capacity    : ${totalRounds} Rounds (${cols} Cols x ${rows} Rows - All Rounds Kept)
+// Capacity    : ${totalRounds} Rounds (${cols} Cols x ${rows} Rows)
 // Export Mode : ${exportMode.toUpperCase()}
 // ============================================================================
 
@@ -1003,69 +1033,96 @@ tray_h = ${trayH};
 floor_thick = ${floorThick};
 tip_cone_h = ${tipConicalDepth};
 center_gap = ${centerGap};
+foot_h = 4.5;
 
-shell_clearance = 0.6;
-shell_wall = 3.2;
-inner_z = ${shellInnerZ};
+shell_w = ${shellW};
+shell_d = ${shellD};
+shell_z = ${shellZ};
+base_z = ${baseZ};
+lid_z = ${lidZ};
+wall_t = 3.2;
+floor_t = 4.2;
 
 lid_title = "${titleText}";
 lid_sub = "${subText}";
-lid_font = "${ammoLidFont || 'Impact'}";
+lid_font = "${ammoLidFont || 'Impact'}:style=Bold";
+enable_lid_border = ${enableAmmoLidBorder ? 'true' : 'false'};
 
 snap_tol = 0.22;
 handle_total_h = ${handleTotalH};
 shaft_h = ${shaftH};
 tbar_w = min(tray_w * 0.45, max(30, pitch * 2.2));
+num_latches = ${numLatches};
+mag_pairs = ${magPairs};
 
+// --- 1. STANDING BALLISTIC TRAY (WITH 8x3MM MAGNET FEET) ---
 module ballistic_tray() {
-    difference() {
-        hull() {
-            translate([1.2, 1.2, 0])
-                cube([tray_w - 2.4, tray_d - 2.4, 1.2]);
-            translate([0, 0, 1.2])
-                cube([tray_w, tray_d, tray_h - 1.2]);
-        }
+    union() {
+        difference() {
+            hull() {
+                translate([1.2, 1.2, 0])
+                    cube([tray_w - 2.4, tray_d - 2.4, 1.2]);
+                translate([0, 0, 1.2])
+                    cube([tray_w, tray_d, tray_h - 1.2]);
+            }
 
-        // Generate holes measured around the dead-center 6.5mm spine at tray_w / 2
-        left_cols = ceil(cols / 2);
-        
-        for (r = [0 : rows - 1]) {
-            for (c = [0 : cols - 1]) {
-                col_offset = (c >= left_cols) ? center_gap : 0;
-                cx = (cols == 1)
-                    ? (tray_w / 2)
-                    : (tray_w / 2) - (center_gap / 2) - (left_cols * pitch) + (pitch / 2) + (c * pitch) + col_offset;
-                cy = tray_wall + (r * pitch) + (pitch / 2);
+            left_cols = ceil(cols / 2);
+            for (r = [0 : rows - 1]) {
+                for (c = [0 : cols - 1]) {
+                    col_offset = (c >= left_cols) ? center_gap : 0;
+                    cx = (tray_w / 2) - (center_gap / 2) - (left_cols * pitch) + (pitch / 2) + (c * pitch) + col_offset;
+                    cy = tray_wall + (r * pitch) + (pitch / 2);
 
-                translate([cx, cy, 0]) {
-                    translate([0, 0, floor_thick])
-                        cylinder(h = tip_cone_h + 0.05, d1 = bore_d * 0.42, d2 = bore_d);
-
-                    translate([0, 0, floor_thick + tip_cone_h])
-                        cylinder(h = tray_h, d = bore_d);
-
-                    translate([0, 0, tray_h - 0.9])
-                        cylinder(h = 1.0, d1 = bore_d, d2 = bore_d + 1.2);
+                    translate([cx, cy, 0]) {
+                        translate([0, 0, floor_thick])
+                            cylinder(h = tip_cone_h + 0.05, d1 = bore_d * 0.42, d2 = bore_d);
+                        translate([0, 0, floor_thick + tip_cone_h])
+                            cylinder(h = tray_h, d = bore_d);
+                        translate([0, 0, tray_h - 0.9])
+                            cylinder(h = 1.0, d1 = bore_d, d2 = bore_d + 1.2);
+                    }
                 }
+            }
+
+            for (y_off = [-rows * pitch * 0.25, rows * pitch * 0.25]) {
+                translate([tray_w / 2, tray_d / 2 + y_off, 0])
+                    snap_socket_cutout();
             }
         }
 
-        // Center snap-fit sockets built into the dead-center spine (removed handle_offset_x)
-        for (y_off = [-rows * pitch * 0.25, rows * pitch * 0.25]) {
-            translate([tray_w / 2, tray_d / 2 + y_off, 0])
-                snap_socket_cutout();
+        // Bottom Standoff Feet with 8.2x3.2mm Magnet Pockets
+        mx = tray_w / 2 - 7.5;
+        my = tray_d / 2 - 7.5;
+        for (fx = [-mx, mx]) {
+            for (fy = [-my, my]) {
+                tray_magnet_foot(tray_w / 2 + fx, tray_d / 2 + fy);
+            }
         }
+        if (mag_pairs == 6) {
+            for (fy = [-my, my]) {
+                tray_magnet_foot(tray_w / 2, tray_d / 2 + fy);
+            }
+        }
+    }
+}
+
+module tray_magnet_foot(x, y) {
+    translate([x, y, -foot_h])
+    difference() {
+        cylinder(h = foot_h, r1 = 6.5, r2 = 7.25);
+        translate([0, 0, -0.05])
+            cylinder(h = 3.2, d = 8.2);
     }
 }
 
 module snap_socket_cutout() {
     translate([0, 0, tray_h / 2])
         cube([3.8 + snap_tol * 2, 5.4 + snap_tol * 2, tray_h + 2], center = true);
-
     translate([0, 0, 1.4])
         cube([5.4 + snap_tol * 2, 5.6 + snap_tol * 2, 2.9], center = true);
 }
 
+// --- 2. SNAP-IN T-HANDLE ---
 module snap_in_t_handle(print_flat = false) {
     rotate(print_flat ? [90, 0, 0] : [0, 0, 0])
     translate(print_flat ? [0, 0, 2.6] : [tray_w / 2, tray_d / 2, 0]) {
@@ -1077,11 +1134,9 @@ module snap_in_t_handle(print_flat = false) {
                 cube([1.6, 5.2, 1.0], center = true);
         }
 
-        // Center spine bridge matching the 6.5mm gap
         translate([0, 0, tray_h + 1.2])
             cube([center_gap, tray_d - (tray_wall * 2) - 4, 2.4], center = true);
 
-        // Dual posts & prongs
         for (y_off = [-rows * pitch * 0.25, rows * pitch * 0.25]) {
             translate([0, y_off, 0])
                 handle_post_and_prong();
@@ -1097,7 +1152,6 @@ module handle_post_and_prong() {
         union() {
             translate([0, 0, tray_h / 2])
                 cube([3.8, 5.2, tray_h], center = true);
-
             hull() {
                 translate([0, 0, 2.6])
                     cube([5.2, 5.2, 0.8], center = true);
@@ -1110,13 +1164,221 @@ module handle_post_and_prong() {
     }
 }
 
+// --- 3. ARMORED BASE SHELL ---
+module base_shell() {
+    knuckle_w = min(28, shell_w * 0.22);
+    hinge_r = 4.2;
+
+    difference() {
+        union() {
+            // Main Shell Body
+            translate([-shell_w / 2, -shell_d / 2, 0])
+                cube([shell_w, shell_d, base_z]);
+
+            // Exterior Tactical Ribs
+            for (dir = [-1, 1]) {
+                translate([-shell_w / 2 - 1.8, dir * (shell_d * 0.26) - 5, 0])
+                    cube([1.8, 10, base_z - 2]);
+                translate([shell_w / 2, dir * (shell_d * 0.26) - 5, 0])
+                    cube([1.8, 10, base_z - 2]);
+                translate([dir * (shell_w * 0.36) - 5, -shell_d / 2 - 1.8, 0])
+                    cube([10, 1.8, base_z - 2]);
+                translate([dir * (shell_w * 0.36) - 5, shell_d / 2, 0])
+                    cube([10, 1.8, base_z - 2]);
+            }
+
+            // Rear Hinge Knuckles
+            for (side = [-1, 1]) {
+                translate([side * (knuckle_w * 1.05), -shell_d / 2 - hinge_r * 0.65, base_z])
+                rotate([0, 90, 0])
+                    cylinder(r = hinge_r, h = knuckle_w, center = true);
+            }
+
+            // Front Latch Clevis Mounts
+            for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
+                for (cx = [-8.5, 8.5]) {
+                    translate([lx + cx, shell_d / 2 + 2.75, base_z - 8])
+                        cube([3.2, 5.5, 12], center = true);
+                }
+            }
+        }
+
+        // Hollow Interior Cavity
+        translate([-shell_w / 2 + wall_t, -shell_d / 2 + wall_t, floor_t])
+            cube([shell_w - wall_t * 2, shell_d - wall_t * 2, base_z + 1]);
+
+        // M3 Rear Hinge Pin Bore
+        translate([0, -shell_d / 2 - hinge_r * 0.65, base_z])
+        rotate([0, 90, 0])
+            cylinder(d = 3.2, h = shell_w, center = true);
+
+        // M3 Front Latch Pin Bores
+        for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
+            translate([lx, shell_d / 2 + 3.5, base_z - 6])
+            rotate([0, 90, 0])
+                cylinder(d = 3.2, h = 24, center = true);
+        }
+
+        // Base Floor 8x3mm Magnet Pockets
+        mx = tray_w / 2 - 7.5;
+        my = tray_d / 2 - 7.5;
+        for (fx = [-mx, mx]) {
+            for (fy = [-my, my]) {
+                translate([fx, fy, floor_t - 3.1])
+                    cylinder(h = 3.2, d = 8.2);
+            }
+        }
+        if (mag_pairs == 6) {
+            for (fy = [-my, my]) {
+                translate([0, fy, floor_t - 3.1])
+                    cylinder(h = 3.2, d = 8.2);
+            }
+        }
+    }
+}
+
+// --- 4. VAULT LID & FLUSH MULTI-COLOR INLAY ---
+module lid_inlay_2d() {
+    bw = shell_w * 0.78;
+    bd = shell_d * 0.58;
+    title_sz = min(bw * 0.16, bd * 0.26);
+    sub_sz = min(bw * 0.09, bd * 0.14);
+
+    if (enable_lid_border) {
+        difference() {
+            square([bw, bd], center = true);
+            square([bw - 4.0, bd - 4.0], center = true);
+        }
+    }
+    if (lid_title != "") {
+        translate([0, lid_sub != "" ? bd * 0.08 : 0, 0])
+            text(lid_title, size = title_sz, font = lid_font, halign = "center", valign = "center");
+    }
+    if (lid_sub != "") {
+        translate([0, lid_title != "" ? -bd * 0.22 : 0, 0])
+            text(lid_sub, size = sub_sz, font = lid_font, halign = "center", valign = "center");
+    }
+}
+
+module vault_lid() {
+    knuckle_w = min(28, shell_w * 0.22);
+    hinge_r = 4.2;
+
+    difference() {
+        union() {
+            translate([-shell_w / 2, -shell_d / 2, 0])
+                cube([shell_w, shell_d, lid_z]);
+
+            // Center Hinge Knuckle
+            translate([0, -shell_d / 2 - hinge_r * 0.65, 0])
+            rotate([0, 90, 0])
+                cylinder(r = hinge_r, h = knuckle_w, center = true);
+
+            // Structural Standoff Ribs & Gluing Frame (Bridges the 13.6mm gap so the 4.5mm TPU pad contacts rounds!)
+            standoff_h = 13.6;
+            difference() {
+                union() {
+                    // 4 Load-Bearing Support Rails under the TPU Pad (inset at 22% and 42% of tray depth)
+                    for (dir = [-1, 1]) {
+                        translate([0, dir * (tray_d * 0.42), lid_z - 3.0 - standoff_h / 2])
+                            cube([tray_w - 0.8, 2.4, standoff_h], center = true);
+                        translate([0, dir * (tray_d * 0.22), lid_z - 3.0 - standoff_h / 2])
+                            cube([tray_w - 0.8, 2.4, standoff_h], center = true);
+                    }
+                    // Outer Centering Lip (Steps 1.5mm past the standoff face to lock the TPU pad in place while gluing)
+                    for (dir = [-1, 1]) {
+                        translate([0, dir * (tray_d / 2 + 0.8), lid_z - 3.0 - (standoff_h + 1.5) / 2])
+                            cube([tray_w + 1.6, 1.6, standoff_h + 1.5], center = true);
+                        translate([dir * (tray_w / 2 + 0.8), 0, lid_z - 3.0 - (standoff_h + 1.5) / 2])
+                            cube([1.6, tray_d + 3.2, standoff_h + 1.5], center = true);
+                    }
+                }
+                // Center clearance notch so the ribs never collide with the T-handle
+                translate([0, 0, lid_z - 3.0 - (standoff_h + 2) / 2])
+                    cube([tbar_w + 4.0, 12.0, standoff_h + 4.0], center = true);
+            }
+            
+            // Front Latch Catch Hooks
+            for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
+                translate([lx, shell_d / 2 + 2.2, 3.25])
+                    cube([13.0, 4.5, 6.5], center = true);
+            }
+        }
+
+        // Hollow Lid Interior
+        translate([-shell_w / 2 + wall_t, -shell_d / 2 + wall_t, -0.1])
+            cube([shell_w - wall_t * 2, shell_d - wall_t * 2, lid_z - 3.0]);
+
+        // M3 Hinge Pin Bore
+        translate([0, -shell_d / 2 - hinge_r * 0.65, 0])
+        rotate([0, 90, 0])
+            cylinder(d = 3.4, h = knuckle_w + 2, center = true);
+
+        // Flush 0.6mm Inlay Cutout on Top Face
+        translate([0, 0, lid_z - 0.6])
+        linear_extrude(0.65)
+            offset(r = 0.02)
+            lid_inlay_2d();
+    }
+}
+
+module lid_inlay_part() {
+    translate([0, 0, lid_z - 0.6])
+    linear_extrude(0.6)
+        lid_inlay_2d();
+}
+
+// --- 5. CAM-ACTION DRAW LATCHES ---
+module cam_latch() {
+    difference() {
+        union() {
+            cube([13.2, 4.2, 22], center = true);
+            translate([0, 1.3, -9.25])
+                cube([13.2, 6.8, 3.5], center = true);
+        }
+        translate([0, -0.5, 8.0])
+        rotate([0, 90, 0])
+            cylinder(d = 3.3, h = 16, center = true);
+    }
+}
+
+// --- 6. TPU RATTLE PAD ---
+module tpu_rattle_pad() {
+    pad_t = 4.5;
+    difference() {
+        cube([tray_w - 0.5, tray_d - 0.5, pad_t], center = true);
+        // Handle cutout slot + 8.5mm wide so the T-bar nests cleanly inside
+        cube([tbar_w + 2.0, 9.5, pad_t + 2.0], center = true);
+    }
+}
+
+// --- EXPORT ROUTER ---
 if (export_part == "full") {
-    ballistic_tray();
-    color("${ammoAccentColor || '#F36B21'}") snap_in_t_handle(false);
+    color("${ammoBaseColor}") base_shell();
+    translate([0, 0, base_z]) color("${ammoLidColor}") vault_lid();
+    translate([0, 0, base_z]) color("${ammoAccentColor}") lid_inlay_part();
+    translate([0, 0, base_z + lid_z - 3.0 - 13.6 - 2.25]) color("#111111") tpu_rattle_pad();
+    translate([-tray_w / 2, -tray_d / 2, floor_t + foot_h]) {
+        color("${ammoTrayColor}") ballistic_tray();
+        color("${ammoAccentColor}") snap_in_t_handle(false);
+    }
+} else if (export_part == "base_only") {
+    base_shell();
+} else if (export_part == "lid_only") {
+    // Flipped upside down so top face prints flat on build plate!
+    translate([0, 0, lid_z]) rotate([180, 0, 0]) vault_lid();
+} else if (export_part == "text_only") {
+    translate([0, 0, lid_z]) rotate([180, 0, 0]) lid_inlay_part();
 } else if (export_part == "tray_only" || export_part == "box_only") {
-    ballistic_tray();
+    translate([-tray_w / 2, -tray_d / 2, foot_h]) ballistic_tray();
 } else if (export_part == "handle_only") {
     snap_in_t_handle(true);
+} else if (export_part == "latch_only") {
+    for (i = [0 : num_latches - 1]) {
+        translate([i * 18, 0, 6.6]) rotate([0, 90, 0]) cam_latch();
+    }
+} else if (export_part == "tpu_pad") {
+    tpu_rattle_pad();
 }
 `;
   };
@@ -1580,7 +1842,7 @@ complete_model();
 
     if (activeTab === 'ammo') {
       scadContent = generateAmmoMatrixScad(scadExportMode);
-      filename = `ammomatrix_${ammoCaliber}_${clampedAmmoCols}x${clampedAmmoRows}.scad`;
+      filename = `ammomatrix_${ammoCaliber}_${clampedAmmoCols}x${clampedAmmoRows}_${scadExportMode}.scad`;
     } else if (activeTab === 'cargo') {
       // Assuming you have a cargo generator too!
       scadContent = typeof generateCargoScad === 'function' ? generateCargoScad() : '';
@@ -1855,7 +2117,7 @@ complete_model();
       setDrawersPerTier(4);
     } else if (activeTab === 'cargo') {
       setCargoWidth(120);
-      setCargoDepth(90);
+      setCargoLength(90);
       setCargoHeight(20);
     } else if (activeTab === 'ammo') {
       setAmmoCaliber('22lr');
@@ -2016,12 +2278,16 @@ complete_model();
       const maxSpan = Math.max(width, depth, totalH);
       controlsState.current.targetY = totalH * 0.45;
       controlsState.current.radius = Math.max(250, maxSpan * 1.9 + 90);
+    } else if (activeTab === 'ammo') {
+      const maxSpan = Math.max(ammoShellX, ammoShellY, ammoShellZ);
+      controlsState.current.targetY = ammoShellZ * 0.5;
+      controlsState.current.radius = Math.max(220, maxSpan * 1.85 + 60);
     } else {
       const maxSpan = Math.max(cargoWidth, cargoLength * 2.1, cargoHeight * 2);
       controlsState.current.targetY = cargoHeight * 0.8;
       controlsState.current.radius = Math.max(220, maxSpan * 1.65 + 60);
     }
-  }, [activeTab, tiers, singleTierHeightMm, width, depth, cargoWidth, cargoLength, cargoHeight]);
+  }, [activeTab, tiers, singleTierHeightMm, width, depth, cargoWidth, cargoLength, cargoHeight, ammoShellX, ammoShellY, ammoShellZ]);
 
   useEffect(() => {
     fitCameraToModel();
@@ -2499,6 +2765,76 @@ complete_model();
       const lidWRight = lidWLeft.clone();
       lidWRight.position.set(ammoShellX / 2 - wallT / 2, 4.5, lidOffsetZ);
       lidPivot.add(lidWLeft, lidWRight);
+
+      // 4.5mm TPU Anti-Rattle Pad Seated on 13.6mm Lid Standoff Ribs
+      const padW = ammoTrayX - 0.5;
+      const padD = ammoTrayY - 0.5;
+      const standoffH = 13.6;
+      const padThick = 4.5;
+      const lidCeilingY = 9.0;
+      const standoffBottomY = lidCeilingY - standoffH;
+      const hw = Math.min(ammoTrayX * 0.45, Math.max(28, (currentCalSpec?.pitch || 12) * 2.2)) / 2 + 1.5;
+
+      const tpuMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.8, metalness: 0.0 });
+      const standoffRailMat = new THREE.MeshStandardMaterial({ color: ammoLidColor, roughness: 0.4, metalness: 0.1 });
+
+      // 1. Structural Standoff Rails (Split around center handle slot just like OpenSCAD!)
+      [-0.42, -0.22, 0.22, 0.42].forEach((factor) => {
+        const zOff = factor * padD;
+        if (Math.abs(zOff) < 6.5) {
+          // Near center handle slot: split rail into Left & Right segments so slot stays clear
+          const segW = Math.max(4, (padW - 0.3) / 2 - hw);
+          [-1, 1].forEach((side) => {
+            const segRail = new THREE.Mesh(new THREE.BoxGeometry(segW, standoffH, 2.4), standoffRailMat);
+            segRail.position.set(side * (hw + segW / 2), lidCeilingY - standoffH / 2, lidOffsetZ + zOff);
+            lidPivot.add(segRail);
+          });
+        } else {
+          const supportRail = new THREE.Mesh(new THREE.BoxGeometry(padW - 0.3, standoffH, 2.4), standoffRailMat);
+          supportRail.position.set(0, lidCeilingY - standoffH / 2, lidOffsetZ + zOff);
+          lidPivot.add(supportRail);
+        }
+      });
+
+      // Outer 1.5mm Lip that frames all 4 edges of the TPU pad for easy centering/gluing
+      [-1, 1].forEach((dir) => {
+        const guideLipNS = new THREE.Mesh(
+          new THREE.BoxGeometry(padW + 1.6, standoffH + 1.5, 1.6),
+          standoffRailMat
+        );
+        guideLipNS.position.set(0, lidCeilingY - (standoffH + 1.5) / 2, lidOffsetZ + dir * (padD / 2 + 0.8));
+        lidPivot.add(guideLipNS);
+
+        const guideLipEW = new THREE.Mesh(
+          new THREE.BoxGeometry(1.6, standoffH + 1.5, padD + 3.2),
+          standoffRailMat
+        );
+        guideLipEW.position.set(dir * (padW / 2 + 0.8), lidCeilingY - (standoffH + 1.5) / 2, lidOffsetZ);
+        lidPivot.add(guideLipEW);
+      });
+
+      // 2. 4.5mm Black TPU Cushion Pad (Mounted to the face of the Standoff Ribs)
+      const tpuShape = new THREE.Shape();
+      tpuShape.moveTo(-padW / 2, -padD / 2);
+      tpuShape.lineTo(padW / 2, -padD / 2);
+      tpuShape.lineTo(padW / 2, padD / 2);
+      tpuShape.lineTo(-padW / 2, padD / 2);
+      tpuShape.lineTo(-padW / 2, -padD / 2);
+
+      // Center Handle Cutout Slot
+      const holePath = new THREE.Path();
+      holePath.moveTo(-hw, -4.75);
+      holePath.lineTo(hw, -4.75);
+      holePath.lineTo(hw, 4.75);
+      holePath.lineTo(-hw, 4.75);
+      holePath.lineTo(-hw, -4.75);
+      tpuShape.holes.push(holePath);
+
+      const tpuGeo = new THREE.ExtrudeGeometry(tpuShape, { depth: padThick, bevelEnabled: false });
+      const tpuPad = new THREE.Mesh(tpuGeo, tpuMat);
+      tpuPad.rotation.x = Math.PI / 2;
+      tpuPad.position.set(0, standoffBottomY, lidOffsetZ);
+      lidPivot.add(tpuPad);
 
       // Lid Exterior Side Ribs (Match Base Alignment, Rotate with Lid)
       [-1, 1].forEach((dir) => {
@@ -3027,7 +3363,6 @@ complete_model();
     cargoText,
     cargoFont,
     cargoBorder,
-    enableAmmoLidBorder,
     foldAngle,
     ammoCaliber,
     ammoCols,
@@ -3050,6 +3385,7 @@ complete_model();
     ammoTrayY,
     ammoTrayZ,
     ammoLidTitle,
+    ammoLidFont,
     showAmmoRoundCount,
     currentCalSpec
   ]);
@@ -3280,14 +3616,18 @@ complete_model();
                     {(activeTab === 'ammo'
                       ? [
                           { id: 'full', label: 'Full Assembly' },
+                          { id: 'base_only', label: 'Base Shell' },
+                          { id: 'lid_only', label: 'Vault Lid (Print Upside-Down)' },
+                          { id: 'text_only', label: 'Lid Inlay (Text & Border)' },
                           { id: 'tray_only', label: 'Standing Tray' },
-                          { id: 'handle_only', label: 'Snap-In T-Handle (Flat)' },
-                          { id: 'text_only', label: 'Lid Inlay' }
+                          { id: 'handle_only', label: 'T-Handle (Flat)' },
+                          { id: 'latch_only', label: 'Cam Latches (Flat)' },
+                          { id: 'tpu_pad', label: 'TPU Rattle Pad (4.5mm)' }
                         ]
-                      : [
-                          { id: 'full', label: 'Full' },
-                          { id: 'box_only', label: 'Box' },
-                          { id: 'text_only', label: 'Inlay' },
+                        : [
+                          { id: 'full', label: 'Full 3MF' },
+                          { id: 'box_only', label: 'Box Only' },
+                          { id: 'text_only', label: 'Inlay Only' },
                           { id: 'hinge', label: 'Hinge Test' },
                           { id: 'latch', label: 'Latch Test' }
                         ]
@@ -3929,7 +4269,7 @@ complete_model();
                 <div className="bg-[#0f172a] p-3 rounded-xl border border-[#1e293b]">
                   <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">2. Box Capacity</div>
                   <div className="grid grid-cols-3 gap-2">
-                    {AMMO_ETSY_PRESETS.map((preset) => {
+                    {activeAmmoPresets.map((preset) => {
                       const isActive = clampedAmmoCols === preset.cols && clampedAmmoRows === preset.rows;
                       return (
                         <button
@@ -3937,11 +4277,10 @@ complete_model();
                           onClick={() => handleSelectAmmoPreset(preset)}
                           className={`p-2 rounded-lg border text-center transition-all ${
                             isActive
-                              ? 'bg-amber-500 text-slate-900 border-amber-400 font-bold'
+                              ? 'bg-amber-500 text-slate-900 border-amber-400 font-bold shadow-md'
                               : 'bg-[#151e31] border-[#1e293b] text-slate-300 hover:border-slate-500'
                           }`}
                         >
-                          {/* Only show the label (e.g., "Small", "Medium", "Large"), omitting the number! */}
                           <div className="text-xs uppercase tracking-wider">{preset.label}</div>
                         </button>
                       );
@@ -3954,8 +4293,30 @@ complete_model();
                         <span>Cols: {clampedAmmoCols}</span>
                         <span>Rows: {clampedAmmoRows}</span>
                       </div>
-                      <input type="range" min={3} max={maxSafeGrid} value={clampedAmmoCols} onChange={(e) => setAmmoCols(Number(e.target.value))} className="w-full accent-amber-500" />
-                      <input type="range" min={3} max={maxSafeGrid} value={clampedAmmoRows} onChange={(e) => setAmmoRows(Number(e.target.value))} className="w-full accent-amber-500" />
+                      <input
+                        type="range"
+                        min={2}
+                        max={maxSafeCols}
+                        step={2}
+                        value={clampedAmmoCols}
+                        onChange={(e) => setAmmoCols(Math.max(2, Math.round(Number(e.target.value) / 2) * 2))}
+                        style={{
+                          background: `linear-gradient(to right, #f59e0b 0%, #f59e0b ${((clampedAmmoCols - 2) / Math.max(1, maxSafeCols - 2)) * 100}%, #1e293b ${((clampedAmmoCols - 2) / Math.max(1, maxSafeCols - 2)) * 100}%, #1e293b 100%)`
+                        }}
+                        className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                      />
+                      <input
+                        type="range"
+                        min={2}
+                        max={maxSafeRows}
+                        step={1}
+                        value={clampedAmmoRows}
+                        onChange={(e) => setAmmoRows(Number(e.target.value))}
+                        style={{
+                          background: `linear-gradient(to right, #f59e0b 0%, #f59e0b ${((clampedAmmoRows - 2) / Math.max(1, maxSafeRows - 2)) * 100}%, #1e293b ${((clampedAmmoRows - 2) / Math.max(1, maxSafeRows - 2)) * 100}%, #1e293b 100%)`
+                        }}
+                        className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                      />
                     </div>
                   )}
                 </div>
@@ -4039,18 +4400,18 @@ complete_model();
                       className="w-4 h-4 accent-amber-500 cursor-pointer"
                     />
                   </label>
-                </div>
-                {/* ---> THE NEW BORDER TOGGLE <--- */}
-                <div className="flex items-center gap-2 mt-1 bg-[#0f172a] border border-[#1e293b] rounded p-2">
-                  <input
-                    type="checkbox"
-                    checked={enableAmmoLidBorder}
-                    onChange={(e) => setEnableAmmoLidBorder(e.target.checked)}
-                    className="form-checkbox h-4 w-4 text-[#f43f5e] rounded bg-[#090d16] border-[#1e293b] focus:ring-[#f43f5e] focus:ring-offset-[#0f172a]"
-                  />
-                  <span className="text-xs text-[#cbd5e1] font-medium tracking-wide">
-                    Draw Accent Border on Lid
-                  </span>
+                  {/* ---> THE NEW BORDER TOGGLE <--- */}
+                  <div className="flex items-center gap-2 mt-1 bg-[#0f172a] border border-[#1e293b] rounded p-2">
+                    <input
+                      type="checkbox"
+                      checked={enableAmmoLidBorder}
+                      onChange={(e) => setEnableAmmoLidBorder(e.target.checked)}
+                      className="form-checkbox h-4 w-4 text-[#f43f5e] rounded bg-[#090d16] border-[#1e293b] focus:ring-[#f43f5e] focus:ring-offset-[#0f172a]"
+                    />
+                    <span className="text-xs text-[#cbd5e1] font-medium tracking-wide">
+                      Draw Accent Border on Lid
+                    </span>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -4322,11 +4683,13 @@ complete_model();
             <span className="text-[#94a3b8]">
               {activeTab === 'storage'
                 ? `${tiers} Tiers • ${tiers * drawersPerTier} Drawers`
+                : activeTab === 'ammo'
+                ? `${ammoShellX}×${ammoShellY}×${ammoShellZ}mm • ${ammoTotalRounds} Rds (${currentCalSpec.short})`
                 : `${cargoWidth}×${cargoLength}×${cargoHeight}mm • ${cargoCompX * cargoCompY} Cells`}
             </span>
             {isEtsyMode ? (
               <span className="px-2.5 py-0.5 rounded bg-[#3b1526] border border-[#f43f5e]/60 text-xs font-bold text-[#fecdd3]">
-                Etsy Tier: {activeTab === 'storage' ? sizePreset : cargoPreset}
+                Etsy Tier: {activeTab === 'storage' ? sizePreset : activeTab === 'ammo' ? `${ammoTotalRounds} Rds` : cargoPreset}
               </span>
             ) : (
               <span className="text-lg font-black text-[#38bdf8]">${calculatePrice().toFixed(2)}</span>
