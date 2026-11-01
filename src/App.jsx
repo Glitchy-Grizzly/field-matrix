@@ -1391,59 +1391,65 @@ if (export_part == "full") {
     col2_x = shell_w / 2 + tray_w / 2 + plate_gap;
     col3_x = col2_x + tray_w / 2 + plate_gap + 25;
 
-    // 1. Base Shell (Front-Left, flat on floor at Z = 0)
+    // 1. Base Shell
     color("${ammoBaseColor}")
         base_shell();
 
-    // 2. Vault Lid + Multi-Color Inlay (Back-Left, flipped upside-down at Z = 0 for AMS)
+    // 2. Vault Lid + Multi-Color Inlay (Grouped so text moves with the lid!)
     translate([0, shell_d + plate_gap, lid_z])
     rotate([180, 0, 0]) {
         color("${ammoLidColor}") vault_lid();
         color("${ammoAccentColor}") lid_inlay_part();
     }
 
-    // 3. Standing Ballistic Tray (Front-Right, resting on magnet feet at Z = 0)
+    // 3. Standing Ballistic Tray
     translate([col2_x - tray_w / 2, -tray_d / 2, foot_h])
     color("${ammoTrayColor}")
         ballistic_tray();
 
-    // 4. TPU Anti-Rattle Pad (Back-Right, flat at Z = 0)
+    // 4. TPU Anti-Rattle Pad (Uses exact PETG Black #1F2421)
     translate([col2_x, shell_d + plate_gap, 2.25])
-    color("#1a1a1a")
+    color("#1F2421")
         tpu_rattle_pad();
 
-    // 5. Snap-In T-Handle (Far-Right Front, laying flat on its side at Z = 0 for max layer strength)
+    // 5. Snap-In T-Handle
     translate([col3_x, -shell_d * 0.15, 0])
     color("${ammoAccentColor}")
         snap_in_t_handle(true);
 
-    // 6. Cam-Action Draw Latches (Far-Right Back, laying flat on their sides at Z = 0)
-    for (i = [0 : num_latches - 1]) {
-        translate([col3_x + i * 20, shell_d * 0.35, 6.6])
-        rotate([0, 90, 0])
+    // 6. Cam-Action Draw Latches
+    translate([col3_x, shell_d * 0.35, 6.6]) rotate([0, 90, 0])
+    color("${ammoAccentColor}")
+        cam_latch();
+
+    if (num_latches == 2) {
+        translate([col3_x + 20, shell_d * 0.35, 6.6]) rotate([0, 90, 0])
         color("${ammoAccentColor}")
             cam_latch();
     }
 } else if (export_part == "base_only") {
-    base_shell();
+    color("${ammoBaseColor}") base_shell();
 } else if (export_part == "lid_only") {
-    // Flipped upside down so top face prints flat on build plate!
-    translate([0, 0, lid_z]) rotate([180, 0, 0]) {
-        vault_lid();
-        lid_inlay_part();
+    translate([0, 0, lid_z])
+    rotate([180, 0, 0]) {
+        color("${ammoLidColor}") vault_lid();
+        color("${ammoAccentColor}") lid_inlay_part();
     }
-} else if (export_part == "text_only") {
-    translate([0, 0, lid_z]) rotate([180, 0, 0]) lid_inlay_part();
-} else if (export_part == "tray_only" || export_part == "box_only") {
-    translate([-tray_w / 2, -tray_d / 2, foot_h]) ballistic_tray();
+} else if (export_part == "inlay_only") {
+    translate([0, 0, lid_z]) rotate([180, 0, 0])
+    color("${ammoAccentColor}") lid_inlay_part();
+} else if (export_part == "tray_only") {
+    translate([-tray_w / 2, -tray_d / 2, foot_h])
+    color("${ammoTrayColor}") ballistic_tray();
 } else if (export_part == "handle_only") {
-    snap_in_t_handle(true);
+    color("${ammoAccentColor}") snap_in_t_handle(true);
 } else if (export_part == "latch_only") {
     for (i = [0 : num_latches - 1]) {
-        translate([i * 18, 0, 6.6]) rotate([0, 90, 0]) cam_latch();
+        translate([i * 22, 0, 6.6]) rotate([0, 90, 0])
+        color("${ammoAccentColor}") cam_latch();
     }
 } else if (export_part == "tpu_pad") {
-    tpu_rattle_pad();
+    color("#1F2421") tpu_rattle_pad();
 }
 `;
   };
@@ -1864,10 +1870,10 @@ complete_model();
   };
 
   // ==========================================
-  // DESCRIPTIVE CARGO MATRIX .SCAD FILE NAMING
+  // DESCRIPTIVE CARGO & AMMO .SCAD FILE NAMING
   // ==========================================
   const getCargoScadFilename = (mode = scadExportMode) => {
-    const cleanCode = designCode || `CARGO-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const cleanCode = designCode || `CARGO-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     const safeText = (cargoText || '')
       .replace(/[^a-zA-Z0-9\s_-]/g, '')
       .trim()
@@ -1880,14 +1886,25 @@ complete_model();
     const borderTag = cargoBorder ? 'Border-YES' : 'Border-NO';
 
     const typeMap = {
-      full: 'FULL-3MF-V12',
-      box_only: 'BOX-ONLY-V12',
-      text_only: 'INLAY-ONLY-V12',
-      hinge: 'HINGE-TEST-V12',
-      latch: 'LATCH-TEST-V12'
+      full: 'FULL-3MF',
+      box_only: 'BOX-ONLY',
+      text_only: 'INLAY-ONLY',
+      hinge: 'HINGE-TEST',
+      latch: 'LATCH-TEST'
     };
 
-    return `${cleanCode}_${cargoPreset.toUpperCase()}_${safeText}_${dims}_${grid}_${colors}_${borderTag}_${typeMap[mode] || 'V12'}.scad`;
+    return `${cleanCode}_${cargoPreset.toUpperCase()}_${safeText}_${dims}_${grid}_${colors}_${borderTag}_${typeMap[mode] || mode.toUpperCase()}.scad`;
+  };
+
+  const getAmmoScadFilename = (mode = scadExportMode) => {
+    const cleanCode = designCode || `AMMO-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const safeTitle = (ammoLidTitle || currentCalSpec?.short || ammoCaliber)
+      .replace(/[^a-zA-Z0-9\s_-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .toUpperCase() || 'NO-TEXT';
+
+    return `${cleanCode}_${ammoCaliber.toUpperCase()}_${clampedAmmoCols}x${clampedAmmoRows}_${safeTitle}_${mode.toUpperCase()}.scad`;
   };
 
   const downloadScadFile = (mode = scadExportMode) => {
@@ -1902,21 +1919,16 @@ complete_model();
   };
 
   const handleDownloadScad = () => {
-    let scadContent = "";
-    let filename = "";
-
-    if (activeTab === 'ammo') {
-      scadContent = generateAmmoMatrixScad(scadExportMode);
-      filename = `ammomatrix_${ammoCaliber}_${clampedAmmoCols}x${clampedAmmoRows}_${scadExportMode}.scad`;
-    } else if (activeTab === 'cargo') {
-      // Assuming you have a cargo generator too!
-      scadContent = typeof generateCargoScad === 'function' ? generateCargoScad() : '';
-      filename = `cargomatrix_${cargoWidth}x${cargoLength}x${cargoHeight}.scad`;
-    }
+    const scadContent = activeTab === 'ammo'
+      ? generateAmmoMatrixScad(scadExportMode)
+      : generateScadCode(scadExportMode);
+    const filename = activeTab === 'ammo'
+      ? getAmmoScadFilename(scadExportMode)
+      : getCargoScadFilename(scadExportMode);
 
     if (!scadContent) return;
 
-    const blob = new Blob([scadContent], { type: 'text/plain' });
+    const blob = new Blob([scadContent], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -2037,7 +2049,7 @@ complete_model();
         colorsSummary: `Base: ${ammoBaseColor} / Lid: ${ammoLidColor} / Tray: ${ammoTrayColor} / Accent: ${ammoAccentColor}`,
         configuration: ammoConfig,
         productionOutput: {
-          scadFilename: `ammomatrix_${ammoCaliber}_${clampedAmmoCols}x${clampedAmmoRows}.scad`,
+          scadFilename: getAmmoScadFilename(scadExportMode),
           scadCode: generateAmmoMatrixScad(scadExportMode),
           specSheet: generateSpecSheet()
         },
@@ -2045,7 +2057,7 @@ complete_model();
         length: Number(ammoShellY),
         height: Number(ammoShellZ),
         scadCode: generateAmmoMatrixScad(scadExportMode),
-        scadFilename: `ammomatrix_${ammoCaliber}_${clampedAmmoCols}x${clampedAmmoRows}.scad`,
+        scadFilename: getAmmoScadFilename(scadExportMode),
         ammoCaliber,
         ammoCols: Number(clampedAmmoCols),
         ammoRows: Number(clampedAmmoRows),
@@ -3751,7 +3763,7 @@ complete_model();
 
             {adminUnlocked && currentProductMeta.hasOpenScadGenerator && modalTab === 'scad' && (
               <div className="px-5 py-3 min-h-[44px] flex-shrink-0 bg-[#090d16] border-b border-[#1e293b] text-[11px] font-mono text-[#38bdf8] break-all leading-relaxed">
-                Save Filename: <span className="text-white">{activeTab === 'ammo' ? `ammomatrix_${ammoCaliber}_${clampedAmmoCols}x${clampedAmmoRows}_${scadExportMode}.scad` : getCargoScadFilename(scadExportMode)}</span>
+                Save Filename: <span className="text-white">{activeTab === 'ammo' ? getAmmoScadFilename(scadExportMode) : getCargoScadFilename(scadExportMode)}</span>
               </div>
             )}
 
