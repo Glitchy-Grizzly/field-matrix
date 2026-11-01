@@ -1387,13 +1387,42 @@ module tpu_rattle_pad() {
 
 // --- EXPORT ROUTER ---
 if (export_part == "full") {
-    color("${ammoBaseColor}") base_shell();
-    translate([0, 0, base_z]) color("${ammoLidColor}") vault_lid();
-    translate([0, 0, base_z]) color("${ammoAccentColor}") lid_inlay_part();
-    translate([0, 0, base_z + lid_z - 3.0 - 13.6 - 2.25]) color("#111111") tpu_rattle_pad();
-    translate([-tray_w / 2, -tray_d / 2, floor_t + foot_h]) {
-        color("${ammoTrayColor}") ballistic_tray();
-        color("${ammoAccentColor}") snap_in_t_handle(false);
+    plate_gap = 18;
+    col2_x = shell_w / 2 + tray_w / 2 + plate_gap;
+    col3_x = col2_x + tray_w / 2 + plate_gap + 25;
+
+    // 1. Base Shell (Front-Left, flat on floor at Z = 0)
+    color("${ammoBaseColor}")
+        base_shell();
+
+    // 2. Vault Lid + Multi-Color Inlay (Back-Left, flipped upside-down at Z = 0 for AMS)
+    translate([0, shell_d + plate_gap, lid_z])
+    rotate([180, 0, 0]) {
+        color("${ammoLidColor}") vault_lid();
+        color("${ammoAccentColor}") lid_inlay_part();
+    }
+
+    // 3. Standing Ballistic Tray (Front-Right, resting on magnet feet at Z = 0)
+    translate([col2_x - tray_w / 2, -tray_d / 2, foot_h])
+    color("${ammoTrayColor}")
+        ballistic_tray();
+
+    // 4. TPU Anti-Rattle Pad (Back-Right, flat at Z = 0)
+    translate([col2_x, shell_d + plate_gap, 2.25])
+    color("#1a1a1a")
+        tpu_rattle_pad();
+
+    // 5. Snap-In T-Handle (Far-Right Front, laying flat on its side at Z = 0 for max layer strength)
+    translate([col3_x, -shell_d * 0.15, 0])
+    color("${ammoAccentColor}")
+        snap_in_t_handle(true);
+
+    // 6. Cam-Action Draw Latches (Far-Right Back, laying flat on their sides at Z = 0)
+    for (i = [0 : num_latches - 1]) {
+        translate([col3_x + i * 20, shell_d * 0.35, 6.6])
+        rotate([0, 90, 0])
+        color("${ammoAccentColor}")
+            cam_latch();
     }
 } else if (export_part == "base_only") {
     base_shell();
@@ -1966,14 +1995,17 @@ complete_model();
       drawerColorId
     };
   } else if (activeTab === 'ammo') {
-      const magCount = ammoShellX >= 150 ? 12 : 8; 
+      const magCount = ammoShellX >= 150 ? 12 : 8;
 
       const ammoConfig = {
         ammoCaliber,
         cols: Number(clampedAmmoCols),
         rows: Number(clampedAmmoRows),
+        ammoCols: Number(clampedAmmoCols),
+        ammoRows: Number(clampedAmmoRows),
         totalRounds: Number(ammoTotalRounds),
         preset: ammoPreset,
+        ammoPreset,
         shellX: Number(ammoShellX),
         shellY: Number(ammoShellY),
         shellZ: Number(ammoShellZ),
@@ -1984,38 +2016,49 @@ complete_model();
         lidColor: ammoLidColor,
         trayColor: ammoTrayColor,
         accentColor: ammoAccentColor,
+        ammoBaseColor,
+        ammoLidColor,
+        ammoTrayColor,
+        ammoAccentColor,
         lidTitle: ammoLidTitle,
+        ammoLidTitle,
+        lidFont: ammoLidFont,
+        ammoLidFont,
+        enableAmmoLidBorder,
         lidSubtitle: showAmmoRoundCount ? `${ammoTotalRounds} RDS` : '',
         showAmmoRoundCount,
         magnetsCount: Number(magCount)
       };
 
-    return {
+      return {
         ...basePayload,
-      dimensionsSummary: `${currentCalSpec.name} (${ammoTotalRounds} Rds): ${ammoShellX}W x ${ammoShellY}L x ${ammoShellZ}H mm`,
-      colorsSummary: `Base: ${ammoBaseColor} / Lid: ${ammoLidColor} / Tray: ${ammoTrayColor}`,
-      configuration: ammoConfig,
-      productionOutput: {
-        scadFilename: `ammomatrix_${ammoCaliber}_${clampedAmmoCols}x${clampedAmmoRows}.scad`,
+        presetSelected: ammoPreset,
+        dimensionsSummary: `${currentCalSpec.name} (${ammoTotalRounds} Rds): ${ammoShellX}W x ${ammoShellY}L x ${ammoShellZ}H mm`,
+        colorsSummary: `Base: ${ammoBaseColor} / Lid: ${ammoLidColor} / Tray: ${ammoTrayColor} / Accent: ${ammoAccentColor}`,
+        configuration: ammoConfig,
+        productionOutput: {
+          scadFilename: `ammomatrix_${ammoCaliber}_${clampedAmmoCols}x${clampedAmmoRows}.scad`,
+          scadCode: generateAmmoMatrixScad(scadExportMode),
+          specSheet: generateSpecSheet()
+        },
+        width: Number(ammoShellX),
+        length: Number(ammoShellY),
+        height: Number(ammoShellZ),
         scadCode: generateAmmoMatrixScad(scadExportMode),
-        specSheet: generateSpecSheet()
-      },
-      width: Number(ammoShellX),
-      length: Number(ammoShellY),
-      height: Number(ammoShellZ),
-      scadCode: generateAmmoMatrixScad(scadExportMode),
-      scadFilename: `ammomatrix_${ammoCaliber}_${clampedAmmoCols}x${clampedAmmoRows}.scad`,
-      ammoCaliber,
-      ammoCols: clampedAmmoCols,
-      ammoRows: clampedAmmoRows,
-      ammoPreset,
-      ammoBaseColor,
-      ammoLidColor,
-      ammoTrayColor,
-      ammoAccentColor,
-      ammoLidTitle,
-      showAmmoRoundCount
-    };
+        scadFilename: `ammomatrix_${ammoCaliber}_${clampedAmmoCols}x${clampedAmmoRows}.scad`,
+        ammoCaliber,
+        ammoCols: Number(clampedAmmoCols),
+        ammoRows: Number(clampedAmmoRows),
+        ammoPreset,
+        ammoBaseColor,
+        ammoLidColor,
+        ammoTrayColor,
+        ammoAccentColor,
+        ammoLidTitle,
+        ammoLidFont,
+        enableAmmoLidBorder,
+        showAmmoRoundCount
+      };
   } else {
     const cargoConfig = {
       cargoPreset,
@@ -2235,48 +2278,69 @@ complete_model();
 
         if (data.productLine === 'storage') {
           setActiveTab('storage');
-          if (cfg.sizePreset) setSizePreset(cfg.sizePreset);
-          setTiers(cfg.tiers ?? 2);
-          setDrawersPerTier(cfg.drawersPerTier ?? 4);
-          setOpening(cfg.opening ?? 'Left');
-          setHandlePos(cfg.handlePos ?? 'Front');
-          setWidth(cfg.width ?? 140);
-          setDepth(cfg.depth ?? cfg.length ?? 110);
-          setHeight(cfg.height ?? 15.5);
-          setEnableLabelSlot(cfg.enableLabelSlot ?? true);
-          setLabelWidth(cfg.labelWidth ?? 30);
-          setLabelHeight(cfg.labelHeight ?? 11);
-          setLabelFont(cfg.labelFont ?? 'Inter');
-          setLabels(cfg.labels || {});
-          setDrawerDividers(cfg.drawerDividers || {});
-          setCasingColorId(cfg.casingColorId || 'cocoa-brown');
-          setDrawerColorId(cfg.drawerColorId || 'matte-latte-brown');
-        } else if (data.productLine === 'ammo' || cfg.ammoCaliber) {
+          if (cfg.sizePreset ?? data.sizePreset) setSizePreset(cfg.sizePreset ?? data.sizePreset);
+          setTiers(cfg.tiers ?? data.tiers ?? 2);
+          setDrawersPerTier(cfg.drawersPerTier ?? data.drawersPerTier ?? 4);
+          setOpening(cfg.opening ?? data.opening ?? 'Left');
+          setHandlePos(cfg.handlePos ?? data.handlePos ?? 'Front');
+          setWidth(cfg.width ?? data.width ?? 140);
+          setDepth(cfg.depth ?? cfg.length ?? data.length ?? 110);
+          setHeight(cfg.height ?? data.height ?? 15.5);
+          setEnableLabelSlot(cfg.enableLabelSlot ?? data.enableLabelSlot ?? true);
+          setLabelWidth(cfg.labelWidth ?? data.labelWidth ?? 30);
+          setLabelHeight(cfg.labelHeight ?? data.labelHeight ?? 11);
+          setLabelFont(cfg.labelFont ?? data.labelFont ?? 'Inter');
+          setLabels(cfg.labels || data.labels || {});
+          setDrawerDividers(cfg.drawerDividers || data.drawerDividers || {});
+          setCasingColorId(cfg.casingColorId || data.casingColorId || 'cocoa-brown');
+          setDrawerColorId(cfg.drawerColorId || data.drawerColorId || 'matte-latte-brown');
+        } else if (data.productLine === 'ammo' || cfg.ammoCaliber || data.ammoCaliber) {
           setActiveTab('ammo');
-          if (cfg.ammoCaliber) setAmmoCaliber(cfg.ammoCaliber);
-          if (cfg.ammoCols) setAmmoCols(cfg.ammoCols);
-          if (cfg.ammoRows) setAmmoRows(cfg.ammoRows);
-          if (cfg.ammoPreset) setAmmoPreset(cfg.ammoPreset);
-          if (cfg.ammoBaseColor) setAmmoBaseColor(cfg.ammoBaseColor);
-          if (cfg.ammoLidColor) setAmmoLidColor(cfg.ammoLidColor);
-          if (cfg.ammoTrayColor) setAmmoTrayColor(cfg.ammoTrayColor);
-          if (cfg.ammoAccentColor) setAmmoAccentColor(cfg.ammoAccentColor);
-          if (cfg.ammoLidTitle !== undefined) setAmmoLidTitle(cfg.ammoLidTitle);
-          if (cfg.ammoLidSubtitle !== undefined) setAmmoLidSubtitle(cfg.ammoLidSubtitle);
+
+          const loadedCal = cfg.ammoCaliber ?? data.ammoCaliber;
+          const loadedCols = cfg.ammoCols ?? cfg.cols ?? data.ammoCols;
+          const loadedRows = cfg.ammoRows ?? cfg.rows ?? data.ammoRows;
+          const loadedPreset = cfg.ammoPreset ?? cfg.preset ?? data.ammoPreset;
+
+          const loadedBaseColor = cfg.ammoBaseColor ?? cfg.baseColor ?? data.ammoBaseColor;
+          const loadedLidColor = cfg.ammoLidColor ?? cfg.lidColor ?? data.ammoLidColor;
+          const loadedTrayColor = cfg.ammoTrayColor ?? cfg.trayColor ?? data.ammoTrayColor;
+          const loadedAccentColor = cfg.ammoAccentColor ?? cfg.accentColor ?? data.ammoAccentColor;
+
+          const loadedLidTitle = cfg.ammoLidTitle ?? cfg.lidTitle ?? data.ammoLidTitle;
+          const loadedLidFont = cfg.ammoLidFont ?? cfg.lidFont ?? data.ammoLidFont;
+          const loadedShowCount = cfg.showAmmoRoundCount ?? data.showAmmoRoundCount;
+          const loadedLidBorder = cfg.enableAmmoLidBorder ?? data.enableAmmoLidBorder;
+
+          if (loadedCal) setAmmoCaliber(loadedCal);
+          if (loadedCols !== undefined) setAmmoCols(Number(loadedCols));
+          if (loadedRows !== undefined) setAmmoRows(Number(loadedRows));
+          if (loadedPreset) setAmmoPreset(String(loadedPreset));
+
+          if (loadedBaseColor) setAmmoBaseColor(loadedBaseColor);
+          if (loadedLidColor) setAmmoLidColor(loadedLidColor);
+          if (loadedTrayColor) setAmmoTrayColor(loadedTrayColor);
+          if (loadedAccentColor) setAmmoAccentColor(loadedAccentColor);
+
+          if (loadedLidTitle !== undefined) setAmmoLidTitle(loadedLidTitle);
+          if (loadedLidFont) setAmmoLidFont(loadedLidFont);
+          if (loadedShowCount !== undefined) setShowAmmoRoundCount(Boolean(loadedShowCount));
+          if (loadedLidBorder !== undefined) setEnableAmmoLidBorder(Boolean(loadedLidBorder));
         } else {
           setActiveTab('cargo');
-          if (cfg.cargoPreset) setCargoPreset(cfg.cargoPreset);
-          setCargoWidth(cfg.cargoWidth ?? data.width ?? 120);
-          setCargoLength(cfg.cargoLength ?? data.length ?? 90);
-          setCargoHeight(cfg.cargoHeight ?? (data.height ? data.height / 2 : 20));
-          setCargoCompX(cfg.cargoCompX ?? 2);
-          setCargoCompY(cfg.cargoCompY ?? 2);
-          if (cfg.cargoBoxColorId) setCargoBoxColorId(cfg.cargoBoxColorId);
-          if (cfg.cargoTextColorId) setCargoTextColorId(cfg.cargoTextColorId);
-          if (cfg.cargoText !== undefined) setCargoText(cfg.cargoText);
-          if (cfg.cargoFont) setCargoFont(cfg.cargoFont);
-          if (cfg.cargoBorder !== undefined) setCargoBorder(cfg.cargoBorder);
+          if (cfg.cargoPreset ?? data.cargoPreset) setCargoPreset(cfg.cargoPreset ?? data.cargoPreset);
+          setCargoWidth(cfg.cargoWidth ?? data.cargoWidth ?? data.width ?? 120);
+          setCargoLength(cfg.cargoLength ?? data.cargoLength ?? data.length ?? 90);
+          setCargoHeight(cfg.cargoHeight ?? data.cargoHeight ?? (data.height ? data.height / 2 : 20));
+          setCargoCompX(cfg.cargoCompX ?? data.cargoCompX ?? 2);
+          setCargoCompY(cfg.cargoCompY ?? data.cargoCompY ?? 2);
+          if (cfg.cargoBoxColorId ?? data.cargoBoxColorId) setCargoBoxColorId(cfg.cargoBoxColorId ?? data.cargoBoxColorId);
+          if (cfg.cargoTextColorId ?? data.cargoTextColorId) setCargoTextColorId(cfg.cargoTextColorId ?? data.cargoTextColorId);
+          if ((cfg.cargoText ?? data.cargoText) !== undefined) setCargoText(cfg.cargoText ?? data.cargoText);
+          if (cfg.cargoFont ?? data.cargoFont) setCargoFont(cfg.cargoFont ?? data.cargoFont);
+          if ((cfg.cargoBorder ?? data.cargoBorder) !== undefined) setCargoBorder(cfg.cargoBorder ?? data.cargoBorder);
         }
+
         setStatusBanner({
           type: 'success',
           text: `Loaded ${data.productName || cleanCode} (${cleanCode})`
@@ -3651,7 +3715,7 @@ complete_model();
                     <span className="text-[10px] text-[#94a3b8] mr-1">Export Part:</span>
                     {(activeTab === 'ammo'
                       ? [
-                          { id: 'full', label: 'Full Assembly' },
+                          { id: 'full', label: 'All Parts Laid Out' },
                           { id: 'base_only', label: 'Base Shell' },
                           { id: 'lid_only', label: 'Vault Lid (Print Upside-Down)' },
                           { id: 'text_only', label: 'Lid Inlay (Text & Border)' },
@@ -3727,6 +3791,7 @@ complete_model();
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(designCode);
+                      saveDesignToFirestore(designCode);
                       setCodeCopied(true);
                       setTimeout(() => setCodeCopied(false), 2500);
                     }}
