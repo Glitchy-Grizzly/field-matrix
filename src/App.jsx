@@ -61,7 +61,8 @@ const BENCH_PRESETS = {
     drawersPerTier: 5,
     width: 110,
     depth: 95,
-    height: 14.0
+    height: 14.0,
+    etsyPrice: 36.00
   },
   Trail: {
     id: 'Trail',
@@ -71,7 +72,8 @@ const BENCH_PRESETS = {
     drawersPerTier: 4,
     width: 140,
     depth: 110,
-    height: 15.5
+    height: 15.5,
+    etsyPrice: 56.00
   },
   Pursuit: {
     id: 'Pursuit',
@@ -81,7 +83,8 @@ const BENCH_PRESETS = {
     drawersPerTier: 5,
     width: 165,
     depth: 120,
-    height: 17.0
+    height: 17.0,
+    etsyPrice: 69.00
   },
   Frontier: {
     id: 'Frontier',
@@ -91,7 +94,8 @@ const BENCH_PRESETS = {
     drawersPerTier: 5,
     width: 185,
     depth: 120,
-    height: 18.0
+    height: 18.0,
+    etsyPrice: 99.00
   }
 };
 
@@ -104,7 +108,8 @@ const CARGO_PRESETS = {
     length: 60,
     height: 16,
     compX: 2,
-    compY: 1
+    compY: 1,
+    etsyPrice: 19.00
   },
   Trail: {
     id: 'Trail',
@@ -114,7 +119,8 @@ const CARGO_PRESETS = {
     length: 90,
     height: 20,
     compX: 2,
-    compY: 2
+    compY: 2,
+    etsyPrice: 24.00
   },
   Pursuit: {
     id: 'Pursuit',
@@ -124,7 +130,8 @@ const CARGO_PRESETS = {
     length: 120,
     height: 25,
     compX: 3,
-    compY: 2
+    compY: 2,
+    etsyPrice: 31.00
   },
   Frontier: {
     id: 'Frontier',
@@ -134,7 +141,8 @@ const CARGO_PRESETS = {
     length: 150,
     height: 35,
     compX: 4,
-    compY: 3
+    compY: 3,
+    etsyPrice: 39.00
   }
 };
 
@@ -943,34 +951,45 @@ export default function App() {
     const ammoLidSubtitle = showAmmoRoundCount ? `${ammoTotalRounds} RDS` : '';
     
     if (activeTab === 'storage') {
-      const basePrice = 16;
-      const volumeFactor = ((width * depth * height) / 25000) * 1.35;
-      const totalDrawers = tiers * drawersPerTier;
-      const drawersCost = totalDrawers * (1.75 + volumeFactor * 0.45);
-      const tierFrameCost = tiers * 4.5;
-
-      let dividerCellsExtra = 0;
-      for (let t = 0; t < tiers; t++) {
-        for (let b = 0; b < drawersPerTier; b++) {
-          const div = getDividerForDrawer(t, b);
-          dividerCellsExtra += (div.h - 1 + (div.v - 1)) * 0.5;
-        }
+      // 1. In Etsy Mode, return the flat all-inclusive preset price ($36 / $56 / $69 / $99)
+      if (isEtsyMode && BENCH_PRESETS[sizePreset]?.etsyPrice) {
+        return BENCH_PRESETS[sizePreset].etsyPrice;
       }
-      return basePrice + tierFrameCost + drawersCost + dividerCellsExtra;
+
+      // 2. Competitive Direct Mode Dynamic Calculation
+      const baseFee = 13.50;
+      const tierCost = tiers * 3.50;
+      const volumeFactor = ((width * depth * height) / 25000) * 1.15;
+      const drawersCost = totalDrawers * (1.20 + volumeFactor * 0.175);
+      
+      let dividersCost = 0;
+      for (let i = 0; i < totalDrawers; i++) {
+        const cfg = drawerConfigs[i] || { rows: 1, cols: 1 };
+        const extraWalls = (cfg.rows - 1) + (cfg.cols - 1);
+        dividersCost += extraWalls * 0.35;
+      }
+
+      return baseFee + tierCost + drawersCost + dividersCost;
+
     } else if (activeTab === 'ammo') {
-      const basePrice = 14;
-      const vol = (ammoShellX * ammoShellY * ammoShellZ) / 30000;
-      const roundsExtra = ammoTotalRounds * 0.08;
-      const hardwareExtra = ammoTotalMagnets * 0.25 + 1.5; // 8x3mm magnets + M3x20mm hardware
-      const textExtra =
-        ammoLidTitle.trim() !== '' || ammoLidSubtitle.trim() !== '' ? 2.5 : 0;
-      return basePrice + vol * 2.2 + roundsExtra + hardwareExtra + textExtra;  
+      // 3. AMMO MATRIX CALCULATOR
+      const basePrice = 12.00;
+      const vol = (ammoShellX * ammoShellY * ammoShellZ) / 45000;
+      const roundsExtra = ammoTotalRounds * 0.05;
+      const hardwareExtra = ammoTotalMagnets * 0.20 + 1.20; 
+      const textExtra = ammoLidTitle.trim() !== '' || ammoLidSubtitle.trim() !== '' ? 2.0 : 0;
+      return basePrice + vol * 1.5 + roundsExtra + hardwareExtra + textExtra;  
+
     } else {
-      const basePrice = 14;
-      const vol = (cargoWidth * cargoLength * (cargoHeight * 2)) / 30000;
-      const compExtra = (cargoCompX * cargoCompY - 1) * 0.75;
-      const textExtra = cargoText.trim() !== '' ? 2.5 : 0;
-      return basePrice + vol * 2.2 + compExtra + textExtra;
+      // 4. CARGO MATRIX CALCULATOR (Supports Etsy Presets + Custom Dimensions)
+      if (isEtsyMode && CARGO_PRESETS[cargoPreset]?.etsyPrice) {
+        return CARGO_PRESETS[cargoPreset].etsyPrice;
+      }
+      const basePrice = 9.50;
+      const vol = (cargoWidth * cargoLength * (cargoHeight * 2)) / 50000;
+      const compExtra = (cargoCompX * cargoCompY - 1) * 0.25;
+      const textExtra = cargoText.trim() !== '' ? 2.0 : 0;
+      return basePrice + vol * 1.4 + compExtra + textExtra;
     }
   };
 
