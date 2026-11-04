@@ -1181,12 +1181,19 @@ module handle_post_and_prong() {
 module base_shell() {
     knuckle_w = min(28, shell_w * 0.22);
     hinge_r = 4.2;
+    hinge_y = -shell_d / 2 - 3.6; // Cleanly offset outside rear wall so shells seat 100% flush
 
     difference() {
         union() {
-            // Main Shell Body
-            translate([-shell_w / 2, -shell_d / 2, 0])
-                cube([shell_w, shell_d, base_z]);
+            // Main Shell Body (Hollowed BEFORE adding exterior hardware)
+            difference() {
+                translate([-shell_w / 2, -shell_d / 2, 0])
+                    cube([shell_w, shell_d, base_z]);
+
+                // Hollow Interior Cavity
+                translate([-shell_w / 2 + wall_t, -shell_d / 2 + wall_t, floor_t])
+                    cube([shell_w - wall_t * 2, shell_d - wall_t * 2, base_z + 1]);
+            }
 
             // Exterior Tactical Ribs
             for (dir = [-1, 1]) {
@@ -1200,36 +1207,43 @@ module base_shell() {
                     cube([10, 1.8, base_z - 2]);
             }
 
-            // Rear Hinge Knuckles
+            // Rear Hinge Knuckles + 45-deg Support Gussets (Coaxial on Seam Z = base_z)
             for (side = [-1, 1]) {
-                translate([side * (knuckle_w * 1.05), -shell_d / 2 - hinge_r * 0.65, base_z])
-                rotate([0, 90, 0])
-                    cylinder(r = hinge_r, h = knuckle_w, center = true);
+                hull() {
+                    translate([side * (knuckle_w * 1.05), hinge_y, base_z])
+                    rotate([0, 90, 0])
+                        cylinder(r = hinge_r, h = knuckle_w, center = true);
+
+                    translate([side * (knuckle_w * 1.05), -shell_d / 2 + 0.5, base_z - 6.5])
+                        cube([knuckle_w, 1.0, 4.0], center = true);
+                }
             }
 
-            // Front Latch Clevis Mounts
+            // Front Latch Clevis Mounts (Rounded ears centered on Y = shell_d/2 + 4.2, Z = base_z - 6.0)
             for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
                 for (cx = [-8.5, 8.5]) {
-                    translate([lx + cx, shell_d / 2 + 2.75, base_z - 8])
-                        cube([3.2, 5.5, 12], center = true);
+                    hull() {
+                        translate([lx + cx, shell_d / 2 + 4.2, base_z - 6.0])
+                        rotate([0, 90, 0])
+                            cylinder(r = 3.8, h = 3.2, center = true);
+
+                        translate([lx + cx, shell_d / 2 + 0.5, base_z - 7.5])
+                            cube([3.2, 1.0, 11.0], center = true);
+                    }
                 }
             }
         }
 
-        // Hollow Interior Cavity
-        translate([-shell_w / 2 + wall_t, -shell_d / 2 + wall_t, floor_t])
-            cube([shell_w - wall_t * 2, shell_d - wall_t * 2, base_z + 1]);
-
-        // M3 Rear Hinge Pin Bore
-        translate([0, -shell_d / 2 - hinge_r * 0.65, base_z])
+        // M3 Rear Hinge Pin Bore (3.3mm through-hole)
+        translate([0, hinge_y, base_z])
         rotate([0, 90, 0])
-            cylinder(d = 3.2, h = shell_w, center = true);
+            cylinder(d = 3.3, h = shell_w, center = true);
 
-        // M3 Front Latch Pin Bores
+        // M3 Front Latch Pin Bores (Centered at Y = shell_d/2 + 4.2, Z = base_z - 6.0)
         for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
-            translate([lx, shell_d / 2 + 3.5, base_z - 6])
+            translate([lx, shell_d / 2 + 4.2, base_z - 6.0])
             rotate([0, 90, 0])
-                cylinder(d = 3.2, h = 24, center = true);
+                cylinder(d = 3.3, h = 26, center = true);
         }
 
         // Base Floor 8x3mm Magnet Pockets
@@ -1274,40 +1288,65 @@ module lid_inlay_2d() {
 }
 
 module vault_lid() {
-    knuckle_w = min(28, shell_w * 0.22);
+    knuckle_w = min(28, shell_w * 0.22) - 0.6; // 0.3mm axial clearance per side
     hinge_r = 4.2;
+    hinge_y = -shell_d / 2 - 3.6; // Matches base_shell hinge_y!
     standoff_h = 13.6;
     ceiling_z = lid_z - 3.0; // 9.0mm roof ceiling
     leg_y = rows * pitch * 0.25;
     grip_len = max(tbar_w, leg_y * 2 + 12);
+    w_span = 12.8; // Catch wedge width
 
     union() {
         // 1. Hollowed Lid Shell & Exterior Hardware
         difference() {
             union() {
-                translate([-shell_w / 2, -shell_d / 2, 0])
-                    cube([shell_w, shell_d, lid_z]);
+                // Main Lid Box (Hollowed FIRST so knuckles/wedges stay solid)
+                difference() {
+                    translate([-shell_w / 2, -shell_d / 2, 0])
+                        cube([shell_w, shell_d, lid_z]);
 
-                // Center Hinge Knuckle
-                translate([0, -shell_d / 2 - hinge_r * 0.65, 0])
-                rotate([0, 90, 0])
-                    cylinder(r = hinge_r, h = knuckle_w, center = true);
+                    translate([-shell_w / 2 + wall_t, -shell_d / 2 + wall_t, -0.1])
+                        cube([shell_w - wall_t * 2, shell_d - wall_t * 2, ceiling_z + 0.1]);
+                }
 
-                // Front Latch Catch Hooks
+                // Center Hinge Knuckle + Smooth Gusset to Lid Wall
+                hull() {
+                    translate([0, hinge_y, 0])
+                    rotate([0, 90, 0])
+                        cylinder(r = hinge_r, h = knuckle_w, center = true);
+
+                    translate([0, -shell_d / 2 + 0.5, 4.2])
+                        cube([knuckle_w, 1.0, 4.0], center = true);
+                }
+
+                // Front Snap-Fit Catch Wedges (Sloped Lead-In Ramp + Undercut Locking Shelf at Z = 5.5)
                 for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
-                    translate([lx, shell_d / 2 + 2.2, 3.25])
-                        cube([13.0, 4.5, 6.5], center = true);
+                    translate([lx, shell_d / 2, 0])
+                    polyhedron(
+                        points = [
+                            [-w_span / 2, 0,   0.8], // 0: Bottom-left lead-in start
+                            [ w_span / 2, 0,   0.8], // 1: Bottom-right lead-in start
+                            [-w_span / 2, 3.0, 4.7], // 2: Outer-left wedge nose peak
+                            [ w_span / 2, 3.0, 4.7], // 3: Outer-right wedge nose peak
+                            [-w_span / 2, 0,   5.5], // 4: Top-left undercut locking shelf
+                            [ w_span / 2, 0,   5.5]  // 5: Top-right undercut locking shelf
+                        ],
+                        faces = [
+                            [0, 2, 3, 1], // Sloped front lead-in ramp
+                            [2, 4, 5, 3], // Angled top undercut locking shelf
+                            [0, 1, 5, 4], // Back wall against lid
+                            [0, 4, 2],    // Left side triangle
+                            [1, 3, 5]     // Right side triangle
+                        ]
+                    );
                 }
             }
 
-            // Hollow Lid Interior (Carved out BEFORE adding standoff ribs!)
-            translate([-shell_w / 2 + wall_t, -shell_d / 2 + wall_t, -0.1])
-                cube([shell_w - wall_t * 2, shell_d - wall_t * 2, ceiling_z + 0.1]);
-
-            // M3 Hinge Pin Bore
-            translate([0, -shell_d / 2 - hinge_r * 0.65, 0])
+            // M3 Hinge Pin Bore (3.4mm for free rotation)
+            translate([0, hinge_y, 0])
             rotate([0, 90, 0])
-                cylinder(d = 3.4, h = knuckle_w + 2, center = true);
+                cylinder(d = 3.4, h = knuckle_w + 4, center = true);
 
             // Flush 0.6mm Inlay Cutout on Top Face
             translate([0, 0, lid_z - 0.6])
@@ -1319,14 +1358,12 @@ module vault_lid() {
         // 2. Structural Standoff Ribs & Gluing Frame (Anchored solidly to ceiling_z!)
         difference() {
             union() {
-                // 4 Load-Bearing Support Rails under the TPU Pad
                 for (dir = [-1, 1]) {
                     translate([0, dir * (tray_d * 0.42), ceiling_z - standoff_h / 2])
                         cube([tray_w - 0.8, 2.4, standoff_h], center = true);
                     translate([0, dir * (tray_d * 0.22), ceiling_z - standoff_h / 2])
                         cube([tray_w - 0.8, 2.4, standoff_h], center = true);
                 }
-                // Outer Centering Lip (1.5mm deeper to frame the TPU pad)
                 for (dir = [-1, 1]) {
                     translate([0, dir * (tray_d / 2 + 0.8), ceiling_z - (standoff_h + 1.5) / 2])
                         cube([tray_w + 1.6, 1.6, standoff_h + 1.5], center = true);
@@ -1334,7 +1371,6 @@ module vault_lid() {
                         cube([1.6, tray_d + 3.2, standoff_h + 1.5], center = true);
                 }
             }
-            // Center clearance notch along Y-axis for the T-handle
             translate([0, 0, ceiling_z - (standoff_h + 2) / 2])
                 cube([10.0, grip_len + 4.0, standoff_h + 4.0], center = true);
         }
@@ -1347,31 +1383,61 @@ module lid_inlay_part() {
         lid_inlay_2d();
 }
 
-// --- 5. CAM-ACTION DRAW LATCHES ---
+// --- 5. CAM-ACTION SNAP LATCHES (ROUNDED KNUCKLE + PRE-LOADED SNAP HOOK) ---
+// Local coords: Pin centered at [0, 0, 0].
+// When installed & closed: +Z points UP toward lid, -Y points INWARD toward box front wall.
 module cam_latch() {
+    w = 13.2; // Fits cleanly inside 13.8mm clevis gap (17.0 - 3.2 = 13.8mm)
     difference() {
         union() {
-            // Main Body
-            cube([13.2, 4.2, 22], center = true);
-            
-            // Cam Tooth Hook
-            translate([0, 1.3, -9.25])
-                cube([13.2, 6.8, 3.5], center = true);
-                
-            // Finger Pull Lip (Bottom)
-            translate([0, 1.2, 10.5])
-                cube([13.2, 6.8, 3.5], center = true);
-                
-            // Front Grip Ridges
-            for(ry = [-4 : 4 : 4]) {
-                translate([0, -2.6, ry])
-                    cube([11.0, 1.2, 1.0], center = true);
+            // 1. Rounded Pivot Barrel at [0, 0, 0] (r = 3.4mm gives 0.8mm clearance to box wall!)
+            rotate([0, 90, 0])
+                cylinder(r = 3.4, h = w, center = true);
+
+            // 2. Flexible Spring Arm (Bridges from pivot barrel up to top snap hook)
+            translate([-w / 2, 0.2, 0])
+                cube([w, 3.2, 13.8]);
+
+            // 3. Top Snap-Over Catch Hook + Bottom Finger Release Lever
+            polyhedron(
+                points = [
+                    // Inner profile facing box wall (-Y is toward box)
+                    [-w / 2,  0.2, 10.6], // 0: Inner arm below hook
+                    [ w / 2,  0.2, 10.6], // 1
+                    [-w / 2, -3.4, 11.4], // 2: Hook locking shelf (catches lid wedge at Z=5.5 -> 6.0+5.5=11.5mm!)
+                    [ w / 2, -3.4, 11.4], // 3
+                    [-w / 2, -1.2, 14.0], // 4: Top lead-in chamfer tip
+                    [ w / 2, -1.2, 14.0], // 5
+                    // Outer profile (+Y is away from box, includes top finger pull tab)
+                    [-w / 2,  5.2, 14.0], // 6: Top-front finger lift lip
+                    [ w / 2,  5.2, 14.0], // 7
+                    [-w / 2,  5.2, 11.5], // 8: Under-lip of finger pull tab
+                    [ w / 2,  5.2, 11.5], // 9
+                    [-w / 2,  3.4, 10.6], // 10: Outer arm face
+                    [ w / 2,  3.4, 10.6]  // 11
+                ],
+                faces = [
+                    [0, 2, 3, 1],   // Inner hook undercut
+                    [2, 4, 5, 3],   // Inner hook lead-in ramp
+                    [4, 6, 7, 5],   // Top flat face
+                    [6, 8, 9, 7],   // Front finger lip face
+                    [8, 10, 11, 9], // Underside of finger lip
+                    [0, 1, 11, 10], // Bottom join to arm
+                    [0, 10, 8, 6, 4, 2], // Left side polygon
+                    [1, 3, 5, 7, 9, 11]  // Right side polygon
+                ]
+            );
+
+            // 4. Exterior Tactile Grip Ridges
+            for (rz = [4.0, 6.5, 9.0]) {
+                translate([0, 3.6, rz])
+                    cube([11.0, 0.9, 1.2], center = true);
             }
         }
-        // M3 Pin Bore (Fully enclosed)
-        translate([0, 0, -8.0])
+
+        // M3 Pivot Pin Bore at [0, 0, 0]
         rotate([0, 90, 0])
-            cylinder(d = 3.3, h = 16, center = true);
+            cylinder(d = 3.3, h = w + 2, center = true);
     }
 }
 
