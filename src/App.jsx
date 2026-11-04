@@ -84,7 +84,7 @@ const BENCH_PRESETS = {
     width: 165,
     depth: 120,
     height: 17.0,
-    etsyPrice: 69.00
+    etsyPrice: 74.00
   },
   Frontier: {
     id: 'Frontier',
@@ -95,7 +95,7 @@ const BENCH_PRESETS = {
     width: 185,
     depth: 120,
     height: 18.0,
-    etsyPrice: 99.00
+    etsyPrice: 104.00
   }
 };
 
