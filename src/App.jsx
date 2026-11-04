@@ -835,9 +835,9 @@ export default function App() {
   // When entering Etsy Mode, snap any custom freeform dimensions back to the selected preset
   useEffect(() => {
     if (isEtsyMode) {
-      const bKey = BENCH_PRESETS[sizePreset] ? sizePreset : 'Medium';
+      const bKey = BENCH_PRESETS[sizePreset] ? sizePreset : 'Trail';
       applyBenchPreset(bKey);
-      const cKey = CARGO_PRESETS[cargoPreset] ? cargoPreset : 'Standard';
+      const cKey = CARGO_PRESETS[cargoPreset] ? cargoPreset : 'Trail';
       applyCargoPreset(cKey);
     }
   }, [isEtsyMode, sizePreset, cargoPreset, applyBenchPreset, applyCargoPreset]);
