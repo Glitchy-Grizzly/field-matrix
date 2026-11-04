@@ -1219,16 +1219,18 @@ module base_shell() {
                 }
             }
 
-            // Front Latch Clevis Mounts (Rounded ears centered on Y = shell_d/2 + 4.2, Z = base_z - 6.0)
+            // Front Latch Clevis Mounts (Extra-beefy r=4.5mm ears = 2.85mm solid wall around M3 pin!)
             for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
-                for (cx = [-8.5, 8.5]) {
+                for (cx = [-8.7, 8.7]) {
                     hull() {
+                        // Coaxial cylinder around the pin hole at Y = shell_d/2 + 4.2, Z = base_z - 6.0
                         translate([lx + cx, shell_d / 2 + 4.2, base_z - 6.0])
                         rotate([0, 90, 0])
-                            cylinder(r = 3.8, h = 3.2, center = true);
+                            cylinder(r = 4.5, h = 3.6, center = true);
 
+                        // Wide gusset anchoring into the front box wall
                         translate([lx + cx, shell_d / 2 + 0.5, base_z - 7.5])
-                            cube([3.2, 1.0, 11.0], center = true);
+                            cube([3.6, 1.0, 12.0], center = true);
                     }
                 }
             }
