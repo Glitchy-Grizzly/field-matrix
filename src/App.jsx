@@ -1759,14 +1759,15 @@ module base_box() {
         }
         hinge_wall_backing_rib(is_base = true);
         
+        // Front Latch Catch Wedge (Precision Tuned: Zero Seam Gap + Flush Arm Profile)
         polyhedron(
             points = [
-                [-c_span/2, -length/2,        height - 0.2],
-                [ c_span/2, -length/2,        height - 0.2],
-                [-c_span/2, -length/2,        height - 3.60],
-                [ c_span/2, -length/2,        height - 3.60],
-                [-c_span/2, -length/2 - 0.85, height - 2.75],
-                [ c_span/2, -length/2 - 0.85, height - 2.75]
+                [-c_span/2, -length/2,        height - 0.40], // 0: Top-left smooth lead-in
+                [ c_span/2, -length/2,        height - 0.40], // 1: Top-right smooth lead-in
+                [-c_span/2, -length/2,        height - 4.35], // 2: Bottom-left locking base (tight 0.70mm catch)
+                [ c_span/2, -length/2,        height - 4.35], // 3: Bottom-right locking base
+                [-c_span/2, -length/2 - 0.85, height - 3.55], // 4: Outer-left peak (flush with inner latch tooth)
+                [ c_span/2, -length/2 - 0.85, height - 3.55]  // 5: Outer-right peak
             ],
             faces = [[0,1,3,2], [2,3,5,4], [0,4,5,1], [0,2,4], [1,5,3]]
         );
@@ -1937,6 +1938,35 @@ complete_model();
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  // ---> PASTE THE BUG REPORT HELPER HERE <---
+  const getBugReportMailto = () => {
+    const recipient = "fieldmatrix@glitchygrizzly.com";
+    const activeCode = designCode || "No Design Code";
+    const activeProduct = activeTab === 'ammo' ? 'Ammo Matrix' : 'Cargo Matrix';
+    
+    const subject = encodeURIComponent(`[${activeProduct} Bug Report] - Code: ${activeCode}`);
+    
+    const bodyText = `Hi Field Matrix Team,
+
+I encountered an issue with the ${activeProduct} configurator:
+
+--- Issue Description ---
+[Please describe what went wrong or unexpected behavior here]
+
+--- Configuration Details (Auto-generated) ---
+Design Code: ${activeCode}
+Mode: ${activeTab}
+${activeTab === 'cargo' 
+  ? `Preset: ${cargoPreset}\nDimensions: ${cargoWidth}x${cargoLength}x${cargoHeight}mm\nGrid: ${cargoCompX}x${cargoCompY}` 
+  : `Caliber: ${ammoCaliber}\nCapacity: ${clampedAmmoCols}x${clampedAmmoRows}`
+}
+Browser: ${navigator.userAgent}
+Date: ${new Date().toISOString()}
+`;
+
+    return `mailto:${recipient}?subject=${subject}&body=${encodeURIComponent(bodyText)}`;
   };
 
   // ==========================================
@@ -4839,8 +4869,9 @@ complete_model();
         {/* ADD shrink-0 HERE AND REMOVE overflow-hidden */}
         <header className="relative shrink-0 bg-[#0f172a] border-b border-[#1e293b] px-2.5 md:px-4 py-2.5 flex flex-col gap-2.5 z-20">
   
-          {/* TOP ROW: Logo strictly in its own space */}
-          <div className="flex items-center w-full pointer-events-none shrink-0">
+          {/* TOP ROW: Logo on left, Bug Report on right */}
+          <div className="flex items-center justify-between w-full shrink-0">
+            
             <img
               src="/textlogo.png"
               onError={(e) => {
@@ -4848,8 +4879,26 @@ complete_model();
                 e.currentTarget.src = '/favicon.png';
               }}
               alt="FieldMatrix Logo"
-              className="h-8 w-auto max-w-[220px] object-contain drop-shadow"
+              className="h-8 w-auto max-w-[220px] object-contain drop-shadow pointer-events-none"
             />
+            
+            {/* ---> BUG REPORT BUTTON <--- */}
+            <a
+              href={getBugReportMailto()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700 rounded-lg transition-colors cursor-pointer"
+              title="Report an issue or bug with this configuration or this page"
+            >
+              <svg 
+                className="w-3.5 h-3.5 text-amber-400" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span className="hidden sm:inline">Report a Bug</span>
+            </a>
+
           </div>
 
           {/* BOTTOM ROW: Controls pushed down safely in a scrollable bar */}
