@@ -947,7 +947,7 @@ export default function App() {
   };
 
   const calculatePrice = () => {
-    // Add this safe definition so it never crashes!
+    const totalDrawers = tiers * drawersPerTier;
     const ammoLidSubtitle = showAmmoRoundCount ? `${ammoTotalRounds} RDS` : '';
     
     if (activeTab === 'storage') {
@@ -963,10 +963,12 @@ export default function App() {
       const drawersCost = totalDrawers * (1.20 + volumeFactor * 0.175);
       
       let dividersCost = 0;
-      for (let i = 0; i < totalDrawers; i++) {
-        const cfg = drawerConfigs[i] || { rows: 1, cols: 1 };
-        const extraWalls = (cfg.rows - 1) + (cfg.cols - 1);
-        dividersCost += extraWalls * 0.35;
+      for (let t = 0; t < tiers; t++) {
+        for (let b = 0; b < drawersPerTier; b++) {
+          const div = getDividerForDrawer(t, b);
+          const extraWalls = Math.max(0, (div.h - 1) + (div.v - 1));
+          dividersCost += extraWalls * 0.35;
+        }
       }
 
       return baseFee + tierCost + drawersCost + dividersCost;
@@ -992,7 +994,6 @@ export default function App() {
       return basePrice + vol * 1.4 + compExtra + textExtra;
     }
   };
-
   const generateAmmoMatrixScad = (exportMode = scadExportMode) => {
     const cal = AMMO_CALIBERS[ammoCaliber] || AMMO_CALIBERS['9mm'];
     const oal = cal.oal || 29.7;
@@ -1298,13 +1299,18 @@ module lid_inlay_2d() {
             square([bw - 4.0, bd - 4.0], center = true);
         }
     }
-    if (lid_title != "") {
-        translate([0, lid_sub != "" ? bd * 0.08 : 0, 0])
-            text(lid_title, size = title_sz, font = lid_font, halign = "center", valign = "center");
-    }
-    if (lid_sub != "") {
-        translate([0, lid_title != "" ? -bd * 0.22 : 0, 0])
-            text(lid_sub, size = sub_sz, font = lid_font, halign = "center", valign = "center");
+    
+    // Rotate 180 degrees so the title sits near the back hinge (-Y) 
+    // and reads right-side up from the front when the lid is closed
+    rotate([0, 0, 180]) {
+        if (lid_title != "") {
+            translate([0, lid_sub != "" ? bd * 0.08 : 0, 0])
+                text(lid_title, size = title_sz, font = lid_font, halign = "center", valign = "center");
+        }
+        if (lid_sub != "") {
+            translate([0, lid_title != "" ? -bd * 0.22 : 0, 0])
+                text(lid_sub, size = sub_sz, font = lid_font, halign = "center", valign = "center");
+        }
     }
 }
 
