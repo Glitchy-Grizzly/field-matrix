@@ -1199,9 +1199,9 @@ module handle_post_and_prong() {
 
 // --- 3. ARMORED BASE SHELL ---
 module base_shell() {
-    knuckle_w = min(28, shell_w * 0.22);
     hinge_r = 4.2;
-    hinge_y = -shell_d / 2 - 3.6; // Cleanly offset outside rear wall so shells seat 100% flush
+    hinge_y = -shell_d / 2 - 4.6; // 0.4mm clearance outside r=4.2 so shells close 100% flush!
+    hinge_x_span = shell_w * 0.28; // Positions for Left & Right M3x20mm hinge assemblies
 
     difference() {
         union() {
@@ -1209,12 +1209,10 @@ module base_shell() {
             difference() {
                 translate([-shell_w / 2, -shell_d / 2, 0])
                     cube([shell_w, shell_d, base_z]);
-
                 // Hollow Interior Cavity
                 translate([-shell_w / 2 + wall_t, -shell_d / 2 + wall_t, floor_t])
                     cube([shell_w - wall_t * 2, shell_d - wall_t * 2, base_z + 1]);
             }
-
             // Exterior Tactical Ribs
             for (dir = [-1, 1]) {
                 translate([-shell_w / 2 - 1.8, dir * (shell_d * 0.26) - 5, 0])
@@ -1227,28 +1225,34 @@ module base_shell() {
                     cube([10, 1.8, base_z - 2]);
             }
 
-            // Rear Hinge Knuckles + 45-deg Support Gussets (Coaxial on Seam Z = base_z)
+            // Dual M3x20mm Rear Corner Hinge Clevises (Zero-Play 0.2mm tolerance!)
+            // Each assembly is 19.6mm wide: 6.0mm Outer Ear + 7.6mm Gap (for 7.2mm Lid Lug) + 6.0mm Inner Ear
             for (side = [-1, 1]) {
-                hull() {
-                    translate([side * (knuckle_w * 1.05), hinge_y, base_z])
-                    rotate([0, 90, 0])
-                        cylinder(r = hinge_r, h = knuckle_w, center = true);
-
-                    translate([side * (knuckle_w * 1.05), -shell_d / 2 + 0.5, base_z - 6.5])
-                        cube([knuckle_w, 1.0, 4.0], center = true);
+                hx = side * hinge_x_span;
+                for (ear_off = [-6.8, 6.8]) {
+                    union() {
+                        // Coaxial Knuckle Barrel on Seam Z = base_z
+                        translate([hx + ear_off, hinge_y, base_z])
+                        rotate([0, 90, 0])
+                            cylinder(r = hinge_r, h = 6.0, center = true);
+                        // Support Gusset kept strictly below Z = base_z - 0.4 so lid never binds!
+                        hull() {
+                            translate([hx + ear_off, hinge_y, base_z - 2.3])
+                                cube([6.0, hinge_r * 2, 3.8], center = true);
+                            translate([hx + ear_off, -shell_d / 2 + 1.0, base_z - 8.5])
+                                cube([6.0, 2.0, 4.0], center = true);
+                        }
+                    }
                 }
             }
 
-            // Front Latch Clevis Mounts (Extra-beefy r=4.5mm ears = 2.85mm solid wall around M3 pin!)
+            // Front Latch Clevis Mounts (Extra-beefy r=4.5mm ears for M3x20mm bolt!)
             for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
                 for (cx = [-8.7, 8.7]) {
                     hull() {
-                        // Coaxial cylinder around the pin hole at Y = shell_d/2 + 4.2, Z = base_z - 6.0
                         translate([lx + cx, shell_d / 2 + 4.2, base_z - 6.0])
                         rotate([0, 90, 0])
                             cylinder(r = 4.5, h = 3.6, center = true);
-
-                        // Wide gusset anchoring into the front box wall
                         translate([lx + cx, shell_d / 2 + 0.5, base_z - 7.5])
                             cube([3.6, 1.0, 12.0], center = true);
                     }
@@ -1256,16 +1260,34 @@ module base_shell() {
             }
         }
 
-        // M3 Rear Hinge Pin Bore (3.3mm through-hole)
-        translate([0, hinge_y, base_z])
-        rotate([0, 90, 0])
-            cylinder(d = 3.3, h = shell_w, center = true);
-
-        // M3 Front Latch Pin Bores (Centered at Y = shell_d/2 + 4.2, Z = base_z - 6.0)
-        for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
-            translate([lx, shell_d / 2 + 4.2, base_z - 6.0])
+        // Clearance Relief Cutouts for Lid Center Hinge Knuckles
+        for (side = [-1, 1]) {
+            translate([side * hinge_x_span, hinge_y, base_z])
             rotate([0, 90, 0])
-                cylinder(d = 3.3, h = 26, center = true);
+                cylinder(r = hinge_r + 0.6, h = 7.6, center = true);
+        }
+
+        // M3x20mm Rear Hinge Bores (Outer ear = 3.3mm pass-through, Inner ear = 2.85mm self-tapping thread!)
+        for (side = [-1, 1]) {
+            hx = side * hinge_x_span;
+            // Outer ear pass-through bore (3.3mm)
+            translate([hx + side * 6.8, hinge_y, base_z])
+            rotate([0, 90, 0])
+                cylinder(d = 3.3, h = 8.0, center = true);
+            // Inner ear self-tapping thread bore (2.85mm)
+            translate([hx - side * 6.8, hinge_y, base_z])
+            rotate([0, 90, 0])
+                cylinder(d = 2.85, h = 8.0, center = true);
+        }
+
+        // M3 Front Latch Pin Bores (Outer ear 3.3mm, Inner ear 2.85mm self-tapping for M3x20mm)
+        for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
+            translate([lx - 5.0, shell_d / 2 + 4.2, base_z - 6.0])
+            rotate([0, 90, 0])
+                cylinder(d = 3.3, h = 16.0, center = true);
+            translate([lx + 5.0, shell_d / 2 + 4.2, base_z - 6.0])
+            rotate([0, 90, 0])
+                cylinder(d = 2.85, h = 16.0, center = true);
         }
 
         // Base Floor 8x3mm Magnet Pockets
@@ -1292,16 +1314,12 @@ module lid_inlay_2d() {
     bd = shell_d * 0.58;
     title_sz = min(bw * 0.16, bd * 0.26);
     sub_sz = min(bw * 0.09, bd * 0.14);
-
     if (enable_lid_border) {
         difference() {
             square([bw, bd], center = true);
             square([bw - 4.0, bd - 4.0], center = true);
         }
     }
-    
-    // Rotate 180 degrees so the title sits near the back hinge (-Y) 
-    // and reads right-side up from the front when the lid is closed
     rotate([0, 0, 180]) {
         if (lid_title != "") {
             translate([0, lid_sub != "" ? bd * 0.08 : 0, 0])
@@ -1315,99 +1333,100 @@ module lid_inlay_2d() {
 }
 
 module vault_lid() {
-    knuckle_w = min(28, shell_w * 0.22) - 0.6; // 0.3mm axial clearance per side
     hinge_r = 4.2;
-    hinge_y = -shell_d / 2 - 3.6; // Matches base_shell hinge_y!
-    standoff_h = 13.6;
-    ceiling_z = lid_z - 3.0; // 9.0mm roof ceiling
-    leg_y = rows * pitch * 0.25;
-    grip_len = max(tbar_w, leg_y * 2 + 12);
-    w_span = 12.8; // Catch wedge width
+    hinge_y = -shell_d / 2 - 4.6; // Matches base_shell hinge_y (-shell_d/2 - 4.6)
+    hinge_x_span = shell_w * 0.28;
+    lid_knuckle_w = 7.2; // Fits inside 7.6mm base slot with 0.2mm clearance per side!
+    ceiling_z = lid_z - 3.0;
+    w_span = 12.8;
 
     union() {
-        // 1. Hollowed Lid Shell & Exterior Hardware
         difference() {
             union() {
-                // Main Lid Box (Hollowed FIRST so knuckles/wedges stay solid)
+                // Main Lid Box (Z = 0 is parting line, Z = lid_z is top roof)
                 difference() {
                     translate([-shell_w / 2, -shell_d / 2, 0])
                         cube([shell_w, shell_d, lid_z]);
-
                     translate([-shell_w / 2 + wall_t, -shell_d / 2 + wall_t, -0.1])
                         cube([shell_w - wall_t * 2, shell_d - wall_t * 2, ceiling_z + 0.1]);
                 }
 
-                // Center Hinge Knuckle + Smooth Gusset to Lid Wall
-                hull() {
-                    translate([0, hinge_y, 0])
-                    rotate([0, 90, 0])
-                        cylinder(r = hinge_r, h = knuckle_w, center = true);
-
-                    translate([0, -shell_d / 2 + 0.5, 4.2])
-                        cube([knuckle_w, 1.0, 4.0], center = true);
+                // Inner TPU Mounting Scaffold & Centering Frame (Hangs from ceiling_z)
+                pad_w = tray_w - 1.2;
+                pad_d = tray_d - 1.2;
+                scaf_h = max(2.0, ceiling_z - 2.5); // Leaves 2.5mm recess below lid rim for TPU pad
+                
+                translate([0, 0, ceiling_z - scaf_h / 2]) {
+                    // 1. Outer Centering Frame Lip (1.6mm tall retaining rim around the TPU pad)
+                    difference() {
+                        cube([pad_w + 3.2, pad_d + 3.2, scaf_h + 1.6], center = true);
+                        cube([pad_w + 0.4, pad_d + 0.4, scaf_h + 2.0], center = true);
+                    }
+                    // 2. Inner Glue Scaffold Grid (Perimeter ledge + Cross-Ribs)
+                    difference() {
+                        cube([pad_w, pad_d, scaf_h], center = true);
+                        // Hollow out 4 glue-relief windows so the scaffold is a crisp frame + crossbars
+                        for (gx = [-1, 1]) {
+                            for (gy = [-1, 1]) {
+                                translate([gx * (pad_w * 0.23), gy * (pad_d * 0.23), 0])
+                                    cube([pad_w * 0.36, pad_d * 0.36, scaf_h + 1], center = true);
+                            }
+                        }
+                    }
+                }
+                // Dual Rear Lid Hinge Knuckles + Non-Binding Gussets
+                for (side = [-1, 1]) {
+                    hx = side * hinge_x_span;
+                    union() {
+                        translate([hx, hinge_y, 0])
+                        rotate([0, 90, 0])
+                            cylinder(r = hinge_r, h = lid_knuckle_w, center = true);
+                        // Gusset stays strictly above Z = 0.4 so it never hits base wall when closed!
+                        hull() {
+                            translate([hx, hinge_y, 2.3])
+                                cube([lid_knuckle_w, hinge_r * 2, 3.8], center = true);
+                            translate([hx, -shell_d / 2 + 1.0, 6.5])
+                                cube([lid_knuckle_w, 2.0, 4.0], center = true);
+                        }
+                    }
                 }
 
-                // Front Snap-Fit Catch Wedges (Sloped Lead-In Ramp + Undercut Locking Shelf at Z = 5.5)
+                // Self-Supporting 45-Deg Front Latch Catch Wedges (Anchored 1.5mm inside lid wall!)
                 for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
-                    translate([lx, shell_d / 2, 0])
-                    polyhedron(
-                        points = [
-                            [-w_span / 2, 0,   0.8], // 0: Bottom-left lead-in start
-                            [ w_span / 2, 0,   0.8], // 1: Bottom-right lead-in start
-                            [-w_span / 2, 3.0, 4.7], // 2: Outer-left wedge nose peak
-                            [ w_span / 2, 3.0, 4.7], // 3: Outer-right wedge nose peak
-                            [-w_span / 2, 0,   5.5], // 4: Top-left undercut locking shelf
-                            [ w_span / 2, 0,   5.5]  // 5: Top-right undercut locking shelf
-                        ],
-                        faces = [
-                            [0, 2, 3, 1], // Sloped front lead-in ramp
-                            [2, 4, 5, 3], // Angled top undercut locking shelf
-                            [0, 1, 5, 4], // Back wall against lid
-                            [0, 4, 2],    // Left side triangle
-                            [1, 3, 5]     // Right side triangle
-                        ]
-                    );
+                    hull() {
+                        // Root anchored inside front wall (Z = 0.2 to 7.2)
+                        translate([lx, shell_d / 2 - 1.0, 3.7])
+                            cube([w_span, 2.0, 7.0], center = true);
+                        // Outer Nose Ridge at Y = shell_d/2 + 2.4, Z = 2.8 to 4.2 (45-deg slopes top & bottom!)
+                        translate([lx, shell_d / 2 + 2.4, 3.5])
+                            cube([w_span, 0.4, 1.4], center = true);
+                    }
                 }
             }
 
-            // M3 Hinge Pin Bore (3.4mm for free rotation)
-            translate([0, hinge_y, 0])
-            rotate([0, 90, 0])
-                cylinder(d = 3.4, h = knuckle_w + 4, center = true);
+            // Clearance Relief for Base Hinge Ears
+            for (side = [-1, 1]) {
+                hx = side * hinge_x_span;
+                for (ear_off = [-6.8, 6.8]) {
+                    translate([hx + ear_off, hinge_y, 0])
+                    rotate([0, 90, 0])
+                        cylinder(r = hinge_r + 0.6, h = 6.4, center = true);
+                }
+            }
 
-            // Flush 0.6mm Inlay Cutout on Top Face
-            translate([0, 0, lid_z - 0.6])
-            linear_extrude(0.65)
-                offset(r = 0.02)
+            // 3.3mm Free-Spinning M3 Hinge Pin Bores through Lid Knuckles
+            for (side = [-1, 1]) {
+                translate([side * hinge_x_span, hinge_y, 0])
+                rotate([0, 90, 0])
+                    cylinder(d = 3.35, h = lid_knuckle_w + 2, center = true);
+            }
+
+            // Subtract 0.8mm Multi-Color Inlay Pocket from Top Face (Z = lid_z)
+            translate([0, 0, lid_z - 0.8])
+            linear_extrude(height = 1.0)
                 lid_inlay_2d();
         }
-
-        // 2. Structural Standoff Ribs & Gluing Frame (Anchored solidly to ceiling_z!)
-        difference() {
-            union() {
-                for (dir = [-1, 1]) {
-                    translate([0, dir * (tray_d * 0.42), ceiling_z - standoff_h / 2])
-                        cube([tray_w - 0.8, 2.4, standoff_h], center = true);
-                    translate([0, dir * (tray_d * 0.22), ceiling_z - standoff_h / 2])
-                        cube([tray_w - 0.8, 2.4, standoff_h], center = true);
-                }
-                for (dir = [-1, 1]) {
-                    translate([0, dir * (tray_d / 2 + 0.8), ceiling_z - (standoff_h + 1.5) / 2])
-                        cube([tray_w + 1.6, 1.6, standoff_h + 1.5], center = true);
-                    translate([dir * (tray_w / 2 + 0.8), 0, ceiling_z - (standoff_h + 1.5) / 2])
-                        cube([1.6, tray_d + 3.2, standoff_h + 1.5], center = true);
-                }
-            }
-            translate([0, 0, ceiling_z - (standoff_h + 2) / 2])
-                cube([10.0, grip_len + 4.0, standoff_h + 4.0], center = true);
-        }
     }
-}
-
-module lid_inlay_part() {
-    translate([0, 0, lid_z - 0.6])
-    linear_extrude(0.6)
-        lid_inlay_2d();
 }
 
 // --- 5. CAM-ACTION SNAP LATCHES (ROUNDED KNUCKLE + PRE-LOADED SNAP HOOK) ---
@@ -1491,8 +1510,14 @@ if (export_part == "full") {
     // 2. Vault Lid + Multi-Color Inlay (Grouped so text moves with the lid!)
     translate([0, shell_d + plate_gap, lid_z])
     rotate([180, 0, 0]) {
-        color("${ammoLidColor}") vault_lid();
-        color("${ammoAccentColor}") lid_inlay_part();
+        color("${ammoLidColor}") 
+            vault_lid();
+            
+        // Extrude to 0.8mm and shift up to sit perfectly flush inside the pocket!
+        color("${ammoAccentColor}") 
+            translate([0, 0, lid_z - 0.8]) 
+            linear_extrude(height = 0.8) 
+                lid_inlay_2d();
     }
 
     // 3. Standing Ballistic Tray
@@ -1526,11 +1551,11 @@ if (export_part == "full") {
     translate([0, 0, lid_z])
     rotate([180, 0, 0]) {
         color("${ammoLidColor}") vault_lid();
-        color("${ammoAccentColor}") lid_inlay_part();
+        color("${ammoAccentColor}") lid_inlay_2d();
     }
 } else if (export_part == "inlay_only") {
     translate([0, 0, lid_z]) rotate([180, 0, 0])
-    color("${ammoAccentColor}") lid_inlay_part();
+    color("${ammoAccentColor}") lid_inlay_2d();
 } else if (export_part == "tray_only") {
     translate([-tray_w / 2, -tray_d / 2, foot_h])
     color("${ammoTrayColor}") ballistic_tray();
@@ -1631,7 +1656,7 @@ if (export_part == "full") {
   };
 
   // ==========================================
-  // BAMBU P1S V12 PARAMETRIC OPENSCAD GENERATOR FOR CARGO MATRIX
+  // BAMBU P1S PARAMETRIC OPENSCAD GENERATOR FOR CARGO MATRIX
   // ==========================================
   const generateScadCode = (mode = scadExportMode) => {
     const rawLines = (cargoText || '').split('\n').map((s) => s.trim()).filter(Boolean);
@@ -1660,7 +1685,7 @@ if (export_part == "full") {
     const fontSizeMm = Math.max(5.5, computedFontSize).toFixed(2);
 
     return `// =========================================================================
-// FIELDMATRIX 3D - THE CARGO MATRIX (PRINT-IN-PLACE CLAMSHELL V12)
+// FIELDMATRIX 3D - THE CARGO MATRIX (PRINT-IN-PLACE CLAMSHELL)
 // Design Code : ${designCode || 'CUSTOM'}
 // Preset Tier : ${cargoPreset}
 // Dimensions  : ${cargoWidth}mm (W) x ${cargoLength}mm (L) x ${cargoHeight}mm (Half-H) / ${cargoHeight * 2}mm (Closed)
@@ -3701,7 +3726,7 @@ Date: ${new Date().toISOString()}
             {!adminUnlocked ? (
               <form onSubmit={handleVerifyPin} className="space-y-3">
                 <p className="text-xs text-[#94a3b8]">
-                  Enter your 4-digit Admin PIN to unlock customer order lookup, channel switching, and V12 OpenSCAD exports:
+                  Enter your 4-digit Admin PIN to unlock customer order lookup, channel switching, and OpenSCAD exports:
                 </p>
                 <input
                   type="password"
@@ -3779,7 +3804,7 @@ Date: ${new Date().toISOString()}
                 </div>
 
                 <div className="pt-2 border-t border-[#1e293b] flex justify-between items-center">
-                  <span className="text-[11px] text-emerald-400 font-semibold">✓ Admin V12 .SCAD Unlocked</span>
+                  <span className="text-[11px] text-emerald-400 font-semibold">✓ Admin .SCAD Unlocked</span>
                   <button
                     onClick={() => {
                       setAdminMode(false);
@@ -3788,7 +3813,7 @@ Date: ${new Date().toISOString()}
                     }}
                     className="px-3 py-1.5 rounded bg-[#f43f5e] text-white text-xs font-bold"
                   >
-                    Open V12 .SCAD Generator
+                    Open .SCAD Generator
                   </button>
                 </div>
               </div>
@@ -3841,7 +3866,7 @@ Date: ${new Date().toISOString()}
                       modalTab === 'scad' ? 'border-[#f43f5e] text-[#fecdd3]' : 'border-transparent text-[#94a3b8]'
                     }`}
                   >
-                    <Code size={13} /> Admin V12 OpenSCAD (.scad)
+                    <Code size={13} /> Admin OpenSCAD (.scad)
                   </button>
                 </div>
 
