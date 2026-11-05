@@ -1390,6 +1390,21 @@ module vault_lid() {
                         }
                     }
                 }
+
+                // Exterior Tactical Ribs for the Lid (Matches the Base!)
+                for (dir = [-1, 1]) {
+                    // Left & Right side ribs (starts at Z=2 to leave 2mm gap at parting line)
+                    translate([-shell_w / 2 - 1.8, dir * (shell_d * 0.26) - 5, 2])
+                        cube([1.8, 10, lid_z - 2]);
+                    translate([shell_w / 2, dir * (shell_d * 0.26) - 5, 2])
+                        cube([1.8, 10, lid_z - 2]);
+                    // Front & Back ribs
+                    translate([dir * (shell_w * 0.36) - 5, -shell_d / 2 - 1.8, 2])
+                        cube([10, 1.8, lid_z - 2]);
+                    translate([dir * (shell_w * 0.36) - 5, shell_d / 2, 2])
+                        cube([10, 1.8, lid_z - 2]);
+                }
+
                 // Dual Rear Lid Hinge Knuckles + Non-Binding Gussets
                 for (side = [-1, 1]) {
                     hx = side * hinge_x_span;
