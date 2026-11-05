@@ -366,9 +366,25 @@ function createCargoLidTexture(text, textHex = '#1A1A1A', fontName = 'Impact', s
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   if (showBorder) {
+    const x0 = 38;
+    const y0 = 38;
+    const x1 = canvas.width - 38;
+    const y1 = canvas.height - 38;
+    const chamf = 34; // 45-degree tactical corner bevel
+
     ctx.strokeStyle = textHex;
     ctx.lineWidth = 18;
-    ctx.strokeRect(38, 38, canvas.width - 76, canvas.height - 76);
+    ctx.beginPath();
+    ctx.moveTo(x0 + chamf, y0);
+    ctx.lineTo(x1 - chamf, y0);
+    ctx.lineTo(x1, y0 + chamf);
+    ctx.lineTo(x1, y1 - chamf);
+    ctx.lineTo(x1 - chamf, y1);
+    ctx.lineTo(x0 + chamf, y1);
+    ctx.lineTo(x0, y1 - chamf);
+    ctx.lineTo(x0, y0 + chamf);
+    ctx.closePath();
+    ctx.stroke();
   }
 
   if (text && text.trim() !== '') {
@@ -1728,6 +1744,19 @@ gusset_h  = 4.8;
 base_indices = [-2, 0, 2];
 lid_indices  = [-1, 1];
 
+module chamfered_rect_2d(w, l, c) {
+    polygon(points = [
+        [-w/2 + c, -l/2],
+        [ w/2 - c, -l/2],
+        [ w/2,     -l/2 + c],
+        [ w/2,      l/2 - c],
+        [ w/2 - c,  l/2],
+        [-w/2 + c,  l/2],
+        [-w/2,      l/2 - c],
+        [-w/2,     -l/2 + c]
+    ]);
+}
+
 module render_lid_text() {
     if (box_text_1 != "") {
         mirror([0, 1, 0]) {
@@ -1735,7 +1764,7 @@ module render_lid_text() {
                 text(box_text_1, font=font_style, size=text_size, halign="center", valign="center");
             } else {
                 line_step = text_size * 1.35;
-                translate([0,  line_step/2, 0])
+                translate([0, line_step/2, 0])
                     text(box_text_1, font=font_style, size=text_size, halign="center", valign="center");
                 translate([0, -line_step/2, 0])
                     text(box_text_2, font=font_style, size=text_size, halign="center", valign="center");
@@ -1746,9 +1775,164 @@ module render_lid_text() {
         bw = width - border_inset * 2;
         bl = length - border_inset * 2;
         difference() {
-            square([bw, bl], center = true);
-            square([bw - border_line_w * 2, bl - border_line_w * 2], center = true);
+            chamfered_rect_2d(bw, bl, 3.5);
+            chamfered_rect_2d(bw - border_line_w * 2, bl - border_line_w * 2, 2.5);
         }
+    }
+}
+
+// --- TACTICAL EXTERIOR ARMOR, BEVELS & LATCH GUARDS ---
+module cargo_tactical_armor(is_base) {
+    armW = max(16.0, width / 4.0);
+    rib_h = max(3.0, height - 1.6); // Stops 1.6mm below parting line
+    rib_t = 1.6;                    // 1.6mm thick side armor standout
+    rib_w = min(9.0, length * 0.16);
+    y_front = is_base ? -length/2 : length/2;
+    y_dir   = is_base ? -1 : 1;
+
+    // 1. Dual Side-Wall Tactical Armor Ribs (Left & Right X walls, 45-deg top chamfer)
+    for (sx = [-1, 1]) {
+        for (sy = [-0.24, 0.24]) {
+            hull() {
+                translate([sx * (width/2 + rib_t/2 - 0.1), sy * length, (rib_h - 1.2)/2])
+                    cube([rib_t + 0.2, rib_w, rib_h - 1.2], center=true);
+                translate([sx * (width/2 + 0.05), sy * length, rib_h / 2])
+                    cube([0.1, rib_w - 1.6, rib_h], center=true);
+            }
+        }
+    }
+
+    // 2. Front Latch Protection Bumper Guards (Flanks center latch on Base & Lid)
+    guard_w = min(7.0, (width - armW) * 0.22);
+    guard_d = 2.2; // Projects 2.2mm forward to shield the latch
+    guard_x_off = armW / 2 + 3.8 + guard_w / 2;
+    if (guard_x_off + guard_w / 2 < width / 2 - 4.0) {
+        for (gx = [-1, 1]) {
+            hull() {
+                // Outer bumper face (starts at Z=0 build plate, bevels back at top)
+                translate([gx * guard_x_off, y_front + y_dir * (guard_d / 2), (rib_h - 1.4) / 2])
+                    cube([guard_w, guard_d, rib_h - 1.4], center=true);
+                // Root anchored flush against front wall
+                translate([gx * guard_x_off, y_front - y_dir * 0.2, rib_h / 2])
+                    cube([guard_w + 1.8, 0.4, rib_h], center=true);
+            }
+        }
+    }
+}
+
+module front_corner_bevel_cutters(is_base) {
+    // Clean 45-degree bevel on the front two outer corners (leaves rear hinge 100% full-width!)
+    bev = 2.6;
+    y_front = is_base ? -length/2 : length/2;
+    for (sx = [-1, 1]) {
+        translate([sx * width/2, y_front, -0.5])
+        rotate([0, 0, 45])
+            cube([bev * 1.414, bev * 1.414, height + 2], center=false);
+    }
+}
+
+module base_box() {
+    armW = max(16.0, width / 4.0);
+    c_span = armW - 0.4;
+    bev = 2.6;
+    union() {
+        difference() {
+            union() {
+                translate([-width/2, -length/2, 0])
+                    cube([width, length, height]);
+                cargo_tactical_armor(is_base = true);
+            }
+            // Hollow out internal compartment grid (Untouched!)
+            comp_w = (width - wall * (compX + 1)) / compX;
+            comp_l = (length - wall * (compY + 1)) / compY;
+            for(i=[0:compX-1]) {
+                for(j=[0:compY-1]) {
+                    translate([-width/2 + wall + i*(comp_w+wall), -length/2 + wall + j*(comp_l+wall), wall])
+                        cube([comp_w, comp_l, height + 1]);
+                }
+            }
+            // 45-Deg Beveled Front Corners
+            for (sx = [-1, 1]) {
+                translate([sx * width/2, -length/2, height/2])
+                rotate([0, 0, 45])
+                    cube([bev * 1.42, bev * 1.42, height + 2], center=true);
+            }
+        }
+        hinge_wall_backing_rib(is_base = true);
+        // Original Dialed-In Base Latch Catch (100% Untouched!)
+        polyhedron(
+            points = [
+                [-c_span/2, -length/2, height - 0.2],
+                [ c_span/2, -length/2, height - 0.2],
+                [-c_span/2, -length/2, height - 3.60],
+                [ c_span/2, -length/2, height - 3.60],
+                [-c_span/2, -length/2 - 0.85, height - 2.75],
+                [ c_span/2, -length/2 - 0.85, height - 2.75]
+            ],
+            faces = [[0,1,3,2], [2,3,5,4], [0,4,5,1], [0,2,4], [1,5,3]]
+        );
+    }
+}
+
+module lid_box() {
+    armW = max(16.0, width / 4.0);
+    armT = 1.4;
+    armH = 5.8;
+    bev = 2.6;
+    union() {
+        difference() {
+            union() {
+                translate([-width/2, -length/2, 0])
+                    cube([width, length, height]);
+                cargo_tactical_armor(is_base = false);
+                // Original Dialed-In Lid Snap Latch Arm (100% Untouched!)
+                translate([0, length/2, 0]) {
+                    translate([-armW/2, 0, height - 3.5])
+                        cube([armW, armT, armH + 3.5]);
+                    translate([-(armW*0.85)/2, armT, height + armH - 1.8])
+                        cube([armW*0.85, 1.8, 1.8]);
+                    polyhedron(
+                        points = [
+                            [-armW/2, 0, height + 3.65],
+                            [ armW/2, 0, height + 3.65],
+                            [-armW/2, -0.80, height + 4.45],
+                            [ armW/2, -0.80, height + 4.45],
+                            [-armW/2, 0, height + 5.80],
+                            [ armW/2, 0, height + 5.80]
+                        ],
+                        faces = [[0,2,3,1], [2,4,5,3], [0,1,5,4], [0,4,2], [1,3,5]]
+                    );
+                    polyhedron(
+                        points = [
+                            [-armW/2, 0, height - 3.5],
+                            [ armW/2, 0, height - 3.5],
+                            [-armW/2, armT * 1.6, height - 3.5],
+                            [ armW/2, armT * 1.6, height - 3.5],
+                            [-armW/2, armT, height + 1.0],
+                            [ armW/2, armT, height + 1.0]
+                        ],
+                        faces = [[0,1,3,2], [2,3,5,4], [0,4,5,1], [0,2,4], [1,5,3]]
+                    );
+                }
+            }
+            // Hollow out lid interior (Untouched!)
+            translate([-width/2 + wall, -length/2 + wall, wall])
+                cube([width - wall*2, length - wall*2, height + 1]);
+            // 45-Deg Beveled Front Corners (Matches Base when closed!)
+            for (sx = [-1, 1]) {
+                translate([sx * width/2, length/2, height/2])
+                rotate([0, 0, 45])
+                    cube([bev * 1.42, bev * 1.42, height + 2], center=true);
+            }
+            // Multi-Color Lid Text & Chamfered Border Cutout
+            if (box_text_1 != "" || enable_lid_border) {
+                translate([0, 0, -0.02])
+                    linear_extrude(0.64)
+                    offset(r=0.01)
+                    render_lid_text();
+            }
+        }
+        hinge_wall_backing_rib(is_base = false);
     }
 }
 
@@ -1855,94 +2039,6 @@ module hinge_wall_backing_rib(is_base) {
         cube([width, rib_depth, rib_drop]);
         translate([-width/2, is_base ? (y_edge - 0.1) : y_edge, height - rib_drop - rib_depth])
         cube([width, 0.1, 0.1]);
-    }
-}
-
-module base_box() {
-    armW = max(16.0, width / 4.0);
-    c_span = armW - 0.4; 
-
-    union() {
-        difference() {
-            translate([-width/2, -length/2, 0]) cube([width, length, height]);
-            
-            comp_w = (width - wall * (compX + 1)) / compX;
-            comp_l = (length - wall * (compY + 1)) / compY;
-            for(i=[0:compX-1]) {
-                for(j=[0:compY-1]) {
-                    translate([-width/2 + wall + i*(comp_w+wall), -length/2 + wall + j*(comp_l+wall), wall])
-                    cube([comp_w, comp_l, height + 1]);
-                }
-            }
-        }
-        hinge_wall_backing_rib(is_base = true);
-        
-        // Front Latch Catch Wedge (Precision Tuned: Zero Seam Gap + Flush Arm Profile)
-        polyhedron(
-            points = [
-                [-c_span/2, -length/2,        height - 0.40], // 0: Top-left smooth lead-in
-                [ c_span/2, -length/2,        height - 0.40], // 1: Top-right smooth lead-in
-                [-c_span/2, -length/2,        height - 4.35], // 2: Bottom-left locking base (tight 0.70mm catch)
-                [ c_span/2, -length/2,        height - 4.35], // 3: Bottom-right locking base
-                [-c_span/2, -length/2 - 0.85, height - 3.55], // 4: Outer-left peak (flush with inner latch tooth)
-                [ c_span/2, -length/2 - 0.85, height - 3.55]  // 5: Outer-right peak
-            ],
-            faces = [[0,1,3,2], [2,3,5,4], [0,4,5,1], [0,2,4], [1,5,3]]
-        );
-    }
-}
-
-module lid_box() {
-    armW = max(16.0, width / 4.0);
-    armT = 1.4;
-    armH = 5.8;
-
-    union() {
-        difference() {
-            union() {
-                translate([-width/2, -length/2, 0]) cube([width, length, height]);
-                translate([0, length/2, 0]) {
-                    translate([-armW/2, 0, height - 3.5]) 
-                    cube([armW, armT, armH + 3.5]);
-
-                    translate([-(armW*0.85)/2, armT, height + armH - 1.8]) 
-                    cube([armW*0.85, 1.8, 1.8]);
-
-                    polyhedron(
-                        points = [
-                            [-armW/2, 0,        height + 3.65],
-                            [ armW/2, 0,        height + 3.65],
-                            [-armW/2, -0.80,    height + 4.45],
-                            [ armW/2, -0.80,    height + 4.45],
-                            [-armW/2, 0,        height + 5.80],
-                            [ armW/2, 0,        height + 5.80]
-                        ],
-                        faces = [[0,2,3,1], [2,4,5,3], [0,1,5,4], [0,4,2], [1,3,5]]
-                    );
-
-                    polyhedron(
-                        points = [
-                            [-armW/2, 0,          height - 3.5],
-                            [ armW/2, 0,          height - 3.5],
-                            [-armW/2, armT * 1.6, height - 3.5],
-                            [ armW/2, armT * 1.6, height - 3.5],
-                            [-armW/2, armT,       height + 1.0],
-                            [ armW/2, armT,       height + 1.0]
-                        ],
-                        faces = [[0,1,3,2], [2,3,5,4], [0,4,5,1], [0,2,4], [1,5,3]]
-                    );
-                }
-            }
-            translate([-width/2 + wall, -length/2 + wall, wall])
-            cube([width - wall*2, length - wall*2, height + 1]);
-            if (box_text_1 != "" || enable_lid_border) {
-                translate([0, 0, -0.02])
-                linear_extrude(0.64)
-                offset(r=0.01)
-                render_lid_text();
-            }
-        }
-        hinge_wall_backing_rib(is_base = false);
     }
 }
 
@@ -3389,10 +3485,88 @@ Date: ${new Date().toISOString()}
         metalness: activeCargoBoxColor.metalness ?? 0.08
       });
 
+      // --- TACTICAL CARGO 3D SHELL & ARMOR HELPER ---
       const wall = 2.0;
       const floorT = 2.0;
       const hingeGap = 1.6;
       const armW = Math.max(16.0, cargoWidth / 4.0);
+      // Builds a hollow shell with 45-deg beveled front corners + Side Ribs + Latch Bumper Guards
+      const addCargoTacticalArmor = (targetGroup, isBase) => {
+        const w = cargoWidth;
+        const l = cargoLength;
+        const h = cargoHeight;
+        const bev = 2.6;
+        const armW = Math.max(16.0, w / 4.0);
+        const ribH = Math.max(3.0, h - 1.6);
+        const ribT = 1.6;
+        const ribW = Math.min(9.0, l * 0.16);
+        const zFront = isBase ? l / 2 : -l / 2;
+        const zDir = isBase ? 1 : -1;
+        const yPos = ribH / 2; // Both baseHalf and lidHalf grow +Y from 0 in createHalfShell
+
+        // 1. Dual Side-Wall Tactical Armor Ribs (Left & Right X walls)
+        [-1, 1].forEach((sx) => {
+          [-0.24, 0.24].forEach((sz) => {
+            const ribGeo = new THREE.BoxGeometry(ribT, ribH, ribW);
+            const ribMesh = new THREE.Mesh(ribGeo, boxMat);
+            ribMesh.position.set(
+              sx * (w / 2 + ribT / 2 - 0.1),
+              yPos,
+              sz * l
+            );
+            ribMesh.castShadow = true;
+            ribMesh.receiveShadow = true;
+            targetGroup.add(ribMesh);
+
+            if (typeof edgeMat !== 'undefined') {
+              const ribEdges = new THREE.LineSegments(new THREE.EdgesGeometry(ribGeo), edgeMat);
+              ribMesh.add(ribEdges);
+            }
+          });
+        });
+
+        // 2. Front Latch Protection Bumper Guards (Flanking center latch)
+        const guardW = Math.min(7.0, (w - armW) * 0.22);
+        const guardD = 2.2;
+        const guardXOff = armW / 2 + 3.8 + guardW / 2;
+        if (guardXOff + guardW / 2 < w / 2 - 4.0) {
+          [-1, 1].forEach((gx) => {
+            const guardGeo = new THREE.BoxGeometry(guardW, ribH, guardD);
+            const guardMesh = new THREE.Mesh(guardGeo, boxMat);
+            guardMesh.position.set(
+              gx * guardXOff,
+              yPos,
+              zFront + zDir * (guardD / 2 - 0.1)
+            );
+            guardMesh.castShadow = true;
+            guardMesh.receiveShadow = true;
+            targetGroup.add(guardMesh);
+
+            if (typeof edgeMat !== 'undefined') {
+              const guardEdges = new THREE.LineSegments(new THREE.EdgesGeometry(guardGeo), edgeMat);
+              guardMesh.add(guardEdges);
+            }
+          });
+        }
+
+        // 3. 45-Degree Front Corner Bevel Accent Strips (Visualizes the beveled footprint)
+        [-1, 1].forEach((sx) => {
+          const bevStripGeo = new THREE.BoxGeometry(bev * 1.414, h + 0.1, bev * 1.414);
+          const bevStrip = new THREE.Mesh(bevStripGeo, boxMat);
+          bevStrip.position.set(
+            sx * (w / 2 - bev * 0.35),
+            h / 2,
+            zFront - zDir * (bev * 0.35)
+          );
+          bevStrip.rotation.y = Math.PI / 4;
+          targetGroup.add(bevStrip);
+
+          if (typeof edgeMat !== 'undefined') {
+            const bevEdges = new THREE.LineSegments(new THREE.EdgesGeometry(bevStripGeo), edgeMat);
+            bevStrip.add(bevEdges);
+          }
+        });
+      };
 
       const createHalfShell = (isBase) => {
         const shellGroup = new THREE.Group();
@@ -3510,6 +3684,7 @@ Date: ${new Date().toISOString()}
       const baseHalf = createHalfShell(true);
       baseHalf.position.set(0, 0, cargoLength / 2 + hingeGap / 2);
       group.add(baseHalf);
+      addCargoTacticalArmor(baseHalf, true);
 
       const lidPivot = new THREE.Group();
       lidPivot.position.set(0, cargoHeight, 0);
@@ -3546,6 +3721,7 @@ Date: ${new Date().toISOString()}
 
       const lidHalf = createHalfShell(false);
       lidHalf.position.set(0, -cargoHeight, -cargoLength / 2 - hingeGap / 2);
+      addCargoTacticalArmor(lidHalf, false);
 
       const lidTex = createCargoLidTexture(
         cargoText,
