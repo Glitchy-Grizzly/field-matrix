@@ -1265,12 +1265,20 @@ module base_shell() {
             // Front Latch Clevis Mounts (Extra-beefy r=4.5mm ears for M3x20mm bolt!)
             // Front Base 45-Deg Catch Wedges + Protective Bag-Snag Side Shrouds
                 for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
-                    // 1. Center 45-Deg Catch Wedge (3.2mm protrusion for positive hook lock)
+                    // 1. Center Tactical Snap Catch (Sharp Locking Shelf - Support-Free Bridged!)
                     hull() {
-                        translate([lx, shell_d / 2 - 1.0, base_z - 5.55])
-                            cube([12.8, 2.0, 7.9], center = true);
-                        translate([lx, shell_d / 2 + 3.2, base_z - 5.55])
-                            cube([12.8, 0.4, 1.5], center = true);
+                        // Upper wall root
+                        translate([lx, shell_d / 2 - 1.0, base_z - 3.4])
+                            cube([12.8, 2.0, 0.8], center = true);
+                        // Catch Nose Peak (protrudes 3.2mm at Z = base_z - 5.2)
+                        translate([lx, shell_d / 2 + 3.2, base_z - 5.2])
+                            cube([12.8, 0.4, 0.8], center = true);
+                        // Sharp Horizontal/80-Deg Locking Undercut Shelf
+                        translate([lx, shell_d / 2 + 2.6, base_z - 6.0])
+                            cube([12.8, 0.4, 0.6], center = true);
+                        // Bottom bridge anchor to shell wall (45-deg self-supporting bottom bridge!)
+                        translate([lx, shell_d / 2 - 0.5, base_z - 7.6])
+                            cube([12.8, 1.0, 0.8], center = true);
                     }
                     // 2. Flanking Protective Side Shrouds (Shields closed latch edges from bag snags)
                     for (cx = [-8.6, 8.6]) {
@@ -1371,23 +1379,26 @@ module vault_lid() {
                 pad_w = tray_w - 1.2;
                 pad_d = tray_d - 1.2;
                 scaf_h = max(2.0, ceiling_z - 2.5); // Leaves 2.5mm recess below lid rim for TPU pad
-                
+
                 translate([0, 0, ceiling_z - scaf_h / 2]) {
-                    // 1. Outer Centering Frame Lip (1.6mm tall retaining rim around the TPU pad)
+                    // 1. Outer Centering Frame Lip (1.6mm tall retaining rim around TPU pad)
                     difference() {
                         cube([pad_w + 3.2, pad_d + 3.2, scaf_h + 1.6], center = true);
                         cube([pad_w + 0.4, pad_d + 0.4, scaf_h + 2.0], center = true);
                     }
-                    // 2. Inner Glue Scaffold Grid (Perimeter ledge + Cross-Ribs)
+                    // 2. Inner Glue Scaffold Grid (Relieved in center for the Tray T-Bar Handle!)
                     difference() {
                         cube([pad_w, pad_d, scaf_h], center = true);
-                        // Hollow out 4 glue-relief windows so the scaffold is a crisp frame + crossbars
+                        
+                        // Four corner glue-relief pockets
                         for (gx = [-1, 1]) {
                             for (gy = [-1, 1]) {
-                                translate([gx * (pad_w * 0.23), gy * (pad_d * 0.23), 0])
-                                    cube([pad_w * 0.36, pad_d * 0.36, scaf_h + 1], center = true);
+                                translate([gx * (pad_w * 0.28), gy * (pad_d * 0.25), 0])
+                                    cube([pad_w * 0.30, pad_d * 0.32, scaf_h + 1], center = true);
                             }
                         }
+                        // Center Handle Clearance Slot (Clears T-Bar handle completely!)
+                        cube([tbar_w + 4.0, 18.0, scaf_h + 2], center = true);
                     }
                 }
 
@@ -1478,28 +1489,28 @@ module cam_latch() {
     w = 13.2; // Fits cleanly inside 13.6mm gap between Lid Ears and Base Side Shrouds
     difference() {
         union() {
-            // Extrude 2D C-Jaw Latch Profile along X = [-w/2, +w/2]
+            // Extrude 2D Latch Profile along X = [-w/2, +w/2]
             rotate([90, 0, 90])
             linear_extrude(height = w, center = true) {
                 union() {
                     // 1. Rounded Pivot Barrel at [0, 0]
                     circle(r = 3.6);
 
-                    // 2. C-Jaw Spring Arm + Wedge Pocket + Lower Locking Hook + Finger Tab
+                    // 2. Spring Arm + Sharp Catch Pocket + Reverse Undercut Claw
                     polygon(points = [
                         [-0.2,   2.4],  // Inner arm near pivot
-                        [-0.2,   8.2],  // Inner spring beam (clears parting line)
-                        [-1.55,  9.6],  // Upper wedge saddle (rests on top slope of base wedge)
-                        [-1.55, 10.5],  // Top corner of wedge pocket
-                        [-0.80, 10.9],  // Inner pocket roof (seats against 3.2mm wedge nose at Y=-1.0)
-                        [-0.80, 12.1],  // Inner pocket floor
-                        [-2.45, 12.4],  // SNAP-UNDER LOCKING HOOK (locks 1.45mm under base wedge!)
-                        [-2.45, 13.0],  // Hook locking tip
-                        [-0.4,  15.0],  // 45-deg snap-in lead-in ramp
-                        [ 1.2,  16.2],  // Bottom tip below shroud
-                        [ 4.8,  16.2],  // Outward finger-pull release lip (extends below side shrouds)
-                        [ 4.8,  14.2],  // Top of finger-pull lip
-                        [ 2.8,  13.2],  // Outer spine face (flush with 6.2mm side shrouds)
+                        [-0.2,   8.0],  // Inner spring beam (clears parting line)
+                        [-1.4,   9.2],  // Upper wedge saddle
+                        [-1.4,  10.2],  // Top corner of wedge pocket
+                        [-0.75, 10.6],  // Pocket floor (seats flush against wedge peak)
+                        [-0.75, 11.9],  // Locking corner
+                        [-2.65, 12.1],  // REVERSE-LOCKING CLAW (hooks tightly onto base shelf!)
+                        [-2.65, 12.8],  // Claw tip
+                        [-0.3,  15.0],  // 40-deg smooth snap-in lead-in ramp
+                        [ 1.2,  16.2],  // Bottom tip
+                        [ 4.8,  16.2],  // Finger-pull release lip
+                        [ 4.8,  14.2],  // Top of lip
+                        [ 2.8,  13.2],  // Outer spine face (flush with side shrouds)
                         [ 2.8,   0.0]   // Outer spine back to pivot barrel
                     ]);
                 }
