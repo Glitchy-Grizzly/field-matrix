@@ -1263,17 +1263,27 @@ module base_shell() {
             }
 
             // Front Latch Clevis Mounts (Extra-beefy r=4.5mm ears for M3x20mm bolt!)
-            for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
-                for (cx = [-8.7, 8.7]) {
+            // Front Base 45-Deg Catch Wedges + Protective Bag-Snag Side Shrouds
+                for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
+                    // 1. Center 45-Deg Catch Wedge (3.2mm protrusion for positive hook lock)
                     hull() {
-                        translate([lx + cx, shell_d / 2 + 4.2, base_z - 6.0])
-                        rotate([0, 90, 0])
-                            cylinder(r = 4.5, h = 3.6, center = true);
-                        translate([lx + cx, shell_d / 2 + 0.5, base_z - 7.5])
-                            cube([3.6, 1.0, 12.0], center = true);
+                        translate([lx, shell_d / 2 - 1.0, base_z - 5.55])
+                            cube([12.8, 2.0, 7.9], center = true);
+                        translate([lx, shell_d / 2 + 3.2, base_z - 5.55])
+                            cube([12.8, 0.4, 1.5], center = true);
+                    }
+                    // 2. Flanking Protective Side Shrouds (Shields closed latch edges from bag snags)
+                    for (cx = [-8.6, 8.6]) {
+                        hull() {
+                            // Outer shroud face (protrudes 6.2mm to sit flush with closed latch spine)
+                            translate([lx + cx, shell_d / 2 + 3.1, base_z - 5.2])
+                                cube([3.6, 6.2, 8.4], center = true);
+                            // Wall root extends down with 45-deg print-friendly bottom bevel
+                            translate([lx + cx, shell_d / 2 - 0.5, base_z - 8.2])
+                                cube([3.6, 1.0, 14.4], center = true);
+                        }
                     }
                 }
-            }
         }
 
         // Clearance Relief Cutouts for Lid Center Hinge Knuckles
@@ -1294,16 +1304,6 @@ module base_shell() {
             translate([hx - side * 6.8, hinge_y, base_z])
             rotate([0, 90, 0])
                 cylinder(d = 2.85, h = 8.0, center = true);
-        }
-
-        // M3 Front Latch Pin Bores (Outer ear 3.3mm, Inner ear 2.85mm self-tapping for M3x20mm)
-        for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
-            translate([lx - 5.0, shell_d / 2 + 4.2, base_z - 6.0])
-            rotate([0, 90, 0])
-                cylinder(d = 3.3, h = 16.0, center = true);
-            translate([lx + 5.0, shell_d / 2 + 4.2, base_z - 6.0])
-            rotate([0, 90, 0])
-                cylinder(d = 2.85, h = 16.0, center = true);
         }
 
         // Base Floor 8x3mm Magnet Pockets
@@ -1422,17 +1422,28 @@ module vault_lid() {
                     }
                 }
 
-                // Self-Supporting 45-Deg Front Latch Catch Wedges (Anchored 1.5mm inside lid wall!)
+                // Lid-Mounted Front M3 Latch Pivot Ears (Prints upside-down with 45-deg gussets)
                 for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
-                    hull() {
-                        // Root anchored inside front wall (Z = 0.2 to 7.2)
-                        translate([lx, shell_d / 2 - 1.0, 3.7])
-                            cube([w_span, 2.0, 7.0], center = true);
-                        // Outer Nose Ridge at Y = shell_d/2 + 2.4, Z = 2.8 to 4.2 (45-deg slopes top & bottom!)
-                        translate([lx, shell_d / 2 + 2.4, 3.5])
-                            cube([w_span, 0.4, 1.4], center = true);
+                    for (cx = [-8.6, 8.6]) {
+                        hull() {
+                            translate([lx + cx, shell_d / 2 + 4.2, 6.0])
+                            rotate([0, 90, 0])
+                                cylinder(r = 4.5, h = 3.6, center = true);
+                            translate([lx + cx, shell_d / 2 - 0.5, (lid_z + 1.5) / 2])
+                                cube([3.6, 1.0, lid_z - 1.5], center = true);
+                        }
                     }
                 }
+            }
+
+            // M3 Front Latch Pin Bores in Lid (Outer ear 3.3mm, Inner ear 2.85mm self-tapping for M3x20mm)
+            for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
+                translate([lx - 5.0, shell_d / 2 + 4.2, 6.0])
+                rotate([0, 90, 0])
+                    cylinder(d = 3.3, h = 16.0, center = true);
+                translate([lx + 5.0, shell_d / 2 + 4.2, 6.0])
+                rotate([0, 90, 0])
+                    cylinder(d = 2.85, h = 16.0, center = true);
             }
 
             // Clearance Relief for Base Hinge Ears
@@ -1464,57 +1475,46 @@ module vault_lid() {
 // Local coords: Pin centered at [0, 0, 0].
 // When installed & closed: +Z points UP toward lid, -Y points INWARD toward box front wall.
 module cam_latch() {
-    w = 13.2; // Fits cleanly inside 13.8mm clevis gap (17.0 - 3.2 = 13.8mm)
+    w = 13.2; // Fits cleanly inside 13.6mm gap between Lid Ears and Base Side Shrouds
     difference() {
         union() {
-            // 1. Rounded Pivot Barrel at [0, 0, 0] (r = 3.4mm gives 0.8mm clearance to box wall!)
-            rotate([0, 90, 0])
-                cylinder(r = 3.4, h = w, center = true);
+            // Extrude 2D C-Jaw Latch Profile along X = [-w/2, +w/2]
+            rotate([90, 0, 90])
+            linear_extrude(height = w, center = true) {
+                union() {
+                    // 1. Rounded Pivot Barrel at [0, 0]
+                    circle(r = 3.6);
 
-            // 2. Flexible Spring Arm (Bridges from pivot barrel up to top snap hook)
-            translate([-w / 2, 0.2, 0])
-                cube([w, 3.2, 13.8]);
+                    // 2. C-Jaw Spring Arm + Wedge Pocket + Lower Locking Hook + Finger Tab
+                    polygon(points = [
+                        [-0.2,   2.4],  // Inner arm near pivot
+                        [-0.2,   8.2],  // Inner spring beam (clears parting line)
+                        [-1.55,  9.6],  // Upper wedge saddle (rests on top slope of base wedge)
+                        [-1.55, 10.5],  // Top corner of wedge pocket
+                        [-0.80, 10.9],  // Inner pocket roof (seats against 3.2mm wedge nose at Y=-1.0)
+                        [-0.80, 12.1],  // Inner pocket floor
+                        [-2.45, 12.4],  // SNAP-UNDER LOCKING HOOK (locks 1.45mm under base wedge!)
+                        [-2.45, 13.0],  // Hook locking tip
+                        [-0.4,  15.0],  // 45-deg snap-in lead-in ramp
+                        [ 1.2,  16.2],  // Bottom tip below shroud
+                        [ 4.8,  16.2],  // Outward finger-pull release lip (extends below side shrouds)
+                        [ 4.8,  14.2],  // Top of finger-pull lip
+                        [ 2.8,  13.2],  // Outer spine face (flush with 6.2mm side shrouds)
+                        [ 2.8,   0.0]   // Outer spine back to pivot barrel
+                    ]);
+                }
+            }
 
-            // 3. Top Snap-Over Catch Hook + Bottom Finger Release Lever
-            polyhedron(
-                points = [
-                    // Inner profile facing box wall (-Y is toward box)
-                    [-w / 2,  0.2, 10.6], // 0: Inner arm below hook
-                    [ w / 2,  0.2, 10.6], // 1
-                    [-w / 2, -3.4, 11.4], // 2: Hook locking shelf (catches lid wedge at Z=5.5 -> 6.0+5.5=11.5mm!)
-                    [ w / 2, -3.4, 11.4], // 3
-                    [-w / 2, -1.2, 14.0], // 4: Top lead-in chamfer tip
-                    [ w / 2, -1.2, 14.0], // 5
-                    // Outer profile (+Y is away from box, includes top finger pull tab)
-                    [-w / 2,  5.2, 14.0], // 6: Top-front finger lift lip
-                    [ w / 2,  5.2, 14.0], // 7
-                    [-w / 2,  5.2, 11.5], // 8: Under-lip of finger pull tab
-                    [ w / 2,  5.2, 11.5], // 9
-                    [-w / 2,  3.4, 10.6], // 10: Outer arm face
-                    [ w / 2,  3.4, 10.6]  // 11
-                ],
-                faces = [
-                    [0, 2, 3, 1],   // Inner hook undercut
-                    [2, 4, 5, 3],   // Inner hook lead-in ramp
-                    [4, 6, 7, 5],   // Top flat face
-                    [6, 8, 9, 7],   // Front finger lip face
-                    [8, 10, 11, 9], // Underside of finger lip
-                    [0, 1, 11, 10], // Bottom join to arm
-                    [0, 10, 8, 6, 4, 2], // Left side polygon
-                    [1, 3, 5, 7, 9, 11]  // Right side polygon
-                ]
-            );
-
-            // 4. Exterior Tactile Grip Ridges
-            for (rz = [4.0, 6.5, 9.0]) {
-                translate([0, 3.6, rz])
+            // 3. Exterior Tactile Grip Ridges
+            for (rz = [4.5, 7.2, 9.9]) {
+                translate([0, 3.0, rz])
                     cube([11.0, 0.9, 1.2], center = true);
             }
         }
 
         // M3 Pivot Pin Bore at [0, 0, 0]
         rotate([0, 90, 0])
-            cylinder(d = 3.3, h = w + 2, center = true);
+            cylinder(d = 3.35, h = w + 2, center = true);
     }
 }
 
@@ -3074,40 +3074,22 @@ Date: ${new Date().toISOString()}
       m3HingePin.position.set(0, hingeY, hingeZ);
       baseShellGroup.add(m3HingePin);
 
-      // 3. TACTICAL CAM-ACTION DRAW LATCHES (Front Mount + Lever + M3 Pin)
+      // 3. LOWER BASE 45-DEG CATCH WEDGE + PROTECTIVE SIDE SHROUDS
       const latchOffsets = ammoShellX >= 130 ? [-ammoShellX * 0.23, ammoShellX * 0.23] : [0];
       latchOffsets.forEach((lx) => {
         const latchGroup = new THREE.Group();
-        latchGroup.position.set(lx, baseZ - 2, ammoShellY / 2);
+        latchGroup.position.set(lx, baseZ, ammoShellY / 2);
 
-        // Base clevis bracket
-        const clevisL = new THREE.Mesh(new THREE.BoxGeometry(3.2, 12, 5.5), baseMat);
-        clevisL.position.set(-8.5, -6, 2.75);
-        const clevisR = clevisL.clone();
-        clevisR.position.set(8.5, -6, 2.75);
-        latchGroup.add(clevisL, clevisR);
+        // 1. Center 45-Deg Catch Wedge on Base
+        const wedgeMesh = new THREE.Mesh(new THREE.BoxGeometry(12.8, 5.2, 3.2), baseMat);
+        wedgeMesh.position.set(0, -5.5, 1.6);
+        latchGroup.add(wedgeMesh);
 
-        // M3 Stainless Pivot Pin
-        const latchPin = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 22, 12), steelMat);
-        latchPin.rotation.z = Math.PI / 2;
-        latchPin.position.set(0, -4, 3.5);
-        latchGroup.add(latchPin);
-
-        // Articulated Cam Lever Body (Accent Color)
-        const camBody = new THREE.Mesh(new THREE.BoxGeometry(13.2, 22, 4.2), accentMat);
-        camBody.position.set(0, -7, 4.8);
-        latchGroup.add(camBody);
-
-        // Finger Pull Lip at bottom of latch
-        const pullLip = new THREE.Mesh(new THREE.BoxGeometry(13.2, 3.5, 6.8), accentMat);
-        pullLip.position.set(0, -17.5, 6.0);
-        latchGroup.add(pullLip);
-
-        // Grip ridges on latch face
-        [-3, -7, -11].forEach((ry) => {
-          const grip = new THREE.Mesh(new THREE.BoxGeometry(11.0, 1.2, 1.0), latchPin.material);
-          grip.position.set(0, ry, 7.1);
-          latchGroup.add(grip);
+        // 2. Flanking Protective Side Shrouds on Base (Shields closed latch edges from bag snags)
+        [-8.6, 8.6].forEach((cx) => {
+          const shroudMesh = new THREE.Mesh(new THREE.BoxGeometry(3.6, 10.5, 6.2), baseMat);
+          shroudMesh.position.set(cx, -5.8, 3.1);
+          latchGroup.add(shroudMesh);
         });
 
         baseShellGroup.add(latchGroup);
@@ -3217,16 +3199,80 @@ Date: ${new Date().toISOString()}
       });
 
       // Center Lid Hinge Knuckle
-      const lidCenterKnuckle = new THREE.Mesh(new THREE.CylinderGeometry(hingeRadius, hingeRadius, knuckleW, 20), accentMat);
+      const lidCenterKnuckle = new THREE.Mesh(new THREE.CylinderGeometry(hingeRadius, hingeRadius, knuckleW, 20), lidMat);
       lidCenterKnuckle.rotation.z = Math.PI / 2;
       lidCenterKnuckle.position.set(0, 0, 0);
       lidPivot.add(lidCenterKnuckle);
 
-      // Upper Lid Latch Catch Hooks
+      // Front & Back Tactical Ribs on the Lid (Matches Base Front & Back Ribs!)
+      [-1, 1].forEach((dir) => {
+        const ribH = typeof ammoLidZ !== 'undefined' ? Math.max(4, ammoLidZ - 2) : 10;
+        // Front Lid Rib (+Z wall)
+        const frontLidRib = new THREE.Mesh(new THREE.BoxGeometry(10, ribH, 1.8), lidMat);
+        frontLidRib.position.set(dir * (ammoShellX * 0.36), 2 + ribH / 2, lidOffsetZ + ammoShellY / 2 + 0.9);
+        lidPivot.add(frontLidRib);
+
+        // Rear Lid Rib (-Z wall)
+        const backLidRib = new THREE.Mesh(new THREE.BoxGeometry(10, ribH, 1.8), lidMat);
+        backLidRib.position.set(dir * (ammoShellX * 0.36), 2 + ribH / 2, lidOffsetZ - ammoShellY / 2 - 0.9);
+        lidPivot.add(backLidRib);
+      });
+
+      // Upper Lid-Mounted M3 Latch Pivot Ears + Complete Wrap-Around Cam Latch
+      const latchPinMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.85, roughness: 0.25 });
       latchOffsets.forEach((lx) => {
-        const catchHook = new THREE.Mesh(new THREE.BoxGeometry(13.0, 6.5, 4.5), lidMat);
-        catchHook.position.set(lx, 3.25, lidOffsetZ + ammoShellY / 2 + 2.2);
-        lidPivot.add(catchHook);
+        const fZ = lidOffsetZ + ammoShellY / 2;
+
+        // 1. Dual Lid M3 Pivot Ears (Wall Root + Rounded Outer Barrel around Pin)
+        [-8.6, 8.6].forEach((cx) => {
+          // Rectangular base anchored into the lid wall
+          const earBase = new THREE.Mesh(new THREE.BoxGeometry(3.6, 8.8, 4.2), lidMat);
+          earBase.position.set(lx + cx, 6.0, fZ + 2.1);
+          lidPivot.add(earBase);
+
+          // Rounded outer ear boss concentric with the M3 pin
+          const earBossGeo = new THREE.CylinderGeometry(4.4, 4.4, 3.6, 20);
+          earBossGeo.rotateZ(Math.PI / 2);
+          const earBoss = new THREE.Mesh(earBossGeo, lidMat);
+          earBoss.position.set(lx + cx, 6.0, fZ + 4.2);
+          lidPivot.add(earBoss);
+        });
+
+        // 2. M3x20mm Stainless Screw Pin (Sits cleanly flush inside the outer ear bosses)
+        const pinGeo = new THREE.CylinderGeometry(1.65, 1.65, 21.0, 16);
+        pinGeo.rotateZ(Math.PI / 2);
+        const pinMesh = new THREE.Mesh(pinGeo, latchPinMat);
+        pinMesh.position.set(lx, 6.0, fZ + 4.2);
+        lidPivot.add(pinMesh);
+
+        // 3. Orange Latch Top Rounded Pivot Barrel (Wraps 360° around the M3 pin!)
+        const latchBarrelGeo = new THREE.CylinderGeometry(3.6, 3.6, 13.2, 20);
+        latchBarrelGeo.rotateZ(Math.PI / 2);
+        const latchBarrel = new THREE.Mesh(latchBarrelGeo, accentMat);
+        latchBarrel.position.set(lx, 6.0, fZ + 4.2);
+        lidPivot.add(latchBarrel);
+
+        // 4. Orange Cam-Action Latch Spine (Connects seamlessly from top barrel down to lip)
+        const latchBody = new THREE.Mesh(new THREE.BoxGeometry(13.2, 15.6, 3.4), accentMat);
+        latchBody.position.set(lx, -1.8, fZ + 5.3);
+        lidPivot.add(latchBody);
+
+        // 5. Inner Upper Hook Shoulder (Bridges latch body to lid wall above base wedge)
+        const latchShoulder = new THREE.Mesh(new THREE.BoxGeometry(13.2, 10.0, 2.6), accentMat);
+        latchShoulder.position.set(lx, 1.0, fZ + 3.5);
+        lidPivot.add(latchShoulder);
+
+        // 6. Bottom Outward Finger-Pull Release Lip
+        const latchLip = new THREE.Mesh(new THREE.BoxGeometry(13.2, 2.4, 5.2), accentMat);
+        latchLip.position.set(lx, -9.2, fZ + 6.2);
+        lidPivot.add(latchLip);
+
+        // 7. Tactile Grip Ridges on Orange Latch Face
+        [1.2, -1.8, -4.8].forEach((ry) => {
+          const ridge = new THREE.Mesh(new THREE.BoxGeometry(11.0, 1.0, 0.9), lidMat);
+          ridge.position.set(lx, ry, fZ + 7.1);
+          lidPivot.add(ridge);
+        });
       });
 
       // Map 2D Procedural Texture to Lid Surface (Transparent Decal — No Rectangular Patch!)
