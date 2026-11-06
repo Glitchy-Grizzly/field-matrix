@@ -1874,15 +1874,15 @@ module base_box() {
             }
         }
         hinge_wall_backing_rib(is_base = true);
-        // Original Dialed-In Base Latch Catch (100% Untouched!)
+        // Recalibrated Base Latch Catch (Raised 0.55mm + Deeper 1.05mm Snap Undercut!)
         polyhedron(
             points = [
-                [-c_span/2, -length/2, height - 0.2],
-                [ c_span/2, -length/2, height - 0.2],
-                [-c_span/2, -length/2, height - 3.60],
-                [ c_span/2, -length/2, height - 3.60],
-                [-c_span/2, -length/2 - 0.85, height - 2.75],
-                [ c_span/2, -length/2 - 0.85, height - 2.75]
+                [-c_span/2, -length/2,        height - 0.30], // Top lead-in start
+                [ c_span/2, -length/2,        height - 0.30],
+                [-c_span/2, -length/2,        height - 3.05], // Bottom locking shoulder (was -3.60)
+                [ c_span/2, -length/2,        height - 3.05],
+                [-c_span/2, -length/2 - 1.05, height - 2.15], // Catch nose peak (was -2.75, protrudes 1.05mm)
+                [ c_span/2, -length/2 - 1.05, height - 2.15]
             ],
             faces = [[0,1,3,2], [2,3,5,4], [0,4,5,1], [0,2,4], [1,5,3]]
         );
@@ -1900,31 +1900,38 @@ module lid_box() {
                 translate([-width/2, -length/2, 0])
                     cube([width, length, height]);
                 cargo_tactical_armor(is_base = false);
-                // Original Dialed-In Lid Snap Latch Arm (100% Untouched!)
+                // Recalibrated Lid Snap Latch Arm (Longer reach + 1.05mm locking tooth + flex clearance)
                 translate([0, length/2, 0]) {
+                    // Cantilever spring beam (0.20mm wall clearance above parting line so it flexes freely)
+                    translate([-armW/2, 0.20, height + 0.20])
+                        cube([armW, armT, armH + 0.10]);
+                    // Lower root anchor into lid wall
                     translate([-armW/2, 0, height - 3.5])
-                        cube([armW, armT, armH + 3.5]);
-                    translate([-(armW*0.85)/2, armT, height + armH - 1.8])
+                        cube([armW, armT + 0.20, 3.70]);
+                    // Top thumb release grip bar
+                    translate([-(armW*0.85)/2, armT + 0.20, height + armH - 1.5])
                         cube([armW*0.85, 1.8, 1.8]);
+                    // Snap Hook Tooth (Locks cleanly behind height - 3.05 base catch!)
                     polyhedron(
                         points = [
-                            [-armW/2, 0, height + 3.65],
-                            [ armW/2, 0, height + 3.65],
-                            [-armW/2, -0.80, height + 4.45],
-                            [ armW/2, -0.80, height + 4.45],
-                            [-armW/2, 0, height + 5.80],
-                            [ armW/2, 0, height + 5.80]
+                            [-armW/2,  0.20, height + 3.25], // Locking shelf (0.20mm preload against 3.05mm catch!)
+                            [ armW/2,  0.20, height + 3.25],
+                            [-armW/2, -0.95, height + 4.10], // Hook tip (1.15mm bite depth!)
+                            [ armW/2, -0.95, height + 4.10],
+                            [-armW/2,  0.20, height + 5.95], // Smooth 35-deg entry ramp
+                            [ armW/2,  0.20, height + 5.95]
                         ],
                         faces = [[0,2,3,1], [2,4,5,3], [0,1,5,4], [0,4,2], [1,3,5]]
                     );
+                    // Root reinforcement gusset
                     polyhedron(
                         points = [
-                            [-armW/2, 0, height - 3.5],
-                            [ armW/2, 0, height - 3.5],
-                            [-armW/2, armT * 1.6, height - 3.5],
-                            [ armW/2, armT * 1.6, height - 3.5],
-                            [-armW/2, armT, height + 1.0],
-                            [ armW/2, armT, height + 1.0]
+                            [-armW/2, 0,          height - 3.5],
+                            [ armW/2, 0,          height - 3.5],
+                            [-armW/2, armT * 1.7, height - 3.5],
+                            [ armW/2, armT * 1.7, height - 3.5],
+                            [-armW/2, armT + 0.2, height + 0.8],
+                            [ armW/2, armT + 0.2, height + 0.8]
                         ],
                         faces = [[0,1,3,2], [2,3,5,4], [0,4,5,1], [0,2,4], [1,5,3]]
                     );
