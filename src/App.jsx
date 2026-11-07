@@ -539,8 +539,18 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('storage');
   const [isSuccessPage, setIsSuccessPage] = useState(false);
   useEffect(() => {
-    if (window.location.pathname === '/success') {
+    const path = window.location.pathname.toLowerCase();
+    
+    if (path === '/success') {
       setIsSuccessPage(true);
+      return;
+    }
+
+    // Check if the path matches a product slug (e.g. /cargo, /ammo, /storage)
+    const slug = path.replace('/', '');
+    if (slug && PRODUCT_CATALOG[slug]) {
+      setActiveTab(slug);
+      setIsEtsyMode(true); // Automatically lock to Etsy purchase funnel
     }
   }, []);
   const [showModal, setShowModal] = useState(false);
@@ -4404,21 +4414,23 @@ Date: ${new Date().toISOString()}
           </div>
 
           {/* DYNAMIC PRODUCT CATALOG SELECTOR */}
-          <div className="grid grid-cols-2 gap-1.5 bg-[#090d16] p-1 rounded-lg border border-[#1e293b] mt-2.5">
-            {Object.values(PRODUCT_CATALOG).map((prod) => (
-              <button
-                key={prod.id}
-                onClick={() => setActiveTab(prod.id)}
-                className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all ${
-                  activeTab === prod.id
-                    ? 'bg-[#1e293b] text-[#38bdf8] border border-[#38bdf8]/40'
-                    : 'text-[#94a3b8] hover:text-white'
-                }`}
-              >
-                {prod.id === 'storage' ? <Sliders size={13} /> : prod.id === 'ammo' ? <Shield size={13} className="text-amber-400" /> : <Box size={13} />} {prod.name}
-              </button>
-            ))}
-          </div>
+          {!window.location.pathname.match(/^\/(cargo|ammo|storage)$/) && (
+            <div className="grid grid-cols-2 gap-1.5 bg-[#090d16] p-1 rounded-lg border border-[#1e293b] mt-2.5">
+              {Object.values(PRODUCT_CATALOG).map((prod) => (
+                <button
+                  key={prod.id}
+                  onClick={() => setActiveTab(prod.id)}
+                  className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all ${
+                    activeTab === prod.id
+                      ? 'bg-[#1e293b] text-[#38bdf8] border border-[#38bdf8]/40'
+                      : 'text-[#94a3b8] hover:text-white'
+                  }`}
+                >
+                  {prod.id === 'storage' ? <Sliders size={13} /> : prod.id === 'ammo' ? <Shield size={13} className="text-amber-400" /> : <Box size={13} />} {prod.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-3.5 space-y-3.5 custom-scrollbar">
