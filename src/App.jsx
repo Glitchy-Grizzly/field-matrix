@@ -1279,31 +1279,31 @@ module base_shell() {
 
             // Front Latch Clevis Mounts (Extra-beefy r=4.5mm ears for M3x20mm bolt!)
             // Front Base 45-Deg Catch Wedges + Protective Bag-Snag Side Shrouds
-                for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
-                    // 1. Center True Locking Catch Hook (Bridges between Side Shrouds - Zero Supports!)
-                    translate([lx, shell_d / 2, base_z])
-                    rotate([90, 0, 90])
-                    linear_extrude(height = 14.0, center = true) {
-                        polygon(points = [
-                            [-1.0, -2.5],  // Top root anchored inside base wall
-                            [ 3.2, -5.5],  // Outer catch nose peak (35-deg top slide-in ramp)
-                            [ 3.2, -6.5],  // 1.0mm vertical nose face
-                            [ 0.0, -6.2],  // TRUE HORIZONTAL / SLIGHT UNDERCUT LOCKING SHELF (Bridges between shrouds!)
-                            [-1.0, -6.2]   // Bottom root inside base wall
-                        ]);
-                    }
-                    // 2. Flanking Protective Side Shrouds (Shields closed latch edges from bag snags)
-                    for (cx = [-8.6, 8.6]) {
-                        hull() {
-                            // Outer shroud face (protrudes 6.2mm to sit flush with closed latch spine)
-                            translate([lx + cx, shell_d / 2 + 3.1, base_z - 5.2])
-                                cube([3.6, 6.2, 8.4], center = true);
-                            // Wall root extends down with 45-deg print-friendly bottom bevel
-                            translate([lx + cx, shell_d / 2 - 0.5, base_z - 8.2])
-                                cube([3.6, 1.0, 14.4], center = true);
-                        }
+            for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
+                // 1. Center True Locking Catch Hook (Undercut shelf + deeper 3.6mm bite!)
+                translate([lx, shell_d / 2, base_z])
+                rotate([90, 0, 90])
+                linear_extrude(height = 14.0, center = true) {
+                    polygon(points = [
+                        [-1.0, -2.2],  // Top root anchored inside base wall
+                        [ 3.6, -5.4],  // Outer catch nose peak (35-deg slide-in cam ramp)
+                        [ 3.6, -6.6],  // 1.2mm vertical nose face
+                        [ 0.0, -6.1],  // TRUE UNDERCUT LOCKING SHELF (angles 0.5mm UPWARD toward wall so hook cannot slip!)
+                        [-1.0, -6.1]   // Bottom root inside base wall
+                    ]);
+                }
+                // 2. Flanking Protective Side Shrouds (Shields closed latch edges from bag snags)
+                for (cx = [-8.6, 8.6]) {
+                    hull() {
+                        // Outer shroud face (protrudes 6.2mm to sit flush with closed latch spine)
+                        translate([lx + cx, shell_d / 2 + 3.1, base_z - 5.2])
+                            cube([3.6, 6.2, 8.4], center = true);
+                        // Wall root extends down with 45-deg print-friendly bottom bevel
+                        translate([lx + cx, shell_d / 2 - 0.5, base_z - 8.2])
+                            cube([3.6, 1.0, 14.4], center = true);
                     }
                 }
+            }
         }
 
         // Clearance Relief Cutouts for Lid Center Hinge Knuckles
@@ -1495,7 +1495,7 @@ module vault_lid() {
     }
 }
 
-// --- 5. CAM-ACTION SNAP LATCHES (ROUNDED KNUCKLE + PRE-LOADED SNAP HOOK) ---
+// --- 5. CAM-ACTION SNAP LATCHES (UNDERCUT HOOK + EXTENDED TAB) ---
 // Local coords: Pin centered at [0, 0, 0].
 // When installed & closed: +Z points UP toward lid, -Y points INWARD toward box front wall.
 module cam_latch() {
@@ -1509,41 +1509,41 @@ module cam_latch() {
                     // 1. Rounded Pivot Barrel at [0, 0]
                     circle(r = 3.6);
 
-                    // 2. Spring Spine + Square Catch Pocket + Crisp 90-Deg Locking Tooth
+                    // 2. Spring Spine + Undercut Hook + Extended Lower Tab
                     polygon(points = [
-                        [-0.4,   2.4],  // Inner arm near pivot
-                        [-0.4,   8.2],  // Clears parting line (6.0) & top of base catch (8.5)
-                        [-0.85,  8.6],  // Top of catch pocket
-                        [-0.85, 12.6],  // Back wall of pocket (clears 3.2mm catch nose at Y = -1.0)
-                        [-2.85, 12.6],  // CRISP 90-DEG LOCKING SHELF (2.0mm flat bite directly under the catch!)
-                        [-2.85, 13.5],  // Inner hook tip
-                        [-0.2,  16.0],  // 45-deg cam entry ramp (pushes latch outward as it slides over nose)
-                        [ 1.4,  17.0],  // Bottom inner corner
-                        [ 5.0,  17.0],  // Outward finger-pull release tab
-                        [ 5.0,  15.0],  // Top of release tab
-                        [ 2.8,  14.0],  // Outer spine face (sits flush with 6.2mm side shrouds)
-                        [ 2.8,   0.0]   // Outer spine back to pivot barrel
+                        [-0.5,   2.4],  // Inner arm near pivot
+                        [-0.5,   8.0],  // Clears parting line (6.0) & top of base catch
+                        [-0.65,  8.4],  // Top of catch pocket
+                        [-0.65, 12.75], // Back wall of pocket (0.15mm click clearance below -6.6mm nose)
+                        [-3.80, 12.35], // DEEP UNDERCUT LOCKING HOOK (3.15mm bite + upward locking angle!)
+                        [-3.80, 13.50], // Inner hook tip (creates 1.6mm of positive snap interference over nose)
+                        [-0.40, 17.20], // 45-deg cam entry ramp (flexes latch outward as you push it shut)
+                        [ 1.40, 20.00], // Extended bottom inner corner (+3.0mm longer to close bottom gap!)
+                        [ 5.20, 20.00], // Outward finger-pull release tab bottom
+                        [ 5.20, 17.60], // Top of release tab
+                        [ 2.80, 16.20], // Outer spine face (sits flush with 6.2mm side shrouds)
+                        [ 2.80,  0.00]  // Outer spine back to pivot barrel
                     ]);
                 }
             }
 
-            // 3. Exterior Tactile Grip Ridges
-            for (rz = [4.8, 7.8, 10.8]) {
+            // 3. Exterior Tactile Grip Ridges (spaced down the extended spine)
+            for (rz = [5.2, 8.6, 12.0]) {
                 translate([0, 3.0, rz])
                     cube([11.0, 0.9, 1.2], center = true);
             }
         }
 
-        // M3 Pivot Pin Bore at [0, 0, 0]
+        // Tightened M3 Pivot Pin Bore (3.15mm instead of 3.4mm to eliminate vertical hinge play!)
         rotate([0, 90, 0])
-            cylinder(d = 3.4, h = w + 2, center = true);
+            cylinder(d = 3.15, h = w + 2, center = true);
 
-        // Internal Leaf-Spring Flex Slot (Lets the hook flex cleanly over the 3.2mm nose and snap shut!)
+        // Internal Leaf-Spring Flex Slot (Lengthened so the deeper hook flexes smoothly without cracking)
         rotate([90, 0, 90])
         linear_extrude(height = w + 2, center = true) {
             hull() {
-                translate([0.95, 5.0])  circle(d = 1.15);
-                translate([0.95, 13.5]) circle(d = 1.15);
+                translate([0.95, 4.5])  circle(d = 1.20);
+                translate([0.95, 15.2]) circle(d = 1.20);
             }
         }
     }
@@ -1612,6 +1612,8 @@ if (export_part == "full") {
     rotate([180, 0, 0]) {
         color("${ammoLidColor}") vault_lid();
     }
+} else if (export_part == "base_only") {
+    color("${ammoBaseColor}") base_shell();
 } else if (export_part == "text_only") {
     translate([0, 0, 0.8])
     rotate([180, 0, 0])
