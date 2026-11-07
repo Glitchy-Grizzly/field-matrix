@@ -712,7 +712,7 @@ export default function App() {
     } catch (e) {}
   };
 
-  const ADMIN_SECRET_PIN = '1024';
+  const ADMIN_SECRET_PIN = '102429';
   const PRODUCT_META = {
   storage: {
     name: 'Bench Matrix',
@@ -1607,14 +1607,17 @@ if (export_part == "full") {
         color("${ammoAccentColor}")
             cam_latch();
     }
-} else if (export_part == "base_only") {
-    color("${ammoBaseColor}") base_shell();
 } else if (export_part == "lid_only") {
     translate([0, 0, lid_z])
     rotate([180, 0, 0]) {
         color("${ammoLidColor}") vault_lid();
-        color("${ammoAccentColor}") lid_inlay_2d();
     }
+} else if (export_part == "text_only") {
+    translate([0, 0, 0.8])
+    rotate([180, 0, 0])
+    color("${ammoAccentColor}")
+        linear_extrude(height = 0.8)
+            lid_inlay_2d();
 } else if (export_part == "inlay_only") {
     translate([0, 0, lid_z]) rotate([180, 0, 0])
     color("${ammoAccentColor}") lid_inlay_2d();
@@ -2211,10 +2214,17 @@ complete_model();
   const getBugReportMailto = () => {
     const recipient = "fieldmatrix@glitchygrizzly.com";
     const activeCode = designCode || "No Design Code";
-    const activeProduct = activeTab === 'ammo' ? 'Ammo Matrix' : 'Cargo Matrix';
+    const activeProduct = PRODUCT_CATALOG[activeTab]?.name || "Field Matrix";
     
     const subject = encodeURIComponent(`[${activeProduct} Bug Report] - Code: ${activeCode}`);
     
+    const configDetails =
+      activeTab === 'storage'
+        ? `Preset: ${sizePreset}\nDimensions: ${width}x${depth}x${height}mm (${tiers} Tiers, ${drawersPerTier} Drawers/Tier)`
+        : activeTab === 'cargo'
+        ? `Preset: ${cargoPreset}\nDimensions: ${cargoWidth}x${cargoLength}x${cargoHeight}mm\nGrid: ${cargoCompX}x${cargoCompY}`
+        : `Caliber: ${ammoCaliber}\nCapacity: ${clampedAmmoCols}x${clampedAmmoRows} (${ammoTotalRounds} Rounds)`;
+
     const bodyText = `Hi Field Matrix Team,
 
 I encountered an issue with the ${activeProduct} configurator:
@@ -2224,11 +2234,8 @@ I encountered an issue with the ${activeProduct} configurator:
 
 --- Configuration Details (Auto-generated) ---
 Design Code: ${activeCode}
-Mode: ${activeTab}
-${activeTab === 'cargo' 
-  ? `Preset: ${cargoPreset}\nDimensions: ${cargoWidth}x${cargoLength}x${cargoHeight}mm\nGrid: ${cargoCompX}x${cargoCompY}` 
-  : `Caliber: ${ammoCaliber}\nCapacity: ${clampedAmmoCols}x${clampedAmmoRows}`
-}
+Mode: ${activeTab} (${isEtsyMode ? 'Etsy' : 'Direct'})
+${configDetails}
 Browser: ${navigator.userAgent}
 Date: ${new Date().toISOString()}
 `;
@@ -2454,15 +2461,16 @@ Date: ${new Date().toISOString()}
   const handleAddToCart = async () => {
     if (!designCode) return;
 
-    navigator.clipboard.writeText(designCode);
+    const codeToAdd = designCode;
+    navigator.clipboard.writeText(codeToAdd);
     setCodeCopied(true);
-    await saveDesignToFirestore(designCode);
+    await saveDesignToFirestore(codeToAdd);
 
     const currentPrice = Number(calculatePrice().toFixed(2));
 
     setCart((prevCart) => {
       const existingIndex = prevCart.findIndex(
-        (item) => item.designCode === designCode
+        (item) => item.designCode === codeToAdd
       );
       if (existingIndex > -1) {
         const updated = [...prevCart];
@@ -2475,12 +2483,17 @@ Date: ${new Date().toISOString()}
       return [
         ...prevCart,
         {
-          designCode,
+          designCode: codeToAdd,
           price: currentPrice,
           quantity: 1,
         },
       ];
     });
+
+    // Generate a fresh Design Code so if the user builds another item, it doesn't overwrite the previous one
+    const prefix = PRODUCT_CATALOG[activeTab]?.codePrefix || 'MATRIX-';
+    const nextChars = Math.random().toString(36).substring(2, 8).toUpperCase();
+    setDesignCode(`${prefix}${nextChars}`);
   };
 
   const handleUpdateCartQty = (code, delta) => {
