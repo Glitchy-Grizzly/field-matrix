@@ -863,8 +863,19 @@ export default function App() {
       applyBenchPreset(bKey);
       const cKey = CARGO_PRESETS[cargoPreset] ? cargoPreset : 'Trail';
       applyCargoPreset(cKey);
+
+      // Force Ammo Matrix onto 22lr (or current allowed Etsy caliber) & snap cols/rows to preset
+      const targetCal = AMMO_CALIBERS['22lr'];
+      if (ammoCaliber !== '22lr') {
+        setAmmoCaliber('22lr');
+        setAmmoLidTitle(targetCal.short);
+      }
+      const presets = getCaliberPresets(targetCal);
+      const activeP = presets.find((p) => p.id === ammoPreset) || presets[0];
+      setAmmoCols(activeP.cols);
+      setAmmoRows(activeP.rows);
     }
-  }, [isEtsyMode, sizePreset, cargoPreset, applyBenchPreset, applyCargoPreset]);
+  }, [isEtsyMode, sizePreset, cargoPreset, ammoPreset, ammoCaliber, applyBenchPreset, applyCargoPreset]);
 
   const activeCargoBoxColor = useMemo(
     () => BAMBU_PETG_COLORS.find((c) => c.id === cargoBoxColorId) || BAMBU_PETG_COLORS[7],
@@ -991,6 +1002,10 @@ export default function App() {
 
     } else if (activeTab === 'ammo') {
       // 3. AMMO MATRIX CALCULATOR
+      const AMMO_ETSY_PRICES = { '50': 29.00, '100': 39.00, '250': 54.00 }; // Adjust to your Etsy listing prices
+      if (isEtsyMode && AMMO_ETSY_PRICES[ammoPreset]) {
+        return AMMO_ETSY_PRICES[ammoPreset];
+      }
       const basePrice = 12.00;
       const vol = (ammoShellX * ammoShellY * ammoShellZ) / 45000;
       const roundsExtra = ammoTotalRounds * 0.05;
@@ -1265,20 +1280,17 @@ module base_shell() {
             // Front Latch Clevis Mounts (Extra-beefy r=4.5mm ears for M3x20mm bolt!)
             // Front Base 45-Deg Catch Wedges + Protective Bag-Snag Side Shrouds
                 for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
-                    // 1. Center Tactical Snap Catch (Sharp Locking Shelf - Support-Free Bridged!)
-                    hull() {
-                        // Upper wall root
-                        translate([lx, shell_d / 2 - 1.0, base_z - 3.4])
-                            cube([12.8, 2.0, 0.8], center = true);
-                        // Catch Nose Peak (protrudes 3.2mm at Z = base_z - 5.2)
-                        translate([lx, shell_d / 2 + 3.2, base_z - 5.2])
-                            cube([12.8, 0.4, 0.8], center = true);
-                        // Sharp Horizontal/80-Deg Locking Undercut Shelf
-                        translate([lx, shell_d / 2 + 2.6, base_z - 6.0])
-                            cube([12.8, 0.4, 0.6], center = true);
-                        // Bottom bridge anchor to shell wall (45-deg self-supporting bottom bridge!)
-                        translate([lx, shell_d / 2 - 0.5, base_z - 7.6])
-                            cube([12.8, 1.0, 0.8], center = true);
+                    // 1. Center True Locking Catch Hook (Bridges between Side Shrouds - Zero Supports!)
+                    translate([lx, shell_d / 2, base_z])
+                    rotate([90, 0, 90])
+                    linear_extrude(height = 14.0, center = true) {
+                        polygon(points = [
+                            [-1.0, -2.5],  // Top root anchored inside base wall
+                            [ 3.2, -5.5],  // Outer catch nose peak (35-deg top slide-in ramp)
+                            [ 3.2, -6.5],  // 1.0mm vertical nose face
+                            [ 0.0, -6.2],  // TRUE HORIZONTAL / SLIGHT UNDERCUT LOCKING SHELF (Bridges between shrouds!)
+                            [-1.0, -6.2]   // Bottom root inside base wall
+                        ]);
                     }
                     // 2. Flanking Protective Side Shrouds (Shields closed latch edges from bag snags)
                     for (cx = [-8.6, 8.6]) {
@@ -1386,7 +1398,8 @@ module vault_lid() {
                         cube([pad_w + 3.2, pad_d + 3.2, scaf_h + 1.6], center = true);
                         cube([pad_w + 0.4, pad_d + 0.4, scaf_h + 2.0], center = true);
                     }
-                    // 2. Inner Glue Scaffold Grid (Relieved in center for the Tray T-Bar Handle!)
+                    // 2. Inner Glue Scaffold Grid (Aligned with Y-Axis T-Bar Handle!)
+                    grip_len = max(tbar_w, (rows * pitch * 0.5) + 12);
                     difference() {
                         cube([pad_w, pad_d, scaf_h], center = true);
                         
@@ -1397,8 +1410,8 @@ module vault_lid() {
                                     cube([pad_w * 0.30, pad_d * 0.32, scaf_h + 1], center = true);
                             }
                         }
-                        // Center Handle Clearance Slot (Clears T-Bar handle completely!)
-                        cube([tbar_w + 4.0, 18.0, scaf_h + 2], center = true);
+                        // Center Y-Axis Handle Clearance Slot (11mm wide in X, grip_len + 5mm long in Y!)
+                        cube([11.0, grip_len + 5.0, scaf_h + 2], center = true);
                     }
                 }
 
@@ -1489,35 +1502,33 @@ module cam_latch() {
     w = 13.2; // Fits cleanly inside 13.6mm gap between Lid Ears and Base Side Shrouds
     difference() {
         union() {
-            // Extrude 2D Latch Profile along X = [-w/2, +w/2]
+            // Extrude 2D True Snap-Hook Latch Profile along X = [-w/2, +w/2]
             rotate([90, 0, 90])
             linear_extrude(height = w, center = true) {
                 union() {
                     // 1. Rounded Pivot Barrel at [0, 0]
                     circle(r = 3.6);
 
-                    // 2. Spring Arm + Sharp Catch Pocket + Reverse Undercut Claw
+                    // 2. Spring Spine + Square Catch Pocket + Crisp 90-Deg Locking Tooth
                     polygon(points = [
-                        [-0.2,   2.4],  // Inner arm near pivot
-                        [-0.2,   8.0],  // Inner spring beam (clears parting line)
-                        [-1.4,   9.2],  // Upper wedge saddle
-                        [-1.4,  10.2],  // Top corner of wedge pocket
-                        [-0.75, 10.6],  // Pocket floor (seats flush against wedge peak)
-                        [-0.75, 11.9],  // Locking corner
-                        [-2.65, 12.1],  // REVERSE-LOCKING CLAW (hooks tightly onto base shelf!)
-                        [-2.65, 12.8],  // Claw tip
-                        [-0.3,  15.0],  // 40-deg smooth snap-in lead-in ramp
-                        [ 1.2,  16.2],  // Bottom tip
-                        [ 4.8,  16.2],  // Finger-pull release lip
-                        [ 4.8,  14.2],  // Top of lip
-                        [ 2.8,  13.2],  // Outer spine face (flush with side shrouds)
+                        [-0.4,   2.4],  // Inner arm near pivot
+                        [-0.4,   8.2],  // Clears parting line (6.0) & top of base catch (8.5)
+                        [-0.85,  8.6],  // Top of catch pocket
+                        [-0.85, 12.6],  // Back wall of pocket (clears 3.2mm catch nose at Y = -1.0)
+                        [-2.85, 12.6],  // CRISP 90-DEG LOCKING SHELF (2.0mm flat bite directly under the catch!)
+                        [-2.85, 13.5],  // Inner hook tip
+                        [-0.2,  16.0],  // 45-deg cam entry ramp (pushes latch outward as it slides over nose)
+                        [ 1.4,  17.0],  // Bottom inner corner
+                        [ 5.0,  17.0],  // Outward finger-pull release tab
+                        [ 5.0,  15.0],  // Top of release tab
+                        [ 2.8,  14.0],  // Outer spine face (sits flush with 6.2mm side shrouds)
                         [ 2.8,   0.0]   // Outer spine back to pivot barrel
                     ]);
                 }
             }
 
             // 3. Exterior Tactile Grip Ridges
-            for (rz = [4.5, 7.2, 9.9]) {
+            for (rz = [4.8, 7.8, 10.8]) {
                 translate([0, 3.0, rz])
                     cube([11.0, 0.9, 1.2], center = true);
             }
@@ -1525,7 +1536,16 @@ module cam_latch() {
 
         // M3 Pivot Pin Bore at [0, 0, 0]
         rotate([0, 90, 0])
-            cylinder(d = 3.35, h = w + 2, center = true);
+            cylinder(d = 3.4, h = w + 2, center = true);
+
+        // Internal Leaf-Spring Flex Slot (Lets the hook flex cleanly over the 3.2mm nose and snap shut!)
+        rotate([90, 0, 90])
+        linear_extrude(height = w + 2, center = true) {
+            hull() {
+                translate([0.95, 5.0])  circle(d = 1.15);
+                translate([0.95, 13.5]) circle(d = 1.15);
+            }
+        }
     }
 }
 
@@ -1625,8 +1645,8 @@ if (export_part == "full") {
         activeTab === 'storage'
           ? `${sizePreset} (${tiers}T x ${drawersPerTier}D)`
           : activeTab === 'ammo'
-          ? `${ammoPreset} Rounds (${clampedAmmoCols}x${clampedAmmoRows} ${currentCalSpec.short})`
-          : `${cargoSizePreset}`; // (or whatever variable sits at the end of your existing line)
+          ? `${ammoTotalRounds} Rounds (${clampedAmmoCols}x${clampedAmmoRows} ${currentCalSpec.short})`
+          : `${cargoPreset} (${cargoWidth}x${cargoLength}x${cargoHeight * 2}mm)`;
       spec += `Etsy Option  : ${etsyOptLabel}\n\n`;
     } else {
       spec += `Est. Price   : $${calculatePrice().toFixed(2)}\n\n`;
@@ -1885,15 +1905,15 @@ module base_box() {
             }
         }
         hinge_wall_backing_rib(is_base = true);
-        // Recalibrated Base Latch Catch (Raised 0.55mm + Deeper 1.05mm Snap Undercut!)
+        // Recalibrated Base Latch Catch (Lowered 0.30mm for Zero-Play Preload)
         polyhedron(
             points = [
                 [-c_span/2, -length/2,        height - 0.30], // Top lead-in start
                 [ c_span/2, -length/2,        height - 0.30],
-                [-c_span/2, -length/2,        height - 3.05], // Bottom locking shoulder (was -3.60)
-                [ c_span/2, -length/2,        height - 3.05],
-                [-c_span/2, -length/2 - 1.05, height - 2.15], // Catch nose peak (was -2.75, protrudes 1.05mm)
-                [ c_span/2, -length/2 - 1.05, height - 2.15]
+                [-c_span/2, -length/2,        height - 3.35], // Bottom locking shoulder (was -3.05)
+                [ c_span/2, -length/2,        height - 3.35],
+                [-c_span/2, -length/2 - 1.10, height - 2.45], // Catch nose peak (protrudes 1.10mm)
+                [ c_span/2, -length/2 - 1.10, height - 2.45]
             ],
             faces = [[0,1,3,2], [2,3,5,4], [0,4,5,1], [0,2,4], [1,5,3]]
         );
@@ -1911,38 +1931,38 @@ module lid_box() {
                 translate([-width/2, -length/2, 0])
                     cube([width, length, height]);
                 cargo_tactical_armor(is_base = false);
-                // Recalibrated Lid Snap Latch Arm (Longer reach + 1.05mm locking tooth + flex clearance)
+                // Recalibrated Lid Snap Latch Arm (Shortened 0.55mm to pull parting seam dead-flush)
                 translate([0, length/2, 0]) {
-                    // Cantilever spring beam (0.20mm wall clearance above parting line so it flexes freely)
-                    translate([-armW/2, 0.20, height + 0.20])
-                        cube([armW, armT, armH + 0.10]);
+                    // Cantilever spring beam (shortened by 0.60mm)
+                    translate([-armW/2, 0.15, height + 0.20])
+                        cube([armW, armT, armH - 0.50]);
                     // Lower root anchor into lid wall
                     translate([-armW/2, 0, height - 3.5])
-                        cube([armW, armT + 0.20, 3.70]);
-                    // Top thumb release grip bar
-                    translate([-(armW*0.85)/2, armT + 0.20, height + armH - 1.5])
+                        cube([armW, armT + 0.15, 3.70]);
+                    // Top thumb release grip bar (shifted down 0.60mm with shortened beam)
+                    translate([-(armW*0.85)/2, armT + 0.15, height + armH - 2.1])
                         cube([armW*0.85, 1.8, 1.8]);
-                    // Snap Hook Tooth (Locks cleanly behind height - 3.05 base catch!)
+                    // Snap Hook Tooth (Shortened to height + 2.70 to pull seam tight against -3.35 catch!)
                     polyhedron(
                         points = [
-                            [-armW/2,  0.20, height + 3.25], // Locking shelf (0.20mm preload against 3.05mm catch!)
-                            [ armW/2,  0.20, height + 3.25],
-                            [-armW/2, -0.95, height + 4.10], // Hook tip (1.15mm bite depth!)
-                            [ armW/2, -0.95, height + 4.10],
-                            [-armW/2,  0.20, height + 5.95], // Smooth 35-deg entry ramp
-                            [ armW/2,  0.20, height + 5.95]
+                            [-armW/2,  0.15, height + 2.70], // Locking shelf (was +3.25 — pulls lid 0.55mm tighter!)
+                            [ armW/2,  0.15, height + 2.70],
+                            [-armW/2, -1.00, height + 3.50], // Hook tip (1.15mm bite depth)
+                            [ armW/2, -1.00, height + 3.50],
+                            [-armW/2,  0.15, height + 5.25], // Smooth 35-deg entry ramp
+                            [ armW/2,  0.15, height + 5.25]
                         ],
                         faces = [[0,2,3,1], [2,4,5,3], [0,1,5,4], [0,4,2], [1,3,5]]
                     );
                     // Root reinforcement gusset
                     polyhedron(
                         points = [
-                            [-armW/2, 0,          height - 3.5],
-                            [ armW/2, 0,          height - 3.5],
-                            [-armW/2, armT * 1.7, height - 3.5],
-                            [ armW/2, armT * 1.7, height - 3.5],
-                            [-armW/2, armT + 0.2, height + 0.8],
-                            [ armW/2, armT + 0.2, height + 0.8]
+                            [-armW/2, 0,           height - 3.5],
+                            [ armW/2, 0,           height - 3.5],
+                            [-armW/2, armT * 1.7,  height - 3.5],
+                            [ armW/2, armT * 1.7,  height - 3.5],
+                            [-armW/2, armT + 0.15, height + 0.8],
+                            [ armW/2, armT + 0.15, height + 0.8]
                         ],
                         faces = [[0,1,3,2], [2,3,5,4], [0,4,5,1], [0,2,4], [1,5,3]]
                     );
@@ -4095,7 +4115,13 @@ Date: ${new Date().toISOString()}
                 </h3>
                 <p className="text-[11px] text-[#94a3b8]">
                   {isEtsyMode
-                    ? `Select the "${activeTab === 'storage' ? sizePreset : cargoPreset}" option on Etsy and paste your Design Code in the personalization box.`
+                    ? `Select the "${
+                        activeTab === 'storage'
+                          ? sizePreset
+                          : activeTab === 'ammo'
+                          ? `${ammoTotalRounds} Rds (${currentCalSpec.short})`
+                          : cargoPreset
+                      }" option on Etsy and paste your Design Code in the personalization box.`
                     : `Copy your Design Code and proceed to Square Checkout to complete your custom order.`}
                 </p>
               </div>
@@ -4238,8 +4264,20 @@ Date: ${new Date().toISOString()}
                   className="px-5 py-2 rounded-lg bg-[#f43f5e] hover:bg-[#fb7185] text-white font-bold text-xs flex items-center gap-1.5"
                 >
                   {codeCopied
-                    ? `Code Copied! Select "${activeTab === 'storage' ? sizePreset : cargoPreset}" on Etsy`
-                    : `Copy Code & Finish on Etsy (${activeTab === 'storage' ? sizePreset : cargoPreset})`}{' '}
+                    ? `Code Copied! Select "${
+                        activeTab === 'storage'
+                          ? sizePreset
+                          : activeTab === 'ammo'
+                          ? `${ammoTotalRounds} Rds (${currentCalSpec.short})`
+                          : cargoPreset
+                      }" on Etsy`
+                    : `Copy Code & Finish on Etsy (${
+                        activeTab === 'storage'
+                          ? sizePreset
+                          : activeTab === 'ammo'
+                          ? `${ammoTotalRounds} Rds`
+                          : cargoPreset
+                      })`}{' '}
                   <ExternalLink size={14} />
                 </a>
               ) : (
@@ -5218,7 +5256,13 @@ Date: ${new Date().toISOString()}
           >
             <FileText size={15} />{' '}
             {isEtsyMode
-              ? `Get Etsy Design Code (${activeTab === 'storage' ? sizePreset : cargoPreset})`
+              ? `Get Etsy Design Code (${
+                  activeTab === 'storage'
+                    ? sizePreset
+                    : activeTab === 'ammo'
+                    ? `${ammoTotalRounds} Rds ${currentCalSpec.short}`
+                    : cargoPreset
+                })`
               : `Review Spec & Checkout ($${calculatePrice().toFixed(2)})`}
           </button>
         </div>
