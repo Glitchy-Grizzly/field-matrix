@@ -1014,7 +1014,7 @@ export default function App() {
       return basePrice + vol * 1.5 + roundsExtra + hardwareExtra + textExtra;  
 
     } else {
-      // 4. CARGO MATRIX CALCULATOR (Supports Etsy Presets + Custom Dimensions)
+      // 4. CARGO MATRIX CALCULATOR (Supports, Etsy Presets + Custom Dimensions)
       if (isEtsyMode && CARGO_PRESETS[cargoPreset]?.etsyPrice) {
         return CARGO_PRESETS[cargoPreset].etsyPrice;
       }
