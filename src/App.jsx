@@ -660,8 +660,8 @@ export default function App() {
   const ammoShellY = Number((ammoTrayY + 12.8).toFixed(1));
   const ammoShellZ = currentCalSpec ? Math.ceil(currentCalSpec.oal + 32) : 58;
 
-  // Magnet scaling: 4 pairs (8 magnets) under 150mm, 6 pairs (12 magnets) at or above 150mm
-  const ammoMagnetPairs = ammoShellX >= 150 ? 6 : 4;
+  // Magnet scaling: 2 pairs (4 magnets) under 150mm, 3 pairs (6 magnets) at or above 150mm
+  const ammoMagnetPairs = Math.max(ammoShellX, ammoShellY) >= 150 ? 6 : 4;
   const ammoTotalMagnets = ammoMagnetPairs * 2;
 
   // Dynamic Lid Character Limit based on physical lid width
@@ -1067,7 +1067,7 @@ export default function App() {
     const titleText = (ammoLidTitle || cal.short || '9MM').trim().replace(/"/g, '\\"');
     const subText = showAmmoRoundCount ? `${totalRounds} RDS` : '';
     const numLatches = shellW >= 130 ? 2 : 1;
-    const magPairs = shellW >= 150 ? 6 : 4;
+    const magPairs = Math.max(shellW, shellD) >= 150 ? 6 : 4;
 
     return `// ============================================================================
 // FIELDMATRIX 3D - AMMO MATRIX (FULL MULTI-PART PRODUCTION ASSEMBLY)
@@ -1160,8 +1160,13 @@ module ballistic_tray() {
             }
         }
         if (mag_pairs == 6) {
-            for (fy = [-my, my]) {
-                tray_magnet_foot(tray_w / 2, tray_d / 2 + fy);
+            if (shell_w >= shell_d) {
+                for (fy = [-my, my]) {
+                    tray_magnet_foot(tray_w / 2, tray_d / 2 + fy);
+                }
+            } else {
+                for (fx = [-mx, mx]) {
+                    tray_magnet_foot(tray_w / 2 + fx, tray_d / 2);
             }
         }
     }
@@ -1346,12 +1351,18 @@ module base_shell() {
             }
         }
         if (mag_pairs == 6) {
-            for (fy = [-my, my]) {
-                translate([0, fy, floor_t - 3.1])
-                    cylinder(h = 3.2, d = 8.2);
+            if (shell_w >= shell_d) {
+                for (fy = [-my, my]) {
+                    translate([0, fy, floor_t - 3.1])
+                        cylinder(h = 3.2, d = 8.2);
+                }
+            } else {
+                for (fx = [-mx, mx]) {
+                    translate([fx, 0, floor_t - 3.1])
+                        cylinder(h = 3.2, d = 8.2);
+                }
             }
         }
-    }
 }
 
 // --- 4. VAULT LID & FLUSH MULTI-COLOR INLAY ---
@@ -3397,9 +3408,20 @@ Date: ${new Date().toISOString()}
 
       const mx = ammoTrayX / 2 - 7.5;
       const my = ammoTrayY / 2 - 7.5;
-      const magCoords = ammoShellX >= 150
-        ? [[-mx, -my], [mx, -my], [-mx, my], [mx, my], [0, -my], [0, my]]
-        : [[-mx, -my], [mx, -my], [-mx, my], [mx, my]];
+      
+      // Default 4 corners
+      let magCoords = [[-mx, -my], [mx, -my], [-mx, my], [mx, my]];
+
+      // Add the 2 extra center magnets to the longest edge
+      if (Math.max(ammoShellX, ammoShellY) >= 150) {
+        if (ammoShellX >= ammoShellY) {
+          // Box is wider than it is deep: add to front and back center
+          magCoords.push([0, -my], [0, my]);
+        } else {
+          // Box is deeper than it is wide: add to left and right center
+          magCoords.push([-mx, 0], [mx, 0]);
+        }
+      }
 
       magCoords.forEach(([fx, fy]) => {
         // Tray Standoff Foot
@@ -4732,7 +4754,7 @@ Date: ${new Date().toISOString()}
               <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-[#38bdf8] flex items-center gap-1.5">
-                    <Tag size={13} /> Drawer Labels &amp; Dividers
+                    <Tag size={13} /> Drawer Labels
                   </span>
                   <button
                     type="button"
