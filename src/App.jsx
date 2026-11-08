@@ -150,8 +150,8 @@ const CARGO_PRESETS = {
 // 3. MODULAR PRODUCT CATALOG REGISTRY
 // ==========================================
 const PRODUCT_CATALOG = {
-  storage: {
-    id: 'storage',
+  bench: {
+    id: 'bench',
     codePrefix: 'BENCH-',
     name: 'The Bench Matrix',
     subtitle: 'Modular Swing-Drawer Storage System',
@@ -536,7 +536,7 @@ function createDrawerContourPoints(hw, hd, cornerR, notchR, openSide, handlePos,
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('storage');
+  const [activeTab, setActiveTab] = useState('bench');
   const [isSuccessPage, setIsSuccessPage] = useState(false);
   useEffect(() => {
     const path = window.location.pathname.toLowerCase();
@@ -546,7 +546,7 @@ export default function App() {
       return;
     }
 
-    // Check if the path matches a product slug (e.g. /cargo, /ammo, /storage)
+    // Check if the path matches a product slug (e.g. /cargo, /ammo, /bench)
     const slug = path.replace('/', '');
     if (slug && PRODUCT_CATALOG[slug]) {
       setActiveTab(slug);
@@ -724,7 +724,7 @@ export default function App() {
 
   const ADMIN_SECRET_PIN = '102429';
   const PRODUCT_META = {
-  storage: {
+  bench: {
     name: 'Bench Matrix',
     subtitle: 'Modular Drawer System',
   },
@@ -739,7 +739,7 @@ export default function App() {
 };
 
 // It MUST look exactly like this, using the activeTab state!
-  const currentProductMeta = PRODUCT_CATALOG[activeTab] || PRODUCT_CATALOG.storage;
+  const currentProductMeta = PRODUCT_CATALOG[activeTab] || PRODUCT_CATALOG.bench;
 
   const triggerHiddenAdmin = useCallback(() => {
     setAdminMode(true);
@@ -987,7 +987,7 @@ export default function App() {
     const totalDrawers = tiers * drawersPerTier;
     const ammoLidSubtitle = showAmmoRoundCount ? `${ammoTotalRounds} RDS` : '';
     
-    if (activeTab === 'storage') {
+    if (activeTab === 'bench') {
       // 1. In Etsy Mode, return the flat all-inclusive preset price ($36 / $56 / $69 / $99)
       if (isEtsyMode && BENCH_PRESETS[sizePreset]?.etsyPrice) {
         return BENCH_PRESETS[sizePreset].etsyPrice;
@@ -1657,7 +1657,7 @@ if (export_part == "full") {
     spec += `Product Line : ${currentProductMeta.name} (${currentProductMeta.subtitle})\n`;
     if (isEtsyMode) {
       const etsyOptLabel =
-        activeTab === 'storage'
+        activeTab === 'bench'
           ? `${sizePreset} (${tiers}T x ${drawersPerTier}D)`
           : activeTab === 'ammo'
           ? `${ammoTotalRounds} Rounds (${clampedAmmoCols}x${clampedAmmoRows} ${currentCalSpec.short})`
@@ -1681,7 +1681,7 @@ if (export_part == "full") {
       spec += `- Base / Lid Color  : ${getPetgName(ammoBaseColor)} (${ammoBaseColor}) / ${getPetgName(ammoLidColor)} (${ammoLidColor})\n`;
       spec += `- Tray / Accent     : ${getPetgName(ammoTrayColor)} (${ammoTrayColor}) / ${getPetgName(ammoAccentColor)} (${ammoAccentColor})\n`;
       spec += `- Lid Inlay Text    : "${ammoLidTitle}"${showAmmoRoundCount ? ` / "${ammoTotalRounds} RDS"` : ' (Round Count Off)'}\n`;
-    } else if (activeTab === 'storage') {
+    } else if (activeTab === 'bench') {
       spec += `[ 1. GEOMETRY & CONFIGURATION ]\n`;
       spec += `- Preset Tier        : ${sizePreset}\n`;
       spec += `- Number of Tiers    : ${tiers}\n`;
@@ -2231,7 +2231,7 @@ complete_model();
     const subject = encodeURIComponent(`[${activeProduct} Bug Report] - Code: ${activeCode}`);
     
     const configDetails =
-      activeTab === 'storage'
+      activeTab === 'bench'
         ? `Preset: ${sizePreset}\nDimensions: ${width}x${depth}x${height}mm (${tiers} Tiers, ${drawersPerTier} Drawers/Tier)`
         : activeTab === 'cargo'
         ? `Preset: ${cargoPreset}\nDimensions: ${cargoWidth}x${cargoLength}x${cargoHeight}mm\nGrid: ${cargoCompX}x${cargoCompY}`
@@ -2259,7 +2259,7 @@ Date: ${new Date().toISOString()}
   // MODULAR FIRESTORE PAYLOAD BUILDER
   // ==========================================
   const buildOrderPayload = (codeToSave) => {
-    const productMeta = PRODUCT_CATALOG[activeTab] || PRODUCT_CATALOG.storage;
+    const productMeta = PRODUCT_CATALOG[activeTab] || PRODUCT_CATALOG.bench;
     const estPrice = Number(calculatePrice().toFixed(2));
 
     const basePayload = {
@@ -2268,12 +2268,12 @@ Date: ${new Date().toISOString()}
       orderChannel: isEtsyMode ? 'etsy' : 'direct_square',
       productLine: activeTab,
       productName: productMeta.name,
-      presetSelected: activeTab === 'storage' ? sizePreset : cargoPreset,
+      presetSelected: activeTab === 'bench' ? sizePreset : cargoPreset,
       estimatedPrice: estPrice,
       createdAt: serverTimestamp()
     };
 
-    if (activeTab === 'storage') {
+    if (activeTab === 'bench') {
     const benchConfig = {
       sizePreset,
       tiers,
@@ -2521,8 +2521,8 @@ Date: ${new Date().toISOString()}
   };
 
   const handleResetDirectDimensions = () => {
-    if (activeTab === 'storage') {
-      // Storage / Bench Matrix default direct dimensions
+    if (activeTab === 'bench') {
+      // Bench Matrix default direct dimensions
       setWidth(140);
       setDepth(110);
       setHeight(15.5);
@@ -2610,8 +2610,8 @@ Date: ${new Date().toISOString()}
         const cfg = data.configuration || data;
         setDesignCode(cleanCode);
 
-        if (data.productLine === 'storage') {
-          setActiveTab('storage');
+        if (data.productLine === 'bench') {
+          setActiveTab('bench');
           if (cfg.sizePreset ?? data.sizePreset) setSizePreset(cfg.sizePreset ?? data.sizePreset);
           setTiers(cfg.tiers ?? data.tiers ?? 2);
           setDrawersPerTier(cfg.drawersPerTier ?? data.drawersPerTier ?? 4);
@@ -2707,7 +2707,7 @@ Date: ${new Date().toISOString()}
   });
 
   const fitCameraToModel = useCallback(() => {
-    if (activeTab === 'storage') {
+    if (activeTab === 'bench') {
       const totalH = tiers * singleTierHeightMm;
       const maxSpan = Math.max(width, depth, totalH);
       controlsState.current.targetY = totalH * 0.45;
@@ -2887,7 +2887,17 @@ Date: ${new Date().toISOString()}
     };
     window.addEventListener('resize', handleResize);
 
+    // ==========================================
+    // 3D VIEWPORT BUG FIX: Force layout calculation
+    // ==========================================
+    // Give the DOM 50ms to finish building the flexbox layout, 
+    // then fake a window resize so Three.js draws at full scale.
+    const initialResizeTimer = setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 50);
+
     return () => {
+      clearTimeout(initialResizeTimer); // Always clean up timers!
       cancelAnimationFrame(reqId);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
@@ -2895,7 +2905,7 @@ Date: ${new Date().toISOString()}
       window.removeEventListener('resize', handleResize);
       renderer.dispose();
     };
-  }, []);
+  }, []); // End of Three.js initialization hook
 
   // ==========================================
   // BUILD 3D GEOMETRY FOR ACTIVE PRODUCT TAB
@@ -2906,7 +2916,7 @@ Date: ${new Date().toISOString()}
     while (group.children.length > 0) group.remove(group.children[0]);
     drawerPivotsRef.current = [];
 
-    if (activeTab === 'storage') {
+    if (activeTab === 'bench') {
       const casingMat = new THREE.MeshStandardMaterial({
         color: activeCasingColor.hex,
         roughness: activeCasingColor.roughness ?? 0.55,
@@ -4141,7 +4151,7 @@ Date: ${new Date().toISOString()}
                 <p className="text-[11px] text-[#94a3b8]">
                   {isEtsyMode
                     ? `Select the "${
-                        activeTab === 'storage'
+                        activeTab === 'bench'
                           ? sizePreset
                           : activeTab === 'ammo'
                           ? `${ammoTotalRounds} Rds (${currentCalSpec.short})`
@@ -4290,14 +4300,14 @@ Date: ${new Date().toISOString()}
                 >
                   {codeCopied
                     ? `Code Copied! Select "${
-                        activeTab === 'storage'
+                        activeTab === 'bench'
                           ? sizePreset
                           : activeTab === 'ammo'
                           ? `${ammoTotalRounds} Rds (${currentCalSpec.short})`
                           : cargoPreset
                       }" on Etsy`
                     : `Copy Code & Finish on Etsy (${
-                        activeTab === 'storage'
+                        activeTab === 'bench'
                           ? sizePreset
                           : activeTab === 'ammo'
                           ? `${ammoTotalRounds} Rds`
@@ -4414,7 +4424,7 @@ Date: ${new Date().toISOString()}
           </div>
 
           {/* DYNAMIC PRODUCT CATALOG SELECTOR */}
-          {!window.location.pathname.match(/^\/(cargo|ammo|storage)$/) && (
+          {!window.location.pathname.match(/^\/(cargo|ammo|bench)$/) && (
             <div className="grid grid-cols-2 gap-1.5 bg-[#090d16] p-1 rounded-lg border border-[#1e293b] mt-2.5">
               {Object.values(PRODUCT_CATALOG).map((prod) => (
                 <button
@@ -4426,7 +4436,7 @@ Date: ${new Date().toISOString()}
                       : 'text-[#94a3b8] hover:text-white'
                   }`}
                 >
-                  {prod.id === 'storage' ? <Sliders size={13} /> : prod.id === 'ammo' ? <Shield size={13} className="text-amber-400" /> : <Box size={13} />} {prod.name}
+                  {prod.id === 'bench' ? <Sliders size={13} /> : prod.id === 'ammo' ? <Shield size={13} className="text-amber-400" /> : <Box size={13} />} {prod.name}
                 </button>
               ))}
             </div>
@@ -4434,7 +4444,7 @@ Date: ${new Date().toISOString()}
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-3.5 space-y-3.5 custom-scrollbar">
-          {activeTab === 'storage' ? (
+          {activeTab === 'bench' ? (
             <>
               {/* 4 BENCH MATRIX PRESET SIZES */}
               <div className="space-y-1.5">
@@ -5262,7 +5272,7 @@ Date: ${new Date().toISOString()}
         <div className="shrink-0 p-3 pb-4 md:p-3.5 bg-[#0f172a] border-t border-[#1e293b] space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-[#94a3b8]">
-              {activeTab === 'storage'
+              {activeTab === 'bench'
                 ? `${tiers} Tiers • ${tiers * drawersPerTier} Drawers`
                 : activeTab === 'ammo'
                 ? `${ammoShellX}×${ammoShellY}×${ammoShellZ}mm • ${ammoTotalRounds} Rds (${currentCalSpec.short})`
@@ -5270,7 +5280,7 @@ Date: ${new Date().toISOString()}
             </span>
             {isEtsyMode ? (
               <span className="px-2.5 py-0.5 rounded bg-[#3b1526] border border-[#f43f5e]/60 text-xs font-bold text-[#fecdd3]">
-                Etsy Tier: {activeTab === 'storage' ? sizePreset : activeTab === 'ammo' ? `${ammoTotalRounds} Rds` : cargoPreset}
+                Etsy Tier: {activeTab === 'bench' ? sizePreset : activeTab === 'ammo' ? `${ammoTotalRounds} Rds` : cargoPreset}
               </span>
             ) : (
               <span className="text-lg font-black text-[#38bdf8]">${calculatePrice().toFixed(2)}</span>
@@ -5284,7 +5294,7 @@ Date: ${new Date().toISOString()}
             <FileText size={15} />{' '}
             {isEtsyMode
               ? `Get Etsy Design Code (${
-                  activeTab === 'storage'
+                  activeTab === 'bench'
                     ? sizePreset
                     : activeTab === 'ammo'
                     ? `${ammoTotalRounds} Rds ${currentCalSpec.short}`
@@ -5353,7 +5363,7 @@ Date: ${new Date().toISOString()}
             </span>
 
             {activeTab !== 'ammo' && (
-              activeTab === 'storage' ? (
+              activeTab === 'bench' ? (
                 <div className="flex items-center gap-2 bg-[#151e31] px-2.5 py-1 rounded-lg border border-[#1e293b] shrink-0">
                   <span className="text-[11px] font-semibold tabular-nums min-w-[115px]">
                     Swing Drawers ({Math.round(swingOpenAmount * 100)}%):
@@ -5388,7 +5398,7 @@ Date: ${new Date().toISOString()}
             {/* Flexible spacer to push the right-side buttons nicely */}
             <div className="flex-1 min-w-[20px]"></div>
 
-            {activeTab === 'storage' && (
+            {activeTab === 'bench' && (
               <>
                 <button
                   onClick={() => setExplodedView(!explodedView)}
