@@ -610,18 +610,18 @@ export default function App() {
   
   // Max even columns & max rows that fit on a 256mm plate (including 6.5mm spine + 6.4mm tray wall + 12.8mm shell wall)
   const maxSafeCols = Math.min(24, Math.max(2, Math.floor((254.5 - 25.7) / currentCalSpec.pitch / 2) * 2));
-  const maxSafeRows = Math.min(20, Math.max(2, Math.floor((254.5 - 19.2) / currentCalSpec.pitch)));
+  const maxSafeRows = Math.min(20, Math.max(3, Math.floor((254.5 - 19.2) / currentCalSpec.pitch)));
 
   // Enforce strictly EVEN columns (2, 4, 6, 8, 10...) so the tray & handle are 100% balanced!
   const evenAmmoCols = Math.max(2, Math.round(ammoCols / 2) * 2);
   const clampedAmmoCols = Math.min(Math.max(2, evenAmmoCols), maxSafeCols);
-  const clampedAmmoRows = Math.min(Math.max(2, ammoRows), maxSafeRows);
+  const clampedAmmoRows = Math.min(Math.max(3, ammoRows), maxSafeRows);
   const ammoTotalRounds = clampedAmmoCols * clampedAmmoRows;
 
   // Dynamic Caliber-Aware Presets (Guarantees 3 distinct sizes for EVERY caliber so two buttons never light up together!)
   const getCaliberPresets = (calSpec = currentCalSpec) => {
     const mCols = Math.min(24, Math.max(2, Math.floor((254.5 - 25.7) / calSpec.pitch / 2) * 2));
-    const mRows = Math.min(20, Math.max(2, Math.floor((254.5 - 19.2) / calSpec.pitch)));
+    const mRows = Math.min(20, Math.max(3, Math.floor((254.5 - 19.2) / calSpec.pitch)));
 
     if (calSpec.category === 'Shotgun') {
       // 20GA & 12GA: 3 distinct balanced tiers up to full 10x10 (100 shells) plate max
