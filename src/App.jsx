@@ -1167,6 +1167,7 @@ module ballistic_tray() {
             } else {
                 for (fx = [-mx, mx]) {
                     tray_magnet_foot(tray_w / 2 + fx, tray_d / 2);
+                }
             }
         }
     }
@@ -1300,11 +1301,11 @@ module base_shell() {
                 rotate([90, 0, 90])
                 linear_extrude(height = 14.0, center = true) {
                     polygon(points = [
-                        [-1.0, -2.2],  // Top root anchored inside base wall
-                        [ 3.6, -5.4],  // Outer catch nose peak (35-deg slide-in cam ramp)
-                        [ 3.6, -6.6],  // 1.2mm vertical nose face
-                        [ 0.0, -6.1],  // TRUE UNDERCUT LOCKING SHELF (angles 0.5mm UPWARD toward wall so hook cannot slip!)
-                        [-1.0, -6.1]   // Bottom root inside base wall
+                        [-1.0, -2.0],  // Top root anchored inside base wall
+                        [ 4.2, -5.2],  // Outer catch nose peak (Extended to 4.2 for deeper bite)
+                        [ 4.2, -6.8],  // Nose vertical face
+                        [ 0.0, -5.8],  // STEEPER UNDERCUT SHELF (Drops 1.0mm to create a heavy hook angle)
+                        [-1.0, -5.8]   // Bottom root inside base wall
                     ]);
                 }
                 // 2. Flanking Protective Side Shrouds (Shields closed latch edges from bag snags)
@@ -1363,7 +1364,8 @@ module base_shell() {
                 }
             }
         }
-}
+    } // Closes difference()
+} // Closes module base_shell()
 
 // --- 4. VAULT LID & FLUSH MULTI-COLOR INLAY ---
 module lid_inlay_2d() {
@@ -1533,17 +1535,17 @@ module cam_latch() {
                     // 2. Spring Spine + Undercut Hook + Extended Lower Tab
                     polygon(points = [
                         [-0.5,   2.4],  // Inner arm near pivot
-                        [-0.5,   8.0],  // Clears parting line (6.0) & top of base catch
-                        [-0.65,  8.4],  // Top of catch pocket
-                        [-0.65, 12.75], // Back wall of pocket (0.15mm click clearance below -6.6mm nose)
-                        [-3.80, 12.35], // DEEP UNDERCUT LOCKING HOOK (3.15mm bite + upward locking angle!)
-                        [-3.80, 13.50], // Inner hook tip (creates 1.6mm of positive snap interference over nose)
-                        [-0.40, 17.20], // 45-deg cam entry ramp (flexes latch outward as you push it shut)
-                        [ 1.40, 20.00], // Extended bottom inner corner (+3.0mm longer to close bottom gap!)
-                        [ 5.20, 20.00], // Outward finger-pull release tab bottom
-                        [ 5.20, 17.60], // Top of release tab
-                        [ 2.80, 16.20], // Outer spine face (sits flush with 6.2mm side shrouds)
-                        [ 2.80,  0.00]  // Outer spine back to pivot barrel
+                        [-0.5,   8.0],  // Clears parting line & top of base catch
+                        [-0.8,   8.4],  // Top of catch pocket
+                        [-0.8,  12.8],  // Back wall of pocket
+                        [-4.5,  11.8],  // AGGRESSIVE UNDERCUT HOOK (Extended to -4.5, steeply angled to interlock)
+                        [-4.5,  13.8],  // Inner hook tip (0.2mm clearance over the 4.2mm base nose)
+                        [-0.4,  17.2],  // 45-deg cam entry ramp (forces the arm to flex outward as it closes)
+                        [ 1.4,  20.0],  // Extended bottom inner corner
+                        [ 5.2,  20.0],  // Outward finger-pull release tab
+                        [ 5.2,  17.6],  // Top of release tab
+                        [ 2.8,  16.2],  // Outer spine face (sits flush with side shrouds)
+                        [ 2.8,   0.0]   // Outer spine back to pivot barrel
                     ]);
                 }
             }
@@ -1680,7 +1682,7 @@ if (export_part == "full") {
 
     if (activeTab === 'ammo') {
       const getPetgName = (hex) => BAMBU_PETG_COLORS.find((c) => c.hex === hex)?.name || hex;
-      const magCount = ammoShellX >= 150 ? 12 : 8; // <-- ADD THIS LINE
+      const magCount = Math.max(ammoShellX, ammoShellY) >= 150 ? 12 : 8; // <-- ADD THIS LINE
 
       spec += `[ 1. PRINT & SHIP SPECIFICATIONS — BALLISTIC VAULT ]\n`;
       spec += `- Caliber           : ${currentCalSpec.name} (${currentCalSpec.short})\n`;
@@ -2334,7 +2336,7 @@ Date: ${new Date().toISOString()}
       drawerColorId
     };
   } else if (activeTab === 'ammo') {
-      const magCount = ammoShellX >= 150 ? 12 : 8;
+      const magCount = Math.max(ammoShellX, ammoShellY) >= 150 ? 12 : 8;
 
       const ammoConfig = {
         ammoCaliber,
