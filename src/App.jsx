@@ -1079,20 +1079,32 @@ export default function App() {
       return baseFee + tierCost + drawersCost + dividersCost;
 
     } else if (activeTab === 'ammo') {
-      // 3. AMMO MATRIX CALCULATOR
-      const AMMO_ETSY_PRICES = { '50': 29.00, '100': 39.00, '250': 54.00 }; // Adjust to your Etsy listing prices
-      if (isEtsyMode && AMMO_ETSY_PRICES[ammoPreset]) {
-        return AMMO_ETSY_PRICES[ammoPreset];
+      // 3. AMMO MATRIX TIERED PRICING MATRIX
+      const cat = currentCalSpec?.category || 'Rimfire';
+      const isBulk = ammoPreset === '250' || ammoTotalRounds >= 150;
+      const isWeekend = ammoPreset === '100' || (ammoTotalRounds >= 75 && ammoTotalRounds < 150);
+
+      // Define Etsy Retail Price Tables
+      const AMMO_PRICES = {
+        Rimfire: { standard: 46.00, weekend: 58.00, bulk: 74.00 },
+        Pistol:  { standard: 49.00, weekend: 64.00, bulk: 82.00 },
+        Rifle:   { standard: 54.00, weekend: 72.00, bulk: 94.00 },
+        Shotgun: { standard: 58.00, weekend: 78.00, bulk: 99.00 }
+      };
+
+      const tierMap = AMMO_PRICES[cat] || AMMO_PRICES.Rimfire;
+      const retailPrice = isBulk ? tierMap.bulk : isWeekend ? tierMap.weekend : tierMap.standard;
+
+      if (isEtsyMode) {
+        return retailPrice;
       }
-      const basePrice = 12.00;
-      const vol = (ammoShellX * ammoShellY * ammoShellZ) / 45000;
-      const roundsExtra = ammoTotalRounds * 0.05;
-      const hardwareExtra = ammoTotalMagnets * 0.20 + 1.20; 
-      const textExtra = ammoLidTitle.trim() !== '' || ammoLidSubtitle.trim() !== '' ? 2.0 : 0;
-      return basePrice + vol * 1.5 + roundsExtra + hardwareExtra + textExtra;  
+
+      // Direct Mode / In-Person Sale Discount (15% off retail — saves marketplace fees while protecting margins)
+      const directPrice = retailPrice * 0.85;
+      return Number(directPrice.toFixed(2));
 
     } else {
-      // 4. CARGO MATRIX CALCULATOR (Supports, Etsy Presets + Custom Dimensions)
+      // 4. CARGO MATRIX CALCULATOR (Supports Etsy Presets + Custom Dimensions)
       if (isEtsyMode && CARGO_PRESETS[cargoPreset]?.etsyPrice) {
         return CARGO_PRESETS[cargoPreset].etsyPrice;
       }
@@ -1832,406 +1844,334 @@ if (export_part == "full") {
 
     const cleanLine1 = line1.replace(/"/g, '\\"');
     const cleanLine2 = line2.replace(/"/g, '\\"');
-    const maxChars = Math.max(line1.length, line2.length, 4);
-    const wall = 2.0;
-    const gap = 1.6;
-    const innerW = cargoWidth - wall * 2 - 14;
-    const innerL = cargoLength - wall * 2 - 14;
-    const computedFontSize = Math.min(
-      (innerW / maxChars) * 1.38,
-      line2 ? innerL * 0.24 : innerL * 0.34,
-      22
-    );
-    const fontSizeMm = Math.max(5.5, computedFontSize).toFixed(2);
+    const totalZ = cargoHeight * 2;
+    const lidZ = 12.0;
+    const baseZ = totalZ - lidZ;
+    const numLatches = cargoWidth >= 130 ? 2 : 1;
 
     return `// =========================================================================
-// FIELDMATRIX 3D - THE CARGO MATRIX (PRINT-IN-PLACE CLAMSHELL)
+// FIELDMATRIX 3D - THE CARGO MATRIX (TACTICAL BOLTED ASSEMBLY)
 // Design Code : ${designCode || 'CUSTOM'}
 // Preset Tier : ${cargoPreset}
-// Dimensions  : ${cargoWidth}mm (W) x ${cargoLength}mm (L) x ${cargoHeight}mm (Half-H) / ${cargoHeight * 2}mm (Closed)
-// Grid Layout : ${cargoCompX} Columns (X) x ${cargoCompY} Rows (Y) (${cargoCompX * cargoCompY} Compartments)
-// Colors      : Body=${activeCargoBoxColor.name} (${activeCargoBoxColor.hex}) | Inlay=${activeCargoTextColor.name} (${activeCargoTextColor.hex})
-// Lid Inlay   : Text="${cleanLine1}${cleanLine2 ? ' / ' + cleanLine2 : ''}" | Font=${cargoFont} | Border=${cargoBorder ? 'YES' : 'NO'}
+// Dimensions  : ${cargoWidth}mm (W) x ${cargoLength}mm (L) x ${totalZ}mm (Total H)
+// Grid Layout : ${cargoCompX} Cols x ${cargoCompY} Rows
 // Export Mode : ${mode.toUpperCase()}
 // =========================================================================
 
+$fn = 48;
 export_part = "${mode}";
 
-width = ${cargoWidth};
-length = ${cargoLength};
-height = ${cargoHeight};
-wall = ${wall};
-compX = ${cargoCompX};
-compY = ${cargoCompY};
-gap = ${gap};
-$fn = 64;
+shell_w = ${cargoWidth};
+shell_d = ${cargoLength};
+total_z = ${totalZ};
+base_z = ${baseZ};
+lid_z = ${lidZ};
+wall_t = 2.4;
+floor_t = 2.4;
+
+comp_x = ${cargoCompX};
+comp_y = ${cargoCompY};
+num_latches = ${numLatches};
 
 box_color  = "${activeCargoBoxColor.hex}";
 text_color = "${activeCargoTextColor.hex}";
 box_text_1 = "${cleanLine1}";
 box_text_2 = "${cleanLine2}";
-text_size  = ${fontSizeMm};
 font_style = "${cargoFont}:style=Bold";
 enable_lid_border = ${cargoBorder ? 'true' : 'false'};
-border_inset = 5.0;
-border_line_w = 2.0;
 
-num_k     = 5;
-k_span    = width / num_k;
-hr        = 3.20;
-pin_r     = 1.33;
-bore_r    = 1.65;
-k_tol     = 0.35;
-shell_clr = 0.65;
-gusset_h  = 4.8;
+// --- 1. ARMORED BASE SHELL (WITH COMPARTMENT GRID) ---
+module base_shell() {
+    hinge_r = 4.2;
+    hinge_y = -shell_d / 2 - 4.6;
+    hinge_x_span = shell_w * 0.28;
 
-base_indices = [-2, 0, 2];
-lid_indices  = [-1, 1];
+    difference() {
+        union() {
+            // Main Shell Body
+            difference() {
+                translate([-shell_w / 2, -shell_d / 2, 0])
+                    cube([shell_w, shell_d, base_z]);
+                // Hollow Cavity
+                translate([-shell_w / 2 + wall_t, -shell_d / 2 + wall_t, floor_t])
+                    cube([shell_w - wall_t * 2, shell_d - wall_t * 2, base_z + 1]);
+            }
+            
+            // Interior Grid Dividers
+            inner_w = shell_w - wall_t * 2;
+            inner_d = shell_d - wall_t * 2;
+            cw = (inner_w - wall_t * (comp_x - 1)) / comp_x;
+            cd = (inner_d - wall_t * (comp_y - 1)) / comp_y;
+            
+            if (comp_x > 1) {
+                for (i = [1 : comp_x - 1]) {
+                    translate([-inner_w/2 + i * (cw + wall_t) - wall_t/2, 0, floor_t + (base_z - floor_t)/2])
+                        cube([wall_t, inner_d, base_z - floor_t], center=true);
+                }
+            }
+            if (comp_y > 1) {
+                for (j = [1 : comp_y - 1]) {
+                    translate([0, -inner_d/2 + j * (cd + wall_t) - wall_t/2, floor_t + (base_z - floor_t)/2])
+                        cube([inner_w, wall_t, base_z - floor_t], center=true);
+                }
+            }
 
+            // Exterior Tactical Ribs
+            for (dir = [-1, 1]) {
+                translate([-shell_w / 2 - 1.8, dir * (shell_d * 0.26) - 5, 0])
+                    cube([1.8, 10, base_z - 2]);
+                translate([shell_w / 2, dir * (shell_d * 0.26) - 5, 0])
+                    cube([1.8, 10, base_z - 2]);
+                translate([dir * (shell_w * 0.36) - 5, -shell_d / 2 - 1.8, 0])
+                    cube([10, 1.8, base_z - 2]);
+                translate([dir * (shell_w * 0.36) - 5, shell_d / 2, 0])
+                    cube([10, 1.8, base_z - 2]);
+            }
+
+            // Rear Hinge Clevises
+            for (side = [-1, 1]) {
+                hx = side * hinge_x_span;
+                for (ear_off = [-6.8, 6.8]) {
+                    union() {
+                        translate([hx + ear_off, hinge_y, base_z])
+                        rotate([0, 90, 0])
+                            cylinder(r = hinge_r, h = 6.0, center = true);
+                        hull() {
+                            translate([hx + ear_off, hinge_y, base_z - 2.3])
+                                cube([6.0, hinge_r * 2, 3.8], center = true);
+                            translate([hx + ear_off, -shell_d / 2 + 1.0, base_z - 8.5])
+                                cube([6.0, 2.0, 4.0], center = true);
+                        }
+                    }
+                }
+            }
+
+            // Front Latch Catches & Shrouds
+            for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
+                translate([lx, shell_d / 2, base_z])
+                rotate([90, 0, 90])
+                linear_extrude(height = 14.0, center = true) {
+                    polygon(points = [
+                        [-1.0, -2.0], [ 4.2, -5.2], [ 4.2, -6.8], [ 0.0, -5.8], [-1.0, -5.8]
+                    ]);
+                }
+                for (cx = [-8.6, 8.6]) {
+                    hull() {
+                        translate([lx + cx, shell_d / 2 + 3.1, base_z - 5.2])
+                            cube([3.6, 6.2, 8.4], center = true);
+                        translate([lx + cx, shell_d / 2 - 0.5, base_z - 8.2])
+                            cube([3.6, 1.0, 14.4], center = true);
+                    }
+                }
+            }
+        }
+
+        // Base Hinge Cutouts & Bores
+        for (side = [-1, 1]) {
+            hx = side * hinge_x_span;
+            translate([hx, hinge_y, base_z])
+            rotate([0, 90, 0])
+                cylinder(r = hinge_r + 0.6, h = 7.6, center = true);
+            
+            translate([hx + side * 6.8, hinge_y, base_z])
+            rotate([0, 90, 0])
+                cylinder(d = 3.3, h = 8.0, center = true);
+            translate([hx - side * 6.8, hinge_y, base_z])
+            rotate([0, 90, 0])
+                cylinder(d = 2.85, h = 8.0, center = true);
+        }
+    }
+}
+
+// --- 2. SHALLOW VAULT LID ---
 module chamfered_rect_2d(w, l, c) {
     polygon(points = [
-        [-w/2 + c, -l/2],
-        [ w/2 - c, -l/2],
-        [ w/2,     -l/2 + c],
-        [ w/2,      l/2 - c],
-        [ w/2 - c,  l/2],
-        [-w/2 + c,  l/2],
-        [-w/2,      l/2 - c],
-        [-w/2,     -l/2 + c]
+        [-w/2 + c, -l/2], [ w/2 - c, -l/2], [ w/2, -l/2 + c], [ w/2, l/2 - c],
+        [ w/2 - c, l/2], [-w/2 + c, l/2], [-w/2, l/2 - c], [-w/2, -l/2 + c]
     ]);
 }
 
-module render_lid_text() {
-    if (box_text_1 != "") {
-        mirror([0, 1, 0]) {
-            if (box_text_2 == "") {
-                text(box_text_1, font=font_style, size=text_size, halign="center", valign="center");
-            } else {
-                line_step = text_size * 1.35;
-                translate([0, line_step/2, 0])
-                    text(box_text_1, font=font_style, size=text_size, halign="center", valign="center");
-                translate([0, -line_step/2, 0])
-                    text(box_text_2, font=font_style, size=text_size, halign="center", valign="center");
-            }
-        }
-    }
+module lid_inlay_2d() {
+    bw = shell_w - 24;
+    bl = shell_d - 24;
+    max_chars = max(4, len(box_text_1), len(box_text_2));
+    
+    // Scale text dynamically to fit frame
+    comp_sz = min((bw - 16) / max_chars * 1.3, bl * 0.24, 22);
+    t_sz = max(5.5, comp_sz);
+    
     if (enable_lid_border) {
-        bw = width - border_inset * 2;
-        bl = length - border_inset * 2;
         difference() {
             chamfered_rect_2d(bw, bl, 3.5);
-            chamfered_rect_2d(bw - border_line_w * 2, bl - border_line_w * 2, 2.5);
+            chamfered_rect_2d(bw - 4.0, bl - 4.0, 2.5);
         }
     }
-}
-
-// --- TACTICAL EXTERIOR ARMOR, BEVELS & LATCH GUARDS ---
-module cargo_tactical_armor(is_base) {
-    armW = max(16.0, width / 4.0);
-    rib_h = max(3.0, height - 1.6); // Stops 1.6mm below parting line
-    rib_t = 1.6;                    // 1.6mm thick side armor standout
-    rib_w = min(9.0, length * 0.16);
-    y_front = is_base ? -length/2 : length/2;
-    y_dir   = is_base ? -1 : 1;
-
-    // 1. Dual Side-Wall Tactical Armor Ribs (Left & Right X walls, 45-deg top chamfer)
-    for (sx = [-1, 1]) {
-        for (sy = [-0.24, 0.24]) {
-            hull() {
-                translate([sx * (width/2 + rib_t/2 - 0.1), sy * length, (rib_h - 1.2)/2])
-                    cube([rib_t + 0.2, rib_w, rib_h - 1.2], center=true);
-                translate([sx * (width/2 + 0.05), sy * length, rib_h / 2])
-                    cube([0.1, rib_w - 1.6, rib_h], center=true);
-            }
-        }
-    }
-
-    // 2. Front Latch Protection Bumper Guards (Flanks center latch on Base & Lid)
-    guard_w = min(7.0, (width - armW) * 0.22);
-    guard_d = 2.2; // Projects 2.2mm forward to shield the latch
-    guard_x_off = armW / 2 + 3.8 + guard_w / 2;
-    if (guard_x_off + guard_w / 2 < width / 2 - 4.0) {
-        for (gx = [-1, 1]) {
-            hull() {
-                // Outer bumper face (starts at Z=0 build plate, bevels back at top)
-                translate([gx * guard_x_off, y_front + y_dir * (guard_d / 2), (rib_h - 1.4) / 2])
-                    cube([guard_w, guard_d, rib_h - 1.4], center=true);
-                // Root anchored flush against front wall
-                translate([gx * guard_x_off, y_front - y_dir * 0.2, rib_h / 2])
-                    cube([guard_w + 1.8, 0.4, rib_h], center=true);
+    rotate([0, 0, 180]) {
+        if (box_text_1 != "") {
+            if (box_text_2 == "") {
+                text(box_text_1, size=t_sz, font=font_style, halign="center", valign="center");
+            } else {
+                translate([0, t_sz * 0.7, 0])
+                    text(box_text_1, size=t_sz, font=font_style, halign="center", valign="center");
+                translate([0, -t_sz * 0.7, 0])
+                    text(box_text_2, size=t_sz, font=font_style, halign="center", valign="center");
             }
         }
     }
 }
 
-module front_corner_bevel_cutters(is_base) {
-    // Clean 45-degree bevel on the front two outer corners (leaves rear hinge 100% full-width!)
-    bev = 2.6;
-    y_front = is_base ? -length/2 : length/2;
-    for (sx = [-1, 1]) {
-        translate([sx * width/2, y_front, -0.5])
-        rotate([0, 0, 45])
-            cube([bev * 1.414, bev * 1.414, height + 2], center=false);
-    }
-}
+module vault_lid() {
+    hinge_r = 4.2;
+    hinge_y = -shell_d / 2 - 4.6;
+    hinge_x_span = shell_w * 0.28;
+    lid_knuckle_w = 7.2;
 
-module base_box() {
-    armW = max(16.0, width / 4.0);
-    c_span = armW - 0.4;
-    bev = 2.6;
     union() {
         difference() {
             union() {
-                translate([-width/2, -length/2, 0])
-                    cube([width, length, height]);
-                cargo_tactical_armor(is_base = true);
-            }
-            // Hollow out internal compartment grid (Untouched!)
-            comp_w = (width - wall * (compX + 1)) / compX;
-            comp_l = (length - wall * (compY + 1)) / compY;
-            for(i=[0:compX-1]) {
-                for(j=[0:compY-1]) {
-                    translate([-width/2 + wall + i*(comp_w+wall), -length/2 + wall + j*(comp_l+wall), wall])
-                        cube([comp_w, comp_l, height + 1]);
+                // Main Lid Body
+                difference() {
+                    translate([-shell_w / 2, -shell_d / 2, 0])
+                        cube([shell_w, shell_d, lid_z]);
+                    translate([-shell_w / 2 + wall_t, -shell_d / 2 + wall_t, -0.1])
+                        cube([shell_w - wall_t * 2, shell_d - wall_t * 2, lid_z - floor_t + 0.1]);
+                }
+
+                // Exterior Ribs
+                for (dir = [-1, 1]) {
+                    translate([-shell_w / 2 - 1.8, dir * (shell_d * 0.26) - 5, 2])
+                        cube([1.8, 10, lid_z - 2]);
+                    translate([shell_w / 2, dir * (shell_d * 0.26) - 5, 2])
+                        cube([1.8, 10, lid_z - 2]);
+                    translate([dir * (shell_w * 0.36) - 5, -shell_d / 2 - 1.8, 2])
+                        cube([10, 1.8, lid_z - 2]);
+                    translate([dir * (shell_w * 0.36) - 5, shell_d / 2, 2])
+                        cube([10, 1.8, lid_z - 2]);
+                }
+
+                // Hinge Knuckles
+                for (side = [-1, 1]) {
+                    hx = side * hinge_x_span;
+                    union() {
+                        translate([hx, hinge_y, 0])
+                        rotate([0, 90, 0])
+                            cylinder(r = hinge_r, h = lid_knuckle_w, center = true);
+                        hull() {
+                            translate([hx, hinge_y, 2.3])
+                                cube([lid_knuckle_w, hinge_r * 2, 3.8], center = true);
+                            translate([hx, -shell_d / 2 + 1.0, 6.5])
+                                cube([lid_knuckle_w, 2.0, 4.0], center = true);
+                        }
+                    }
+                }
+
+                // Latch Pivot Ears
+                for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
+                    for (cx = [-8.6, 8.6]) {
+                        hull() {
+                            translate([lx + cx, shell_d / 2 + 4.2, 6.0])
+                            rotate([0, 90, 0])
+                                cylinder(r = 4.5, h = 3.6, center = true);
+                            translate([lx + cx, shell_d / 2 - 0.5, (lid_z + 1.5) / 2])
+                                cube([3.6, 1.0, lid_z - 1.5], center = true);
+                        }
+                    }
                 }
             }
-            // 45-Deg Beveled Front Corners
-            for (sx = [-1, 1]) {
-                translate([sx * width/2, -length/2, height/2])
-                rotate([0, 0, 45])
-                    cube([bev * 1.42, bev * 1.42, height + 2], center=true);
-            }
-        }
-        hinge_wall_backing_rib(is_base = true);
-        // Recalibrated Base Latch Catch (Lowered 0.30mm for Zero-Play Preload)
-        polyhedron(
-            points = [
-                [-c_span/2, -length/2,        height - 0.30], // Top lead-in start
-                [ c_span/2, -length/2,        height - 0.30],
-                [-c_span/2, -length/2,        height - 3.35], // Bottom locking shoulder (was -3.05)
-                [ c_span/2, -length/2,        height - 3.35],
-                [-c_span/2, -length/2 - 1.10, height - 2.45], // Catch nose peak (protrudes 1.10mm)
-                [ c_span/2, -length/2 - 1.10, height - 2.45]
-            ],
-            faces = [[0,1,3,2], [2,3,5,4], [0,4,5,1], [0,2,4], [1,5,3]]
-        );
-    }
-}
 
-module lid_box() {
-    armW = max(16.0, width / 4.0);
-    armT = 1.4;
-    armH = 5.8;
-    bev = 2.6;
-    union() {
-        difference() {
-            union() {
-                translate([-width/2, -length/2, 0])
-                    cube([width, length, height]);
-                cargo_tactical_armor(is_base = false);
-                // Recalibrated Lid Snap Latch Arm (Shortened 0.55mm to pull parting seam dead-flush)
-                translate([0, length/2, 0]) {
-                    // Cantilever spring beam (shortened by 0.60mm)
-                    translate([-armW/2, 0.15, height + 0.20])
-                        cube([armW, armT, armH - 0.50]);
-                    // Lower root anchor into lid wall
-                    translate([-armW/2, 0, height - 3.5])
-                        cube([armW, armT + 0.15, 3.70]);
-                    // Top thumb release grip bar (shifted down 0.60mm with shortened beam)
-                    translate([-(armW*0.85)/2, armT + 0.15, height + armH - 2.1])
-                        cube([armW*0.85, 1.8, 1.8]);
-                    // Snap Hook Tooth (Shortened to height + 2.70 to pull seam tight against -3.35 catch!)
-                    polyhedron(
-                        points = [
-                            [-armW/2,  0.15, height + 2.70], // Locking shelf (was +3.25 — pulls lid 0.55mm tighter!)
-                            [ armW/2,  0.15, height + 2.70],
-                            [-armW/2, -1.00, height + 3.50], // Hook tip (1.15mm bite depth)
-                            [ armW/2, -1.00, height + 3.50],
-                            [-armW/2,  0.15, height + 5.25], // Smooth 35-deg entry ramp
-                            [ armW/2,  0.15, height + 5.25]
-                        ],
-                        faces = [[0,2,3,1], [2,4,5,3], [0,1,5,4], [0,4,2], [1,3,5]]
-                    );
-                    // Root reinforcement gusset
-                    polyhedron(
-                        points = [
-                            [-armW/2, 0,           height - 3.5],
-                            [ armW/2, 0,           height - 3.5],
-                            [-armW/2, armT * 1.7,  height - 3.5],
-                            [ armW/2, armT * 1.7,  height - 3.5],
-                            [-armW/2, armT + 0.15, height + 0.8],
-                            [ armW/2, armT + 0.15, height + 0.8]
-                        ],
-                        faces = [[0,1,3,2], [2,3,5,4], [0,4,5,1], [0,2,4], [1,5,3]]
-                    );
+            // Bores & Cutouts
+            for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
+                translate([lx - 5.0, shell_d / 2 + 4.2, 6.0])
+                rotate([0, 90, 0]) cylinder(d = 3.3, h = 16.0, center = true);
+                translate([lx + 5.0, shell_d / 2 + 4.2, 6.0])
+                rotate([0, 90, 0]) cylinder(d = 2.85, h = 16.0, center = true);
+            }
+
+            for (side = [-1, 1]) {
+                hx = side * hinge_x_span;
+                for (ear_off = [-6.8, 6.8]) {
+                    translate([hx + ear_off, hinge_y, 0])
+                    rotate([0, 90, 0]) cylinder(r = hinge_r + 0.6, h = 6.4, center = true);
                 }
+                translate([hx, hinge_y, 0])
+                rotate([0, 90, 0]) cylinder(d = 3.35, h = lid_knuckle_w + 2, center = true);
             }
-            // Hollow out lid interior (Untouched!)
-            translate([-width/2 + wall, -length/2 + wall, wall])
-                cube([width - wall*2, length - wall*2, height + 1]);
-            // 45-Deg Beveled Front Corners (Matches Base when closed!)
-            for (sx = [-1, 1]) {
-                translate([sx * width/2, length/2, height/2])
-                rotate([0, 0, 45])
-                    cube([bev * 1.42, bev * 1.42, height + 2], center=true);
-            }
-            // Multi-Color Lid Text & Chamfered Border Cutout
-            if (box_text_1 != "" || enable_lid_border) {
-                translate([0, 0, -0.02])
-                    linear_extrude(0.64)
-                    offset(r=0.01)
-                    render_lid_text();
-            }
+
+            // Inlay Cutout
+            translate([0, 0, lid_z - 0.8])
+            linear_extrude(height = 1.0)
+                lid_inlay_2d();
         }
-        hinge_wall_backing_rib(is_base = false);
     }
 }
 
-module complete_model() {
-    if (export_part == "hinge") {
-        intersection() {
-            box_body_assembly();
-            translate([0, 0, height]) cube([width + 2, 24, height*2.5], center=true);
-        }
-    } else if (export_part == "latch") {
-        intersection() {
-            box_body_assembly();
-            armW = max(16.0, width / 4.0);
-            translate([0, 0, height]) cube([armW + 8, length*2 + 20, height*2.5], center=true);
-        }
-    } else if (export_part == "box_only") {
-        box_body_assembly();
-    } else if (export_part == "text_only") {
-        text_inlay_assembly();
-    } else {
-        box_body_assembly();
-        text_inlay_assembly();
-    }
-}
-
-module box_body_assembly() {
-    color(box_color) {
+// --- 3. CAM-ACTION SNAP LATCHES ---
+module cam_latch() {
+    w = 13.2; 
+    difference() {
         union() {
-            difference() {
+            rotate([90, 0, 90])
+            linear_extrude(height = w, center = true) {
                 union() {
-                    translate([0, -length/2 - gap/2, 0]) base_box();
-                    build_base_hinges();
-                }
-                for(i = lid_indices) {
-                    knuckle_cradle_cutter(i * k_span, is_base_side = true);
-                }
-            }
-            translate([0, 0, height])
-            rotate([0, 90, 0])
-            cylinder(r=pin_r, h=width - k_tol, center=true);
-        }
-
-        difference() {
-            union() {
-                translate([0, length/2 + gap/2, 0]) lid_box();
-                build_lid_hinges();
-            }
-            for(i = base_indices) {
-                knuckle_cradle_cutter(i * k_span, is_base_side = false);
-            }
-            for(i = lid_indices) {
-                translate([i * k_span, 0, 0])
-                lid_bore_tunnel(bore_r, k_span + 0.2);
-            }
-        }
-    }
-}
-
-module text_inlay_assembly() {
-    if (box_text_1 != "" || enable_lid_border) {
-        color(text_color)
-        translate([0, length/2 + gap/2, 0])
-        linear_extrude(0.60)
-        render_lid_text();
-    }
-}
-
-module lid_bore_tunnel(r, len) {
-    translate([0, 0, height])
-    rotate([90, 0, 90])
-    linear_extrude(len, center=true)
-    union() {
-        circle(r=r, $fn=48);
-        polygon([
-            [-r * 0.7071, r * 0.7071],
-            [0,           r * 1.32],
-            [ r * 0.7071, r * 0.7071]
-        ]);
-    }
-}
-
-module knuckle_cradle_cutter(x_pos, is_base_side) {
-    cut_w = k_span;
-    cut_r = hr + shell_clr;
-    y_dir = is_base_side ? -1 : 1;
-
-    translate([x_pos, 0, height]) {
-        hull() {
-            rotate([0, 90, 0]) cylinder(r=cut_r, h=cut_w, center=true);
-            translate([0, 0, cut_r]) rotate([0, 90, 0]) cylinder(r=cut_r, h=cut_w, center=true);
-            translate([0, y_dir * (gap/2 + 0.6), -cut_r - 1.2]) rotate([0, 90, 0]) cylinder(r=0.4, h=cut_w, center=true);
-        }
-    }
-}
-
-module hinge_wall_backing_rib(is_base) {
-    rib_depth = 2.5;
-    rib_drop  = 5.5;
-    y_edge    = is_base ? (length/2 - wall) : (-length/2 + wall);
-    y_inward  = is_base ? (y_edge - rib_depth) : (y_edge + rib_depth);
-
-    hull() {
-        translate([-width/2, min(y_edge, y_inward), height - rib_drop])
-        cube([width, rib_depth, rib_drop]);
-        translate([-width/2, is_base ? (y_edge - 0.1) : y_edge, height - rib_drop - rib_depth])
-        cube([width, 0.1, 0.1]);
-    }
-}
-
-module build_base_hinges() {
-    for(i = base_indices) {
-        x_pos = i * k_span;
-        k_len = k_span - k_tol;
-        translate([x_pos, 0, height]) {
-            union() {
-                rotate([0, 90, 0]) cylinder(r=hr, h=k_len, center=true);
-                hull() {
-                    intersection() {
-                        rotate([0, 90, 0]) cylinder(r=hr, h=k_len, center=true);
-                        translate([-k_len, -hr*2, -hr*2]) cube([k_len*2, hr*2 - gap/2, hr*2]);
-                    }
-                    translate([-k_len/2, -wall - gap/2, -gusset_h]) cube([k_len, wall, 0.1]);
+                    circle(r = 3.6);
+                    polygon(points = [
+                        [-0.5, 2.4], [-0.5, 8.0], [-0.8, 8.4], [-0.8, 12.8],
+                        [-4.5, 11.8], [-4.5, 13.8], [-0.4, 17.2], [ 1.4, 20.0],
+                        [ 5.2, 20.0], [ 5.2, 17.6], [ 2.8, 16.2], [ 2.8, 0.0]
+                    ]);
                 }
             }
+            for (rz = [5.2, 8.6, 12.0]) {
+                translate([0, 3.0, rz])
+                    cube([11.0, 0.9, 1.2], center = true);
+            }
         }
-    }
-}
-
-module build_lid_hinges() {
-    for(i = lid_indices) {
-        x_pos = i * k_span;
-        k_len = k_span - k_tol;
-        translate([x_pos, 0, height]) {
-            union() {
-                rotate([0, 90, 0]) cylinder(r=hr, h=k_len, center=true);
-                hull() {
-                    intersection() {
-                        rotate([0, 90, 0]) cylinder(r=hr, h=k_len, center=true);
-                        translate([-k_len, gap/2, -hr*2]) cube([k_len*2, hr*2, hr*2]);
-                    }
-                    translate([-k_len/2, gap/2, -gusset_h]) cube([k_len, wall, 0.1]);
-                }
+        rotate([0, 90, 0])
+            cylinder(d = 3.15, h = w + 2, center = true);
+        rotate([90, 0, 90])
+        linear_extrude(height = w + 2, center = true) {
+            hull() {
+                translate([0.95, 4.5]) circle(d = 1.20);
+                translate([0.95, 15.2]) circle(d = 1.20);
             }
         }
     }
 }
 
-complete_model();
+// --- EXPORT ROUTER ---
+if (export_part == "full") {
+    plate_gap = 18;
+    
+    // Base
+    color(box_color) base_shell();
+    
+    // Lid
+    translate([0, shell_d + plate_gap, lid_z])
+    rotate([180, 0, 0]) {
+        color(box_color) vault_lid();
+        color(text_color) 
+            translate([0, 0, lid_z - 0.8]) 
+            linear_extrude(height = 0.8) 
+                lid_inlay_2d();
+    }
+    
+    // Latches
+    for (i = [0 : num_latches - 1]) {
+        translate([shell_w/2 + 20 + i*22, 0, 6.6]) 
+        rotate([0, 90, 0])
+        color(text_color) cam_latch();
+    }
+} else if (export_part == "box_only") {
+    color(box_color) base_shell();
+} else if (export_part == "lid_only") {
+    translate([0, 0, lid_z]) rotate([180, 0, 0]) color(box_color) vault_lid();
+} else if (export_part == "text_only") {
+    translate([0, 0, 0.8]) rotate([180, 0, 0]) color(text_color) linear_extrude(height = 0.8) lid_inlay_2d();
+} else if (export_part == "latch_only") {
+    for (i = [0 : num_latches - 1]) {
+        translate([i * 22, 0, 6.6]) rotate([0, 90, 0]) color(text_color) cam_latch();
+    }
+}
 `;
   };
 
@@ -2253,10 +2193,10 @@ complete_model();
 
     const typeMap = {
       full: 'FULL-3MF',
-      box_only: 'BOX-ONLY',
+      box_only: 'BASE-ONLY',
+      lid_only: 'LID-ONLY',
       text_only: 'INLAY-ONLY',
-      hinge: 'HINGE-TEST',
-      latch: 'LATCH-TEST'
+      latch_only: 'LATCHES-ONLY'
     };
 
     return `${cleanCode}_${cargoPreset.toUpperCase()}_${safeText}_${dims}_${grid}_${colors}_${borderTag}_${typeMap[mode] || mode.toUpperCase()}.scad`;
@@ -3212,23 +3152,27 @@ Date: ${new Date().toISOString()}
         baseShellGroup.add(fbRibFront, fbRibBack);
       });
 
-      // 2. HEAVY-DUTY REAR KNUCKLE HINGE (Base Knuckles + M3 Steel Pin)
+      // 2. TRUE DUAL M3 REAR CORNER HINGES (Base Clevis Ears + M3 Bolts)
       const hingeRadius = 4.2;
-      const knuckleW = Math.min(28, ammoShellX * 0.22);
+      const hingeXSpan = ammoShellX * 0.28;
       const hingeY = baseZ;
-      const hingeZ = -ammoShellY / 2 - hingeRadius * 0.65;
+      const hingeZ = -ammoShellY / 2 - 4.6;
 
       [-1, 1].forEach((side) => {
-        const baseKnuckle = new THREE.Mesh(new THREE.CylinderGeometry(hingeRadius, hingeRadius, knuckleW, 20), baseMat);
-        baseKnuckle.rotation.z = Math.PI / 2;
-        baseKnuckle.position.set(side * (knuckleW * 1.05), hingeY, hingeZ);
-        baseShellGroup.add(baseKnuckle);
-      });
+        const hx = side * hingeXSpan;
+        
+        // Dual Base Ears (6.0mm wide, spaced 13.6mm apart)
+        [-6.8, 6.8].forEach((earOff) => {
+          const baseKnuckle = new THREE.Mesh(new THREE.CylinderGeometry(hingeRadius, hingeRadius, 6.0, 20).rotateZ(Math.PI / 2), baseMat);
+          baseKnuckle.position.set(hx + earOff, hingeY, hingeZ);
+          baseShellGroup.add(baseKnuckle);
+        });
 
-      const m3HingePin = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, knuckleW * 3.2, 16), steelMat);
-      m3HingePin.rotation.z = Math.PI / 2;
-      m3HingePin.position.set(0, hingeY, hingeZ);
-      baseShellGroup.add(m3HingePin);
+        // M3x20mm Stainless Steel Screw (1 per hinge assembly)
+        const m3HingePin = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 20.0, 16).rotateZ(Math.PI / 2), steelMat);
+        m3HingePin.position.set(hx, hingeY, hingeZ);
+        baseShellGroup.add(m3HingePin);
+      });
 
       // 3. LOWER BASE 45-DEG CATCH WEDGE + PROTECTIVE SIDE SHROUDS
       const latchOffsets = ammoShellX >= 130 ? [-ammoShellX * 0.23, ammoShellX * 0.23] : [0];
@@ -3354,24 +3298,12 @@ Date: ${new Date().toISOString()}
         lidPivot.add(lidRibL, lidRibR);
       });
 
-      // Center Lid Hinge Knuckle
-      const lidCenterKnuckle = new THREE.Mesh(new THREE.CylinderGeometry(hingeRadius, hingeRadius, knuckleW, 20), lidMat);
-      lidCenterKnuckle.rotation.z = Math.PI / 2;
-      lidCenterKnuckle.position.set(0, 0, 0);
-      lidPivot.add(lidCenterKnuckle);
-
-      // Front & Back Tactical Ribs on the Lid (Matches Base Front & Back Ribs!)
-      [-1, 1].forEach((dir) => {
-        const ribH = typeof ammoLidZ !== 'undefined' ? Math.max(4, ammoLidZ - 2) : 10;
-        // Front Lid Rib (+Z wall)
-        const frontLidRib = new THREE.Mesh(new THREE.BoxGeometry(10, ribH, 1.8), lidMat);
-        frontLidRib.position.set(dir * (ammoShellX * 0.36), 2 + ribH / 2, lidOffsetZ + ammoShellY / 2 + 0.9);
-        lidPivot.add(frontLidRib);
-
-        // Rear Lid Rib (-Z wall)
-        const backLidRib = new THREE.Mesh(new THREE.BoxGeometry(10, ribH, 1.8), lidMat);
-        backLidRib.position.set(dir * (ammoShellX * 0.36), 2 + ribH / 2, lidOffsetZ - ammoShellY / 2 - 0.9);
-        lidPivot.add(backLidRib);
+      // Dual Lid Hinge Knuckles (7.2mm wide)
+      [-1, 1].forEach((side) => {
+        const hx = side * hingeXSpan;
+        const lidKnuckle = new THREE.Mesh(new THREE.CylinderGeometry(hingeRadius, hingeRadius, 7.2, 20).rotateZ(Math.PI / 2), lidMat);
+        lidKnuckle.position.set(hx, 0, 0);
+        lidPivot.add(lidKnuckle);
       });
 
       // Upper Lid-Mounted M3 Latch Pivot Ears + Complete Wrap-Around Cam Latch
@@ -3705,260 +3637,218 @@ Date: ${new Date().toISOString()}
       }
     } else if (activeTab === 'cargo') {
       // ==========================================
-      // THE CARGO MATRIX (PRINT-IN-PLACE CLAMSHELL)
+      // THE CARGO MATRIX (TACTICAL BOLTED UPGRADE)
       // ==========================================
       const boxMat = new THREE.MeshStandardMaterial({
         color: activeCargoBoxColor.hex,
         roughness: activeCargoBoxColor.roughness ?? 0.45,
         metalness: activeCargoBoxColor.metalness ?? 0.08
       });
+      const textMat = new THREE.MeshStandardMaterial({ color: activeCargoTextColor.hex, roughness: 0.4 });
+      const steelMat = new THREE.MeshStandardMaterial({ color: '#94a3b8', metalness: 0.85, roughness: 0.25 });
 
-      // --- TACTICAL CARGO 3D SHELL & ARMOR HELPER ---
-      const wall = 2.0;
-      const floorT = 2.0;
-      const hingeGap = 1.6;
-      const armW = Math.max(16.0, cargoWidth / 4.0);
-      // Builds a hollow shell with 45-deg beveled front corners + Side Ribs + Latch Bumper Guards
-      const addCargoTacticalArmor = (targetGroup, isBase) => {
-        const w = cargoWidth;
-        const l = cargoLength;
-        const h = cargoHeight;
-        const bev = 2.6;
-        const armW = Math.max(16.0, w / 4.0);
-        const ribH = Math.max(3.0, h - 1.6);
-        const ribT = 1.6;
-        const ribW = Math.min(9.0, l * 0.16);
-        const zFront = isBase ? l / 2 : -l / 2;
-        const zDir = isBase ? 1 : -1;
-        const yPos = ribH / 2; // Both baseHalf and lidHalf grow +Y from 0 in createHalfShell
+      const totalZ = cargoHeight * 2;
+      const lidZ = 12.0;
+      const baseZ = totalZ - lidZ;
+      const wallT = 2.4;
+      const floorT = 2.4;
+      const ribThick = 1.8;
+      const ribWidth = 10.0;
+      const cargoGroup = new THREE.Group();
 
-        // 1. Dual Side-Wall Tactical Armor Ribs (Left & Right X walls)
-        [-1, 1].forEach((sx) => {
-          [-0.24, 0.24].forEach((sz) => {
-            const ribGeo = new THREE.BoxGeometry(ribT, ribH, ribW);
-            const ribMesh = new THREE.Mesh(ribGeo, boxMat);
-            ribMesh.position.set(
-              sx * (w / 2 + ribT / 2 - 0.1),
-              yPos,
-              sz * l
-            );
-            ribMesh.castShadow = true;
-            ribMesh.receiveShadow = true;
-            targetGroup.add(ribMesh);
+      // 1. ARMORED BASE SHELL (WITH COMPARTMENT GRID)
+      const baseShellGroup = new THREE.Group();
+      const baseFloor = new THREE.Mesh(new THREE.BoxGeometry(cargoWidth, floorT, cargoLength), boxMat);
+      baseFloor.position.y = floorT / 2;
+      baseShellGroup.add(baseFloor);
 
-            if (typeof edgeMat !== 'undefined') {
-              const ribEdges = new THREE.LineSegments(new THREE.EdgesGeometry(ribGeo), edgeMat);
-              ribMesh.add(ribEdges);
-            }
-          });
-        });
+      const wallH = baseZ - floorT;
+      const wFront = new THREE.Mesh(new THREE.BoxGeometry(cargoWidth, wallH, wallT), boxMat);
+      wFront.position.set(0, floorT + wallH / 2, cargoLength / 2 - wallT / 2);
+      const wBack = wFront.clone();
+      wBack.position.set(0, floorT + wallH / 2, -cargoLength / 2 + wallT / 2);
+      baseShellGroup.add(wFront, wBack);
 
-        // 2. Front Latch Protection Bumper Guards (Flanking center latch)
-        const guardW = Math.min(7.0, (w - armW) * 0.22);
-        const guardD = 2.2;
-        const guardXOff = armW / 2 + 3.8 + guardW / 2;
-        if (guardXOff + guardW / 2 < w / 2 - 4.0) {
-          [-1, 1].forEach((gx) => {
-            const guardGeo = new THREE.BoxGeometry(guardW, ribH, guardD);
-            const guardMesh = new THREE.Mesh(guardGeo, boxMat);
-            guardMesh.position.set(
-              gx * guardXOff,
-              yPos,
-              zFront + zDir * (guardD / 2 - 0.1)
-            );
-            guardMesh.castShadow = true;
-            guardMesh.receiveShadow = true;
-            targetGroup.add(guardMesh);
+      const wLeft = new THREE.Mesh(new THREE.BoxGeometry(wallT, wallH, cargoLength - wallT * 2), boxMat);
+      wLeft.position.set(-cargoWidth / 2 + wallT / 2, floorT + wallH / 2, 0);
+      const wRight = wLeft.clone();
+      wRight.position.set(cargoWidth / 2 - wallT / 2, floorT + wallH / 2, 0);
+      baseShellGroup.add(wLeft, wRight);
 
-            if (typeof edgeMat !== 'undefined') {
-              const guardEdges = new THREE.LineSegments(new THREE.EdgesGeometry(guardGeo), edgeMat);
-              guardMesh.add(guardEdges);
-            }
-          });
+      // Compartment Grid
+      const innerW = cargoWidth - wallT * 2;
+      const innerL = cargoLength - wallT * 2;
+      const cw = (innerW - wallT * (cargoCompX - 1)) / cargoCompX;
+      const cl = (innerL - wallT * (cargoCompY - 1)) / cargoCompY;
+
+      if (cargoCompX > 1) {
+        for (let i = 1; i < cargoCompX; i++) {
+          const xPos = -innerW / 2 + i * (cw + wallT) - wallT / 2;
+          const divX = new THREE.Mesh(new THREE.BoxGeometry(wallT, wallH, innerL), boxMat);
+          divX.position.set(xPos, floorT + wallH / 2, 0);
+          baseShellGroup.add(divX);
         }
-
-        // 3. 45-Degree Front Corner Bevel Accent Strips (Visualizes the beveled footprint)
-        [-1, 1].forEach((sx) => {
-          const bevStripGeo = new THREE.BoxGeometry(bev * 1.414, h + 0.1, bev * 1.414);
-          const bevStrip = new THREE.Mesh(bevStripGeo, boxMat);
-          bevStrip.position.set(
-            sx * (w / 2 - bev * 0.35),
-            h / 2,
-            zFront - zDir * (bev * 0.35)
-          );
-          bevStrip.rotation.y = Math.PI / 4;
-          targetGroup.add(bevStrip);
-
-          if (typeof edgeMat !== 'undefined') {
-            const bevEdges = new THREE.LineSegments(new THREE.EdgesGeometry(bevStripGeo), edgeMat);
-            bevStrip.add(bevEdges);
-          }
-        });
-      };
-
-      const createHalfShell = (isBase) => {
-        const shellGroup = new THREE.Group();
-
-        const floorMesh = new THREE.Mesh(
-          new THREE.BoxGeometry(cargoWidth, floorT, cargoLength),
-          boxMat
-        );
-        floorMesh.position.y = floorT / 2;
-        floorMesh.castShadow = true;
-        floorMesh.receiveShadow = true;
-        shellGroup.add(floorMesh);
-
-        const wallH = Math.max(2, cargoHeight - floorT);
-        const wallY = floorT + wallH / 2;
-
-        const frontBackGeo = new THREE.BoxGeometry(cargoWidth, wallH, wall);
-        const frontWall = new THREE.Mesh(frontBackGeo, boxMat);
-        frontWall.position.set(0, wallY, cargoLength / 2 - wall / 2);
-        shellGroup.add(frontWall);
-
-        const backWall = new THREE.Mesh(frontBackGeo, boxMat);
-        backWall.position.set(0, wallY, -cargoLength / 2 + wall / 2);
-        shellGroup.add(backWall);
-
-        const sideGeo = new THREE.BoxGeometry(wall, wallH, cargoLength - wall * 2);
-        const leftWall = new THREE.Mesh(sideGeo, boxMat);
-        leftWall.position.set(-cargoWidth / 2 + wall / 2, wallY, 0);
-        shellGroup.add(leftWall);
-
-        const rightWall = new THREE.Mesh(sideGeo, boxMat);
-        rightWall.position.set(cargoWidth / 2 - wall / 2, wallY, 0);
-        shellGroup.add(rightWall);
-
-        if (isBase) {
-          const innerW = cargoWidth - wall * 2;
-          const innerL = cargoLength - wall * 2;
-          const divH = Math.max(2, wallH - 0.5);
-          const divY = floorT + divH / 2;
-
-          if (cargoCompX > 1) {
-            for (let i = 1; i < cargoCompX; i++) {
-              const xPos = -innerW / 2 + (innerW / cargoCompX) * i;
-              const divX = new THREE.Mesh(new THREE.BoxGeometry(wall, divH, innerL), boxMat);
-              divX.position.set(xPos, divY, 0);
-              shellGroup.add(divX);
-            }
-          }
-          if (cargoCompY > 1) {
-            for (let j = 1; j < cargoCompY; j++) {
-              const zPos = -innerL / 2 + (innerL / cargoCompY) * j;
-              const divZ = new THREE.Mesh(new THREE.BoxGeometry(innerW, divH, wall), boxMat);
-              divZ.position.set(0, divY, zPos);
-              shellGroup.add(divZ);
-            }
-          }
-
-          const catchSpan = armW - 0.4;
-          const wedgeShape = new THREE.Shape();
-          wedgeShape.moveTo(0, -0.2);
-          wedgeShape.lineTo(0, -3.6);
-          wedgeShape.lineTo(1.25, -2.75);
-          wedgeShape.closePath();
-
-          const wedgeGeo = new THREE.ExtrudeGeometry(wedgeShape, {
-            depth: catchSpan,
-            bevelEnabled: false
-          });
-          wedgeGeo.translate(0, 0, -catchSpan / 2);
-          wedgeGeo.rotateY(-Math.PI / 2);
-
-          const catchMesh = new THREE.Mesh(wedgeGeo, boxMat);
-          catchMesh.position.set(0, cargoHeight, cargoLength / 2);
-          shellGroup.add(catchMesh);
-        } else {
-          const armT = 1.4;
-          const armH = 5.8;
-          const latchGroup = new THREE.Group();
-          latchGroup.position.set(0, 0, -cargoLength / 2);
-
-          const plateH = armH + 3.5;
-          const plateGeo = new THREE.BoxGeometry(armW, plateH, armT);
-          const plateMesh = new THREE.Mesh(plateGeo, boxMat);
-          plateMesh.position.set(0, cargoHeight - 3.5 + plateH / 2, -armT / 2);
-          latchGroup.add(plateMesh);
-
-          const pullGeo = new THREE.BoxGeometry(armW * 0.85, 1.8, 1.8);
-          const pullMesh = new THREE.Mesh(pullGeo, boxMat);
-          pullMesh.position.set(0, cargoHeight + armH - 0.9, -armT - 0.9);
-          latchGroup.add(pullMesh);
-
-          const toothShape = new THREE.Shape();
-          toothShape.moveTo(0, 3.65);
-          toothShape.lineTo(1.15, 4.45);
-          toothShape.lineTo(0, 5.8);
-          toothShape.closePath();
-
-          const toothGeo = new THREE.ExtrudeGeometry(toothShape, {
-            depth: armW,
-            bevelEnabled: false
-          });
-          toothGeo.translate(0, 0, -armW / 2);
-          toothGeo.rotateY(-Math.PI / 2);
-
-          const toothMesh = new THREE.Mesh(toothGeo, boxMat);
-          toothMesh.position.set(0, cargoHeight, 0);
-          latchGroup.add(toothMesh);
-
-          shellGroup.add(latchGroup);
-        }
-
-        return shellGroup;
-      };
-
-      const baseHalf = createHalfShell(true);
-      baseHalf.position.set(0, 0, cargoLength / 2 + hingeGap / 2);
-      group.add(baseHalf);
-      addCargoTacticalArmor(baseHalf, true);
-
-      const lidPivot = new THREE.Group();
-      lidPivot.position.set(0, cargoHeight, 0);
-      lidPivot.rotation.x = THREE.MathUtils.degToRad(foldAngle);
-
-      const knuckleCount = 5;
-      const kSpan = cargoWidth / knuckleCount;
-      const kLen = kSpan - 0.45;
-      const hr = 3.2;
-
-      for (let k = 0; k < knuckleCount; k++) {
-        const kx = (k - 2) * kSpan;
-        const isBaseKnuckle = k % 2 === 0;
-
-        const knuckleGeo = new THREE.CylinderGeometry(hr, hr, kLen, 24);
-        knuckleGeo.rotateZ(Math.PI / 2);
-        const knuckleMesh = new THREE.Mesh(knuckleGeo, boxMat);
-
-        const gussetGeo = new THREE.BoxGeometry(kLen, 4.2, wall + hingeGap / 2);
-        const gussetMesh = new THREE.Mesh(gussetGeo, boxMat);
-
-        if (isBaseKnuckle) {
-          knuckleMesh.position.set(kx, cargoHeight, 0);
-          gussetMesh.position.set(kx, cargoHeight - 2.1, hingeGap / 2 + wall / 2);
-          group.add(knuckleMesh);
-          group.add(gussetMesh);
-        } else {
-          knuckleMesh.position.set(kx, 0, 0);
-          gussetMesh.position.set(kx, -2.1, -hingeGap / 2 - wall / 2);
-          lidPivot.add(knuckleMesh);
-          lidPivot.add(gussetMesh);
+      }
+      if (cargoCompY > 1) {
+        for (let j = 1; j < cargoCompY; j++) {
+          const zPos = -innerL / 2 + j * (cl + wallT) - wallT / 2;
+          const divZ = new THREE.Mesh(new THREE.BoxGeometry(innerW, wallH, wallT), boxMat);
+          divZ.position.set(0, floorT + wallH / 2, zPos);
+          baseShellGroup.add(divZ);
         }
       }
 
-      const lidHalf = createHalfShell(false);
-      lidHalf.position.set(0, -cargoHeight, -cargoLength / 2 - hingeGap / 2);
-      addCargoTacticalArmor(lidHalf, false);
+      // Exterior Ribs
+      [-1, 1].forEach((dir) => {
+        const sideRibL = new THREE.Mesh(new THREE.BoxGeometry(ribThick, baseZ - 2, ribWidth), boxMat);
+        sideRibL.position.set(-cargoWidth / 2 - ribThick / 2, (baseZ - 2) / 2, dir * (cargoLength * 0.26));
+        const sideRibR = sideRibL.clone();
+        sideRibR.position.set(cargoWidth / 2 + ribThick / 2, (baseZ - 2) / 2, dir * (cargoLength * 0.26));
+        baseShellGroup.add(sideRibL, sideRibR);
 
-      const lidTex = createCargoLidTexture(
-        cargoText,
-        activeCargoTextColor.hex,
-        cargoFont,
-        cargoBorder
-      );
+        const fbRibFront = new THREE.Mesh(new THREE.BoxGeometry(ribWidth, baseZ - 2, ribThick), boxMat);
+        fbRibFront.position.set(dir * (cargoWidth * 0.36), (baseZ - 2) / 2, cargoLength / 2 + ribThick / 2);
+        const fbRibBack = fbRibFront.clone();
+        fbRibBack.position.set(dir * (cargoWidth * 0.36), (baseZ - 2) / 2, -cargoLength / 2 - ribThick / 2);
+        baseShellGroup.add(fbRibFront, fbRibBack);
+      });
+
+      // 2. TRUE DUAL M3 REAR CORNER HINGES (Base Clevis Ears + M3 Bolts)
+      const hingeRadius = 4.2;
+      const hingeXSpan = cargoWidth * 0.28;
+      const hingeY = baseZ;
+      const hingeZ = -cargoLength / 2 - 4.6;
+
+      [-1, 1].forEach((side) => {
+        const hx = side * hingeXSpan;
+        
+        // Dual Base Ears (6.0mm wide, spaced 13.6mm apart)
+        [-6.8, 6.8].forEach((earOff) => {
+          const baseKnuckle = new THREE.Mesh(new THREE.CylinderGeometry(hingeRadius, hingeRadius, 6.0, 20).rotateZ(Math.PI / 2), boxMat);
+          baseKnuckle.position.set(hx + earOff, hingeY, hingeZ);
+          baseShellGroup.add(baseKnuckle);
+        });
+
+        // M3x20mm Stainless Steel Screw (1 per hinge assembly)
+        const m3HingePin = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 20.0, 16).rotateZ(Math.PI / 2), steelMat);
+        m3HingePin.position.set(hx, hingeY, hingeZ);
+        baseShellGroup.add(m3HingePin);
+      });
+
+      // Base Latches
+      const numLatches = cargoWidth >= 130 ? 2 : 1;
+      const latchOffsets = numLatches === 2 ? [-cargoWidth * 0.23, cargoWidth * 0.23] : [0];
+      latchOffsets.forEach((lx) => {
+        const latchGroup = new THREE.Group();
+        latchGroup.position.set(lx, baseZ, cargoLength / 2);
+
+        const wedgeMesh = new THREE.Mesh(new THREE.BoxGeometry(12.8, 5.2, 3.2), boxMat);
+        wedgeMesh.position.set(0, -5.5, 1.6);
+        latchGroup.add(wedgeMesh);
+
+        [-8.6, 8.6].forEach((cx) => {
+          const shroudMesh = new THREE.Mesh(new THREE.BoxGeometry(3.6, 10.5, 6.2), boxMat);
+          shroudMesh.position.set(cx, -5.8, 3.1);
+          latchGroup.add(shroudMesh);
+        });
+        baseShellGroup.add(latchGroup);
+      });
+
+      cargoGroup.add(baseShellGroup);
+
+      // 2. SHALLOW VAULT LID
+      const lidPivot = new THREE.Group();
+      lidPivot.position.set(0, hingeY, hingeZ);
+      lidPivot.rotation.x = THREE.MathUtils.degToRad(-foldAngle || 0);
+
+      const lidOffsetZ = -hingeZ;
+      const lidRoof = new THREE.Mesh(new THREE.BoxGeometry(cargoWidth, 3.0, cargoLength), boxMat);
+      lidRoof.position.set(0, lidZ - 1.5, lidOffsetZ);
+      lidPivot.add(lidRoof);
+
+      const lidWFront = new THREE.Mesh(new THREE.BoxGeometry(cargoWidth, 9.0, wallT), boxMat);
+      lidWFront.position.set(0, 4.5, lidOffsetZ + cargoLength / 2 - wallT / 2);
+      const lidWBack = lidWFront.clone();
+      lidWBack.position.set(0, 4.5, lidOffsetZ - cargoLength / 2 + wallT / 2);
+      lidPivot.add(lidWFront, lidWBack);
+
+      const lidWLeft = new THREE.Mesh(new THREE.BoxGeometry(wallT, 9.0, cargoLength - wallT * 2), boxMat);
+      lidWLeft.position.set(-cargoWidth / 2 + wallT / 2, 4.5, lidOffsetZ);
+      const lidWRight = lidWLeft.clone();
+      lidWRight.position.set(cargoWidth / 2 - wallT / 2, 4.5, lidOffsetZ);
+      lidPivot.add(lidWLeft, lidWRight);
+
+      // Lid Exterior Ribs
+      [-1, 1].forEach((dir) => {
+        const lidRibL = new THREE.Mesh(new THREE.BoxGeometry(ribThick, 10.5, ribWidth), boxMat);
+        lidRibL.position.set(-cargoWidth / 2 - ribThick / 2, 5.5, lidOffsetZ + dir * (cargoLength * 0.26));
+        const lidRibR = lidRibL.clone();
+        lidRibR.position.set(cargoWidth / 2 + ribThick / 2, 5.5, lidOffsetZ + dir * (cargoLength * 0.26));
+        lidPivot.add(lidRibL, lidRibR);
+
+        const frontLidRib = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 1.8), boxMat);
+        frontLidRib.position.set(dir * (cargoWidth * 0.36), 7, lidOffsetZ + cargoLength / 2 + 0.9);
+        lidPivot.add(frontLidRib);
+
+        const backLidRib = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 1.8), boxMat);
+        backLidRib.position.set(dir * (cargoWidth * 0.36), 7, lidOffsetZ - cargoLength / 2 - 0.9);
+        lidPivot.add(backLidRib);
+      });
+
+      // Dual Lid Hinge Knuckles (7.2mm wide)
+      [-1, 1].forEach((side) => {
+        const hx = side * hingeXSpan;
+        const lidKnuckle = new THREE.Mesh(new THREE.CylinderGeometry(hingeRadius, hingeRadius, 7.2, 20).rotateZ(Math.PI / 2), boxMat);
+        lidKnuckle.position.set(hx, 0, 0);
+        lidPivot.add(lidKnuckle);
+      });
+
+      // Lid Latches
+      const latchPinMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.85, roughness: 0.25 });
+      latchOffsets.forEach((lx) => {
+        const fZ = lidOffsetZ + cargoLength / 2;
+
+        [-8.6, 8.6].forEach((cx) => {
+          const earBase = new THREE.Mesh(new THREE.BoxGeometry(3.6, 8.8, 4.2), boxMat);
+          earBase.position.set(lx + cx, 6.0, fZ + 2.1);
+          lidPivot.add(earBase);
+
+          const earBoss = new THREE.Mesh(new THREE.CylinderGeometry(4.4, 4.4, 3.6, 20).rotateZ(Math.PI / 2), boxMat);
+          earBoss.position.set(lx + cx, 6.0, fZ + 4.2);
+          lidPivot.add(earBoss);
+        });
+
+        const pinMesh = new THREE.Mesh(new THREE.CylinderGeometry(1.65, 1.65, 21.0, 16).rotateZ(Math.PI / 2), latchPinMat);
+        pinMesh.position.set(lx, 6.0, fZ + 4.2);
+        lidPivot.add(pinMesh);
+
+        const latchBarrel = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.6, 13.2, 20).rotateZ(Math.PI / 2), textMat);
+        latchBarrel.position.set(lx, 6.0, fZ + 4.2);
+        lidPivot.add(latchBarrel);
+
+        const latchBody = new THREE.Mesh(new THREE.BoxGeometry(13.2, 15.6, 3.4), textMat);
+        latchBody.position.set(lx, -1.8, fZ + 5.3);
+        lidPivot.add(latchBody);
+
+        const latchShoulder = new THREE.Mesh(new THREE.BoxGeometry(13.2, 10.0, 2.6), textMat);
+        latchShoulder.position.set(lx, 1.0, fZ + 3.5);
+        lidPivot.add(latchShoulder);
+
+        const latchLip = new THREE.Mesh(new THREE.BoxGeometry(13.2, 2.4, 5.2), textMat);
+        latchLip.position.set(lx, -9.2, fZ + 6.2);
+        lidPivot.add(latchLip);
+
+        [1.2, -1.8, -4.8].forEach((ry) => {
+          const ridge = new THREE.Mesh(new THREE.BoxGeometry(11.0, 1.0, 0.9), boxMat);
+          ridge.position.set(lx, ry, fZ + 7.1);
+          lidPivot.add(ridge);
+        });
+      });
+
+      // Text Inlay
+      const lidTex = createCargoLidTexture(cargoText, activeCargoTextColor.hex, cargoFont, cargoBorder);
       const lidLabelPlane = new THREE.Mesh(
-        new THREE.PlaneGeometry(cargoWidth - 4, cargoLength - 4),
+        new THREE.PlaneGeometry(cargoWidth - 24, cargoLength - 24),
         new THREE.MeshStandardMaterial({
           map: lidTex,
           transparent: true,
@@ -3968,25 +3858,24 @@ Date: ${new Date().toISOString()}
           polygonOffsetFactor: -1
         })
       );
-      lidLabelPlane.rotation.x = Math.PI / 2;
-      lidLabelPlane.rotation.z = 0;
-      lidLabelPlane.position.set(0, -0.06, 0);
-      lidHalf.add(lidLabelPlane);
+      lidLabelPlane.rotation.x = -Math.PI / 2;
+      lidLabelPlane.position.set(0, 12.05, lidOffsetZ);
+      lidPivot.add(lidLabelPlane);
 
-      lidPivot.add(lidHalf);
-      group.add(lidPivot);
+      cargoGroup.add(lidPivot);
+      group.add(cargoGroup);
 
       if (showDimensions) {
         const wSprite = createDimensionSprite(`${cargoWidth} mm W`);
-        wSprite.position.set(0, 8, cargoLength + 28);
+        wSprite.position.set(0, 8, cargoLength / 2 + 20);
         group.add(wSprite);
   
         const lSprite = createDimensionSprite(`${cargoLength} mm L`);
-        lSprite.position.set(cargoWidth / 2 + 36, 8, cargoLength / 2);
+        lSprite.position.set(cargoWidth / 2 + 36, 8, 0);
         group.add(lSprite);
   
-        const hSprite = createDimensionSprite(`${cargoHeight} mm H (half)`);
-        hSprite.position.set(-cargoWidth / 2 - 36, cargoHeight / 2, cargoLength / 2);
+        const hSprite = createDimensionSprite(`${totalZ} mm H`);
+        hSprite.position.set(-cargoWidth / 2 - 36, totalZ / 2, 0);
         group.add(hSprite);
       }
     }
@@ -5268,8 +5157,8 @@ Date: ${new Date().toISOString()}
 
                     <div>
                       <div className="flex justify-between text-xs mb-1">
-                        <span className="font-semibold">↕ Half-Shell Height (Z)</span>
-                        <span className="text-[#fecdd3] font-bold">{cargoHeight} mm ({cargoHeight * 2} mm closed)</span>
+                        <span className="font-semibold">↕ Total Case Height (Z)</span>
+                        <span className="text-[#fecdd3] font-bold">{cargoHeight * 2} mm (12mm Lid, {cargoHeight * 2 - 12}mm Base)</span>
                       </div>
                       <input
                         type="range"
@@ -5495,12 +5384,13 @@ Date: ${new Date().toISOString()}
               ) : (
                 <div className="flex items-center gap-2 bg-[#151e31] px-2.5 py-1 rounded-lg border border-[#1e293b] shrink-0">
                   <span className="text-[11px] font-semibold tabular-nums min-w-[98px]">
-                    Fold Lid ({foldAngle}°):
+                    Lid Hinge ({foldAngle}°):
                   </span>
                   <input
                     type="range"
                     min="0"
-                    max="180"
+                    max="110"
+                    step="5"
                     value={foldAngle}
                     onChange={(e) => setFoldAngle(parseInt(e.target.value, 10))}
                     className="w-24 box-studio-slider"
