@@ -345,11 +345,12 @@ function createLabelTexture(text, bgHex = '#1F2022', textHex = '#9B7E64', fontNa
   if (text && text.trim() !== '') {
     ctx.fillStyle = textHex;
     const clean = text.trim();
-    const fontSize = clean.length > 16 ? 40 : clean.length > 11 ? 52 : 64;
+    const fontSize = clean.length > 16 ? 38 : clean.length > 11 ? 48 : 60;
     ctx.font = `700 ${fontSize}px "${fontName}"`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(clean, canvas.width / 2, canvas.height / 2 + 2);
+    // Pass canvas.width - 44 (468px) as maxWidth so text never touches the label edges!
+    ctx.fillText(clean, canvas.width / 2, canvas.height / 2 + 2, canvas.width - 44);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -390,11 +391,13 @@ function createCargoLidTexture(text, textHex = '#1A1A1A', fontName = 'Impact', s
   if (text && text.trim() !== '') {
     const clean = text.trim();
     ctx.fillStyle = textHex;
-    const fontSize = clean.length > 16 ? 78 : clean.length > 10 ? 105 : 132;
+    const fontSize = clean.length > 18 ? 64 : clean.length > 14 ? 78 : clean.length > 10 ? 102 : 128;
     ctx.font = `900 ${fontSize}px "${fontName}"`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(clean, canvas.width / 2, canvas.height / 2);
+    // Constrain text strictly inside the chamfered border frame (860px max width)!
+    const safeInnerWidth = showBorder ? canvas.width - 164 : canvas.width - 80;
+    ctx.fillText(clean, canvas.width / 2, canvas.height / 2, safeInnerWidth);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -417,7 +420,7 @@ function createBadgeTexture({
   canvas.height = 512;
   const ctx = canvas.getContext('2d');
 
-  // 1. CLEAR TRANSPARENT BACKGROUND (Eliminates the mismatched rectangle patch!)
+  // 1. CLEAR TRANSPARENT BACKGROUND
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // 2. OPTIONAL BORDER
@@ -431,26 +434,36 @@ function createBadgeTexture({
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Safely handle the text string
   let title = '';
   if (customText !== undefined && customText !== null) {
-      title = String(customText).trim();
+    title = String(customText).trim();
   } else if (caliberSpec && caliberSpec.short) {
-      title = String(caliberSpec.short).trim();
+    title = String(caliberSpec.short).trim();
   }
 
   const sub = showRoundCount ? `${rounds} RDS` : '';
+  // Keep a clean 48px padding inside the 24px border on both sides (1024 - 160 = 864px max)
+  const safeInnerWidth = showBorder ? canvas.width - 160 : canvas.width - 80;
 
-  // Only attempt to draw text if the string is not empty
   if (title.length > 0) {
-    const titleSize = title.length > 14 ? 90 : title.length > 8 ? 120 : 150;
+    const titleSize = title.length > 14 ? 76 : title.length > 10 ? 98 : title.length > 7 ? 124 : 150;
     ctx.font = `900 ${titleSize}px "${fontFamily}"`;
-    ctx.fillText(title, canvas.width / 2, sub.length > 0 ? canvas.height * 0.42 : canvas.height * 0.5);
+    ctx.fillText(
+      title,
+      canvas.width / 2,
+      sub.length > 0 ? canvas.height * 0.42 : canvas.height * 0.5,
+      safeInnerWidth
+    );
   }
 
   if (sub.length > 0) {
     ctx.font = title.length > 0 ? `700 68px "${fontFamily}"` : `700 110px "${fontFamily}"`;
-    ctx.fillText(sub, canvas.width / 2, title.length > 0 ? canvas.height * 0.75 : canvas.height * 0.5);
+    ctx.fillText(
+      sub,
+      canvas.width / 2,
+      title.length > 0 ? canvas.height * 0.75 : canvas.height * 0.5,
+      safeInnerWidth
+    );
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -664,8 +677,16 @@ export default function App() {
   const ammoMagnetPairs = Math.max(ammoShellX, ammoShellY) >= 150 ? 6 : 4;
   const ammoTotalMagnets = ammoMagnetPairs * 2;
 
-  // Dynamic Lid Character Limit based on physical lid width
-  const ammoMaxLidChars = Math.max(6, Math.min(28, Math.floor((ammoShellX - 28) / 5.5)));
+  // Dynamic Lid Character Limit based on inner border width (78% of shell width minus 8mm frame)
+  const ammoInnerFrameWidthMm = Math.max(24, ammoShellX * 0.78 - (enableAmmoLidBorder ? 12 : 4));
+  const ammoMaxLidChars = Math.max(5, Math.min(18, Math.floor(ammoInnerFrameWidthMm / 7.5)));
+
+  // Auto-trim Ammo Lid Title if the user reduces box columns
+  useEffect(() => {
+    if (ammoLidTitle && ammoLidTitle.trim().length > ammoMaxLidChars) {
+      setAmmoLidTitle((prev) => prev.trim().slice(0, ammoMaxLidChars));
+    }
+  }, [ammoMaxLidChars, ammoLidTitle]);
 
   // Estimated PETG Mass (grams) & Print Time (hours)
   const ammoEstimatedGrams = Math.round(
@@ -922,6 +943,53 @@ export default function App() {
   useEffect(() => {
     if (labelWidth > maxLabelWidth) setLabelWidth(maxLabelWidth);
   }, [maxLabelWidth, labelWidth]);
+
+  // ---> PASTE DYNAMIC BENCH & CARGO CHARACTER LIMITS HERE <---
+  // 1. Bench Matrix: Calculate effective label plate width (mm) and allow ~1 char per 1.85mm
+  const effectiveBenchLabelWidthMm = useMemo(() => {
+    const dW = width - 2.6 * 2 - 2.0; // Drawer outer width
+    return Math.min(labelWidth, maxLabelWidth, dW - 14);
+  }, [width, labelWidth, maxLabelWidth]);
+
+  const benchMaxLabelChars = useMemo(() => {
+    return Math.max(4, Math.min(22, Math.floor(effectiveBenchLabelWidthMm / 1.85)));
+  }, [effectiveBenchLabelWidthMm]);
+
+  // Automatically trim any existing drawer labels if the box/label width is shrunk
+  useEffect(() => {
+    setLabels((prev) => {
+      let changed = false;
+      const next = {};
+      for (const [k, v] of Object.entries(prev)) {
+        if (v && v.length > benchMaxLabelChars) {
+          next[k] = v.slice(0, benchMaxLabelChars);
+          changed = true;
+        } else {
+          next[k] = v;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [benchMaxLabelChars]);
+
+  // 2. Cargo Matrix: Calculate inner frame width (mm) inside the border and scale character limit
+  const cargoInnerFrameWidthMm = useMemo(() => {
+    // Border inset is 5mm + 2mm line width + 3mm breathing room on each side = 20mm total inset
+    const totalInset = cargoBorder ? 20 : 12;
+    return Math.max(20, cargoWidth - totalInset);
+  }, [cargoWidth, cargoBorder]);
+
+  const cargoMaxLidChars = useMemo(() => {
+    // Scales smoothly: Trace (80mm) -> 10 chars, Trail (120mm) -> 15 chars, Pursuit (160mm) -> 20 chars, Frontier (200mm) -> 24 chars
+    return Math.max(6, Math.min(24, Math.floor(cargoInnerFrameWidthMm / 6.5)));
+  }, [cargoInnerFrameWidthMm]);
+
+  // Automatically trim Cargo Lid Text if the user switches to a smaller box width
+  useEffect(() => {
+    if (cargoText && cargoText.length > cargoMaxLidChars) {
+      setCargoText((prev) => prev.slice(0, cargoMaxLidChars));
+    }
+  }, [cargoMaxLidChars, cargoText]);
 
   const singleTierHeightMm = useMemo(() => {
     return Number(
@@ -1371,7 +1439,9 @@ module base_shell() {
 module lid_inlay_2d() {
     bw = shell_w * 0.78;
     bd = shell_d * 0.58;
-    title_sz = min(bw * 0.16, bd * 0.26);
+    // Scale title font size by both frame height/width AND character length so it never hits the border!
+    char_count = max(4, len(lid_title));
+    title_sz = min(bw * 0.16, bd * 0.26, ((bw - 12.0) / char_count) * 1.32);
     sub_sz = min(bw * 0.09, bd * 0.14);
     if (enable_lid_border) {
         difference() {
@@ -4809,11 +4879,20 @@ Date: ${new Date().toISOString()}
                                 <span className="text-[10px] text-[#94a3b8] w-4">{b + 1}.</span>
                                 <input
                                   type="text"
-                                  placeholder="Label..."
+                                  maxLength={benchMaxLabelChars}
+                                  placeholder={`Label (max ${benchMaxLabelChars})...`}
                                   value={labels[key] || ''}
-                                  onChange={(e) => setLabels((p) => ({ ...p, [key]: e.target.value }))}
+                                  onChange={(e) =>
+                                    setLabels((p) => ({
+                                      ...p,
+                                      [key]: e.target.value.slice(0, benchMaxLabelChars)
+                                    }))
+                                  }
                                   className="flex-1 bg-[#0b0f19] border border-[#1e293b] rounded px-2 py-1 text-xs text-white"
                                 />
+                                <span className="text-[9px] font-mono text-[#64748b] w-8 text-right">
+                                  {(labels[key] || '').length}/{benchMaxLabelChars}
+                                </span>
                               </div>
                               <div className="flex items-center justify-between pl-5 text-[10px]">
                                 <div className="flex items-center gap-1">
@@ -4976,21 +5055,26 @@ Date: ${new Date().toISOString()}
 
                   {/* Custom Lid Text & Font Selector */}
                   <div className="space-y-2">
-                    <label className="text-[10px] text-slate-400 block mb-1">Custom Lid Text & Font</label>
+                    <div className="flex items-center justify-between text-[10px] mb-1">
+                      <label className="text-slate-400">Custom Lid Text &amp; Font</label>
+                      <span className="font-mono text-amber-400">
+                        {ammoLidTitle.trim().length} / {ammoMaxLidChars} chars
+                      </span>
+                    </div>
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        maxLength={18}
-                        value={ammoLidTitle.trim() === '' ? '' : ammoLidTitle} 
+                        maxLength={ammoMaxLidChars}
+                        value={ammoLidTitle.trim() === '' ? '' : ammoLidTitle}
                         onChange={(e) => {
-                          const val = e.target.value.toUpperCase();
+                          const val = e.target.value.toUpperCase().slice(0, ammoMaxLidChars);
                           // If they delete everything, pass a single space to prevent 3D/CAD engine crashes!
                           setAmmoLidTitle(val === '' ? ' ' : val);
                         }}
-                        placeholder="LID TITLE"
+                        placeholder={`LID TITLE (MAX ${ammoMaxLidChars})`}
                         className="flex-1 bg-[#151e31] border border-[#1e293b] rounded p-2 text-xs text-white font-mono"
                       />
-                      <select 
+                      <select
                         value={ammoLidFont}
                         onChange={(e) => setAmmoLidFont(e.target.value)}
                         className="w-28 bg-[#151e31] border border-[#1e293b] rounded p-2 text-xs text-slate-200"
@@ -5077,12 +5161,18 @@ Date: ${new Date().toISOString()}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold mb-1">Lid Inlay Text</label>
+                  <div className="flex items-center justify-between text-xs font-semibold mb-1">
+                    <label>Lid Inlay Text</label>
+                    <span className="text-[10px] font-mono text-[#38bdf8]">
+                      {cargoText.length} / {cargoMaxLidChars} chars
+                    </span>
+                  </div>
                   <input
                     type="text"
+                    maxLength={cargoMaxLidChars}
                     value={cargoText}
-                    onChange={(e) => setCargoText(e.target.value)}
-                    placeholder="Enter custom lid text..."
+                    onChange={(e) => setCargoText(e.target.value.slice(0, cargoMaxLidChars))}
+                    placeholder={`Enter custom lid text (max ${cargoMaxLidChars} chars)...`}
                     className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#38bdf8]"
                   />
                 </div>
