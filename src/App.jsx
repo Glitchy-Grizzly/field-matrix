@@ -859,6 +859,7 @@ export default function App() {
   const [cargoCompY, setCargoCompY] = useState(CARGO_PRESETS.Trail.compY);
   const [cargoBoxColorId, setCargoBoxColorId] = useState('petg-dark-beige');
   const [cargoTextColorId, setCargoTextColorId] = useState('petg-black');
+  const [cargoLatchColorId, setCargoLatchColorId] = useState('petg-orange'); // Add this line!
   const [cargoText, setCargoText] = useState('FIELD KIT');
   const [cargoFont, setCargoFont] = useState('Impact');
   const [cargoBorder, setCargoBorder] = useState(true);
@@ -915,6 +916,10 @@ export default function App() {
   const activeCargoTextColor = useMemo(
     () => BAMBU_PETG_COLORS.find((c) => c.id === cargoTextColorId) || BAMBU_PETG_COLORS[8],
     [cargoTextColorId]
+  );
+  const activeCargoLatchColor = useMemo(
+    () => BAMBU_PETG_COLORS.find((c) => c.id === cargoLatchColorId) || BAMBU_PETG_COLORS[0],
+    [cargoLatchColorId]
   );
 
   const activeCasingColor = useMemo(
@@ -1820,6 +1825,7 @@ if (export_part == "full") {
       spec += `[ 2. FILAMENT COLORS & LID INLAY ]\n`;
       spec += `- Box Body & Hinges  : ${activeCargoBoxColor.name} (${activeCargoBoxColor.hex})\n`;
       spec += `- Lid Text & Border  : ${activeCargoTextColor.name} (${activeCargoTextColor.hex})\n`;
+      spec += `- Cam Latches        : ${activeCargoLatchColor.name} (${activeCargoLatchColor.hex})\n`;
       spec += `- Custom Lid Text    : "${cargoText.trim() || '(None)'}"\n`;
       spec += `- Lid Font Style     : ${cargoFont}\n`;
       spec += `- Lid Border Inlay   : ${cargoBorder ? 'YES (Flush Inlay Frame)' : 'NO'}\n`;
@@ -1875,6 +1881,7 @@ num_latches = ${numLatches};
 
 box_color  = "${activeCargoBoxColor.hex}";
 text_color = "${activeCargoTextColor.hex}";
+latch_color = "${activeCargoLatchColor.hex}";
 box_text_1 = "${cleanLine1}";
 box_text_2 = "${cleanLine2}";
 font_style = "${cargoFont}:style=Bold";
@@ -2169,7 +2176,7 @@ if (export_part == "full") {
     translate([0, 0, 0.8]) rotate([180, 0, 0]) color(text_color) linear_extrude(height = 0.8) lid_inlay_2d();
 } else if (export_part == "latch_only") {
     for (i = [0 : num_latches - 1]) {
-        translate([i * 22, 0, 6.6]) rotate([0, 90, 0]) color(text_color) cam_latch();
+        translate([i * 22, 0, 6.6]) rotate([0, 90, 0]) color(latch_color) cam_latch();
     }
 }
 `;
@@ -2426,6 +2433,9 @@ Date: ${new Date().toISOString()}
       cargoTextColorId,
       cargoTextColorName: activeCargoTextColor.name,
       cargoTextColorHex: activeCargoTextColor.hex,
+      cargoLatchColorId,
+      cargoLatchColorName: activeCargoLatchColor.name,
+      cargoLatchColorHex: activeCargoLatchColor.hex,
       cargoText,
       cargoFont,
       cargoBorder
@@ -2434,7 +2444,7 @@ Date: ${new Date().toISOString()}
     return {
       ...basePayload,
       dimensionsSummary: `${cargoPreset}: ${cargoWidth}W x ${cargoLength}L x ${cargoHeight}H mm (${cargoCompX}x${cargoCompY} Grid)`,
-      colorsSummary: `Body: ${activeCargoBoxColor.name} / Inlay: ${activeCargoTextColor.name}`,
+      colorsSummary: `Body: ${activeCargoBoxColor.name} / Inlay: ${activeCargoTextColor.name} / Latch: ${activeCargoLatchColor.name}`,
       configuration: cargoConfig,
       productionOutput: {
         scadFilename: getCargoScadFilename('full'),
@@ -3357,7 +3367,7 @@ Date: ${new Date().toISOString()}
 
         // 7. Tactile Grip Ridges on Orange Latch Face
         [1.2, -1.8, -4.8].forEach((ry) => {
-          const ridge = new THREE.Mesh(new THREE.BoxGeometry(11.0, 1.0, 0.9), lidMat);
+          const ridge = new THREE.Mesh(new THREE.BoxGeometry(11.0, 1.0, 0.9), accentMat); // Changed lidMat to accentMat
           ridge.position.set(lx, ry, fZ + 7.1);
           lidPivot.add(ridge);
         });
@@ -3645,6 +3655,7 @@ Date: ${new Date().toISOString()}
         metalness: activeCargoBoxColor.metalness ?? 0.08
       });
       const textMat = new THREE.MeshStandardMaterial({ color: activeCargoTextColor.hex, roughness: 0.4 });
+      const latchMat = new THREE.MeshStandardMaterial({ color: activeCargoLatchColor.hex, roughness: 0.4 }); // New material!
       const steelMat = new THREE.MeshStandardMaterial({ color: '#94a3b8', metalness: 0.85, roughness: 0.25 });
 
       const totalZ = cargoHeight * 2;
@@ -3822,24 +3833,24 @@ Date: ${new Date().toISOString()}
         pinMesh.position.set(lx, 6.0, fZ + 4.2);
         lidPivot.add(pinMesh);
 
-        const latchBarrel = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.6, 13.2, 20).rotateZ(Math.PI / 2), textMat);
+        const latchBarrel = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.6, 13.2, 20).rotateZ(Math.PI / 2), latchMat);
         latchBarrel.position.set(lx, 6.0, fZ + 4.2);
         lidPivot.add(latchBarrel);
 
-        const latchBody = new THREE.Mesh(new THREE.BoxGeometry(13.2, 15.6, 3.4), textMat);
+        const latchBody = new THREE.Mesh(new THREE.BoxGeometry(13.2, 15.6, 3.4), latchMat);
         latchBody.position.set(lx, -1.8, fZ + 5.3);
         lidPivot.add(latchBody);
 
-        const latchShoulder = new THREE.Mesh(new THREE.BoxGeometry(13.2, 10.0, 2.6), textMat);
+        const latchShoulder = new THREE.Mesh(new THREE.BoxGeometry(13.2, 10.0, 2.6), latchMat);
         latchShoulder.position.set(lx, 1.0, fZ + 3.5);
         lidPivot.add(latchShoulder);
 
-        const latchLip = new THREE.Mesh(new THREE.BoxGeometry(13.2, 2.4, 5.2), textMat);
+        const latchLip = new THREE.Mesh(new THREE.BoxGeometry(13.2, 2.4, 5.2), latchMat);
         latchLip.position.set(lx, -9.2, fZ + 6.2);
         lidPivot.add(latchLip);
 
         [1.2, -1.8, -4.8].forEach((ry) => {
-          const ridge = new THREE.Mesh(new THREE.BoxGeometry(11.0, 1.0, 0.9), boxMat);
+          const ridge = new THREE.Mesh(new THREE.BoxGeometry(11.0, 1.0, 0.9), latchMat); // Changed boxMat to latchMat
           ridge.position.set(lx, ry, fZ + 7.1);
           lidPivot.add(ridge);
         });
@@ -3913,6 +3924,7 @@ Date: ${new Date().toISOString()}
     cargoCompY,
     activeCargoBoxColor,
     activeCargoTextColor,
+    activeCargoLatchColor,
     cargoText,
     cargoFont,
     cargoBorder,
@@ -5258,6 +5270,26 @@ Date: ${new Date().toISOString()}
                         onClick={() => setCargoTextColorId(col.id)}
                         className={`p-1 rounded border flex flex-col items-center gap-1 ${
                           cargoTextColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
+                        }`}
+                      >
+                        <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
+                        <span className="text-[9px] truncate w-full text-center">{col.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs font-semibold mb-1.5">
+                    3. Cam Latches: <span className="text-[#38bdf8]">{activeCargoLatchColor?.name}</span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {BAMBU_PETG_COLORS.map((col) => (
+                      <button
+                        key={`cl_${col.id}`}
+                        onClick={() => setCargoLatchColorId(col.id)}
+                        className={`p-1 rounded border flex flex-col items-center gap-1 ${
+                          cargoLatchColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
                         }`}
                       >
                         <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
