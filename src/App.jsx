@@ -604,11 +604,28 @@ export default function App() {
   const [ammoLidFont, setAmmoLidFont] = useState('Impact');
   const [enableAmmoLidBorder, setEnableAmmoLidBorder] = useState(true);
   
-  // Colors are stored as hex strings from the BAMBU_PETG_COLORS array
-  const [ammoBaseColor, setAmmoBaseColor] = useState(BAMBU_PETG_COLORS.find(c => c.id === 'petg-pine-green')?.hex || '#2C4C3B');
-  const [ammoLidColor, setAmmoLidColor] = useState(BAMBU_PETG_COLORS.find(c => c.id === 'petg-black')?.hex || '#222222');
-  const [ammoTrayColor, setAmmoTrayColor] = useState(BAMBU_PETG_COLORS.find(c => c.id === 'petg-dark-beige')?.hex || '#9E8569');
-  const [ammoAccentColor, setAmmoAccentColor] = useState(BAMBU_PETG_COLORS.find(c => c.id === 'petg-orange')?.hex || '#F36B21');
+  // Colors are stored as IDs to match the Swatch Grid!
+  const [ammoBaseColorId, setAmmoBaseColorId] = useState('petg-pine-green');
+  const [ammoLidColorId, setAmmoLidColorId] = useState('petg-black');
+  const [ammoTrayColorId, setAmmoTrayColorId] = useState('petg-dark-beige');
+  const [ammoLatchColorId, setAmmoLatchColorId] = useState('petg-orange');
+
+  const activeAmmoBaseColor = useMemo(
+    () => BAMBU_PETG_COLORS.find((c) => c.id === ammoBaseColorId) || BAMBU_PETG_COLORS[12],
+    [ammoBaseColorId]
+  );
+  const activeAmmoLidColor = useMemo(
+    () => BAMBU_PETG_COLORS.find((c) => c.id === ammoLidColorId) || BAMBU_PETG_COLORS[8],
+    [ammoLidColorId]
+  );
+  const activeAmmoTrayColor = useMemo(
+    () => BAMBU_PETG_COLORS.find((c) => c.id === ammoTrayColorId) || BAMBU_PETG_COLORS[7],
+    [ammoTrayColorId]
+  );
+  const activeAmmoLatchColor = useMemo(
+    () => BAMBU_PETG_COLORS.find((c) => c.id === ammoLatchColorId) || BAMBU_PETG_COLORS[0],
+    [ammoLatchColorId]
+  );
 
   // Text & Viewport States
   const [ammoLidTitle, setAmmoLidTitle] = useState('9MM');
@@ -1693,17 +1710,17 @@ if (export_part == "full") {
     col3_x = col2_x + tray_w / 2 + plate_gap + 25;
 
     // 1. Base Shell
-    color("${ammoBaseColor}")
+    color("${activeAmmoBaseColor.hex}")
         base_shell();
 
     // 2. Vault Lid + Multi-Color Inlay (Grouped so text moves with the lid!)
     translate([0, shell_d + plate_gap, lid_z])
     rotate([180, 0, 0]) {
-        color("${ammoLidColor}") 
+        color("${activeAmmoLidColor.hex}") 
             vault_lid();
             
         // Extrude to 0.8mm and shift up to sit perfectly flush inside the pocket!
-        color("${ammoAccentColor}") 
+        color("${activeAmmoLatchColor.hex}") 
             translate([0, 0, lid_z - 0.8]) 
             linear_extrude(height = 0.8) 
                 lid_inlay_2d();
@@ -1711,7 +1728,7 @@ if (export_part == "full") {
 
     // 3. Standing Ballistic Tray
     translate([col2_x - tray_w / 2, -tray_d / 2, foot_h])
-    color("${ammoTrayColor}")
+    color("${activeAmmoTrayColor.hex}")
         ballistic_tray();
 
     // 4. TPU Anti-Rattle Pad (Uses exact PETG Black #1F2421)
@@ -1721,39 +1738,39 @@ if (export_part == "full") {
 
     // 5. Snap-In T-Handle
     translate([col3_x, -shell_d * 0.15, 0])
-    color("${ammoAccentColor}")
+    color("${activeAmmoLatchColor.hex}")
         snap_in_t_handle(true);
 
     // 6. Cam-Action Draw Latches
     for (i = [0 : num_latches - 1]) {
         translate([col3_x, shell_d * 0.35 + (i * 16), 6.6]) rotate([0, 90, 0])
-        color("${ammoAccentColor}") cam_latch();
+        color("${activeAmmoLatchColor.hex}") cam_latch();
     }
 } else if (export_part == "lid_only") {
     translate([0, 0, lid_z])
     rotate([180, 0, 0]) {
-        color("${ammoLidColor}") vault_lid();
+        color("${activeAmmoLidColor.hex}") vault_lid();
     }
 } else if (export_part == "base_only") {
-    color("${ammoBaseColor}") base_shell();
+    color("${activeAmmoBaseColor.hex}") base_shell();
 } else if (export_part == "text_only") {
     translate([0, 0, 0.8])
     rotate([180, 0, 0])
-    color("${ammoAccentColor}")
+    color("${activeAmmoLatchColor.hex}")
         linear_extrude(height = 0.8)
             lid_inlay_2d();
 } else if (export_part == "inlay_only") {
     translate([0, 0, lid_z]) rotate([180, 0, 0])
-    color("${ammoAccentColor}") lid_inlay_2d();
+    color("${activeAmmoLatchColor.hex}") lid_inlay_2d();
 } else if (export_part == "tray_only") {
     translate([-tray_w / 2, -tray_d / 2, foot_h])
-    color("${ammoTrayColor}") ballistic_tray();
+    color("${activeAmmoTrayColor.hex}") ballistic_tray();
 } else if (export_part == "handle_only") {
-    color("${ammoAccentColor}") snap_in_t_handle(true);
+    color("${activeAmmoLatchColor.hex}") snap_in_t_handle(true);
 } else if (export_part == "latch_only") {
     for (i = [0 : num_latches - 1]) {
         translate([i * 22, 0, 6.6]) rotate([0, 90, 0])
-        color("${ammoAccentColor}") cam_latch();
+        color("${activeAmmoLatchColor.hex}") cam_latch();
     }
 } else if (export_part == "tpu_pad") {
     color("#1F2421") tpu_rattle_pad();
@@ -1790,8 +1807,8 @@ if (export_part == "full") {
       spec += `- Standing Tray     : ${ammoTrayX} x ${ammoTrayY} x ${ammoTrayZ} mm\n`;
       spec += `- Bore & Pitch      : Ø${currentCalSpec.holeDia} mm Hole / ${currentCalSpec.pitch} mm Pitch\n`;
       spec += `- Hardware BOM      : 4x M3x20mm SHCS, 4x M3 Hex Nuts, ${magCount}x (${activeMagnetDia}x2mm) Magnets\n`;
-      spec += `- Base / Lid Color  : ${getPetgName(ammoBaseColor)} (${ammoBaseColor}) / ${getPetgName(ammoLidColor)} (${ammoLidColor})\n`;
-      spec += `- Tray / Accent     : ${getPetgName(ammoTrayColor)} (${ammoTrayColor}) / ${getPetgName(ammoAccentColor)} (${ammoAccentColor})\n`;
+      spec += `- Base / Lid Color  : ${activeAmmoBaseColor.name} (${activeAmmoBaseColor.hex}) / ${activeAmmoLidColor.name} (${activeAmmoLidColor.hex})\n`;
+      spec += `- Tray / Accent     : ${activeAmmoTrayColor.name} (${activeAmmoTrayColor.hex}) / ${activeAmmoLatchColor.name} (${activeAmmoLatchColor.hex})\n`;
       spec += `- Lid Inlay Text    : "${ammoLidTitle}"${showAmmoRoundCount ? ` / "${ammoTotalRounds} RDS"` : ' (Round Count Off)'}\n`;
     } else if (activeTab === 'bench') {
       spec += `[ 1. GEOMETRY & CONFIGURATION ]\n`;
@@ -2178,7 +2195,7 @@ if (export_part == "full") {
     for (i = [0 : num_latches - 1]) {
         translate([shell_w/2 + 20 + i*22, 0, 6.6]) 
         rotate([0, 90, 0])
-        color(text_color) cam_latch();
+        color(latch_color) cam_latch();
     }
 } else if (export_part == "box_only") {
     color(box_color) base_shell();
@@ -2382,14 +2399,14 @@ Date: ${new Date().toISOString()}
         trayX: Number(ammoTrayX),
         trayY: Number(ammoTrayY),
         trayZ: Number(ammoTrayZ),
-        baseColor: ammoBaseColor,
-        lidColor: ammoLidColor,
-        trayColor: ammoTrayColor,
-        accentColor: ammoAccentColor,
-        ammoBaseColor,
-        ammoLidColor,
-        ammoTrayColor,
-        ammoAccentColor,
+        ammoBaseColor: activeAmmoBaseColor.hex,
+        ammoLidColor: activeAmmoLidColor.hex,
+        ammoTrayColor: activeAmmoTrayColor.hex,
+        ammoAccentColor: activeAmmoLatchColor.hex,
+        baseColorHex: activeAmmoBaseColor.hex,
+        lidColorHex: activeAmmoLidColor.hex,
+        trayColorHex: activeAmmoTrayColor.hex,
+        latchColorHex: activeAmmoLatchColor.hex,
         lidTitle: ammoLidTitle,
         ammoLidTitle,
         lidFont: ammoLidFont,
@@ -2404,7 +2421,7 @@ Date: ${new Date().toISOString()}
         ...basePayload,
         presetSelected: ammoPreset,
         dimensionsSummary: `${currentCalSpec.name} (${ammoTotalRounds} Rds): ${ammoShellX}W x ${ammoShellY}L x ${ammoShellZ}H mm`,
-        colorsSummary: `Base: ${ammoBaseColor} / Lid: ${ammoLidColor} / Tray: ${ammoTrayColor} / Accent: ${ammoAccentColor}`,
+        colorsSummary: `Base: ${activeAmmoBaseColor.name} / Lid: ${activeAmmoLidColor.name} / Tray: ${activeAmmoTrayColor.name} / Accent: ${activeAmmoLatchColor.name}`,
         configuration: ammoConfig,
         productionOutput: {
           scadFilename: getAmmoScadFilename(scadExportMode),
@@ -2420,10 +2437,10 @@ Date: ${new Date().toISOString()}
         ammoCols: Number(clampedAmmoCols),
         ammoRows: Number(clampedAmmoRows),
         ammoPreset,
-        ammoBaseColor,
-        ammoLidColor,
-        ammoTrayColor,
-        ammoAccentColor,
+        ammoBaseColor: activeAmmoBaseColor.hex,
+        ammoLidColor: activeAmmoLidColor.hex,
+        ammoTrayColor: activeAmmoTrayColor.hex,
+        ammoAccentColor: activeAmmoLatchColor.hex,
         ammoLidTitle,
         ammoLidFont,
         enableAmmoLidBorder,
@@ -3109,18 +3126,18 @@ Date: ${new Date().toISOString()}
       // THE AMMOMATRIX (TACTICAL UPGRADE V3)
       // ==========================================
       const baseMat = new THREE.MeshStandardMaterial({
-        color: ammoBaseColor, roughness: 0.75,
+        color: activeAmmoBaseColor.hex, roughness: 0.75,
         transparent: showMagnetXray, opacity: showMagnetXray ? 0.32 : 1.0
       });
       const lidMat = new THREE.MeshStandardMaterial({
-        color: ammoLidColor, roughness: 0.75,
+        color: activeAmmoLidColor.hex, roughness: 0.75,
         transparent: showMagnetXray, opacity: showMagnetXray ? 0.32 : 1.0
       });
       const trayMat = new THREE.MeshStandardMaterial({
-        color: ammoTrayColor, roughness: 0.85,
+        color: activeAmmoTrayColor.hex, roughness: 0.85,
         transparent: showMagnetXray, opacity: showMagnetXray ? 0.55 : 1.0
       });
-      const accentMat = new THREE.MeshStandardMaterial({ color: ammoAccentColor, roughness: 0.4 });
+      const accentMat = new THREE.MeshStandardMaterial({ color: activeAmmoLatchColor.hex, roughness: 0.4 });
       const steelMat = new THREE.MeshStandardMaterial({ color: '#94a3b8', metalness: 0.85, roughness: 0.25 });
       const brassMat = new THREE.MeshStandardMaterial({ color: '#d4af37', metalness: 0.8, roughness: 0.22 });
       const leadMat = new THREE.MeshStandardMaterial({ color: '#7a7a7a', metalness: 0.35, roughness: 0.55 });
@@ -3251,7 +3268,7 @@ Date: ${new Date().toISOString()}
       const hw = Math.min(ammoTrayX * 0.45, Math.max(28, (currentCalSpec?.pitch || 12) * 2.2)) / 2 + 1.5;
 
       const tpuMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.8, metalness: 0.0 });
-      const standoffRailMat = new THREE.MeshStandardMaterial({ color: ammoLidColor, roughness: 0.4, metalness: 0.1 });
+      const standoffRailMat = new THREE.MeshStandardMaterial({ color: activeAmmoLidColor.hex, roughness: 0.4, metalness: 0.1 });
 
       // 1. Structural Standoff Rails (Split around center handle slot just like OpenSCAD!)
       [-0.42, -0.22, 0.22, 0.42].forEach((factor) => {
@@ -3392,8 +3409,8 @@ Date: ${new Date().toISOString()}
           customText: ammoLidTitle,
           showRoundCount: showAmmoRoundCount,
           fontFamily: ammoLidFont,
-          lidColorHex: ammoLidColor,
-          accentColorHex: ammoAccentColor,
+          lidColorHex: activeAmmoLidColor.hex,
+          accentColorHex: activeAmmoLatchColor.hex,
           rounds: ammoTotalRounds,
           showBorder: enableAmmoLidBorder
         });
@@ -3607,7 +3624,7 @@ Date: ${new Date().toISOString()}
         }
 
         // --- 2. DUAL-LEG T-HANDLE ---
-        const handleMat = new THREE.MeshStandardMaterial({ color: ammoAccentColor || '#F36B21', roughness: 0.35, metalness: 0.1 });
+        const handleMat = new THREE.MeshStandardMaterial({ color: activeAmmoLatchColor.hex, roughness: 0.35, metalness: 0.1 });
         const handleGroup = new THREE.Group();
         const trayTopY = ammoTrayZ / 2;
         const fingerClearance = 14.0;
@@ -3944,10 +3961,10 @@ Date: ${new Date().toISOString()}
     ammoCaliber,
     ammoCols,
     ammoRows,
-    ammoBaseColor,
-    ammoLidColor,
-    ammoTrayColor,
-    ammoAccentColor,
+    activeAmmoBaseColor,
+    activeAmmoLidColor,
+    activeAmmoTrayColor,
+    activeAmmoLatchColor,
     ammoHingeAngle,
     ammoTrayPose,
     showAmmoRounds,
@@ -4927,42 +4944,90 @@ Date: ${new Date().toISOString()}
                     </div>
                   )}
                 </div>
-
-                {/* 3. COLORS & LID TEXT */}
-                <div className="bg-[#0f172a] p-3 rounded-xl border border-[#1e293b] space-y-3">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">3. Colors & Text</div>
                   
-                  <div className="grid grid-cols-2 gap-2 text-[10px]">
-                    {/* Base Shell Color */}
-                    <div className="flex flex-col">
-                      <label className="text-slate-500 mb-1">Base Shell</label>
-                      <select value={ammoBaseColor} onChange={(e) => setAmmoBaseColor(e.target.value)} className="bg-[#151e31] border border-[#1e293b] rounded p-1.5 text-slate-200">
-                        {BAMBU_PETG_COLORS.map(c => <option key={c.id} value={c.hex}>{c.name}</option>)}
-                      </select>
+                  {/* 3. COLORS & LID TEXT */}
+                <div className="bg-[#0f172a] p-3 rounded-xl border border-[#1e293b] space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">3. Colors & Text</span>
+                  </div>
+                  
+                  <div>
+                    <div className="text-xs font-semibold mb-1.5">
+                      1. Base Shell Body: <span className="text-[#fecdd3]">{activeAmmoBaseColor?.name}</span>
                     </div>
-                    
-                    {/* Lid Color */}
-                    <div className="flex flex-col">
-                      <label className="text-slate-500 mb-1">Vault Lid</label>
-                      <select value={ammoLidColor} onChange={(e) => setAmmoLidColor(e.target.value)} className="bg-[#151e31] border border-[#1e293b] rounded p-1.5 text-slate-200">
-                        {BAMBU_PETG_COLORS.map(c => <option key={c.id} value={c.hex}>{c.name}</option>)}
-                      </select>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {BAMBU_PETG_COLORS.map((col) => (
+                        <button
+                          key={`ab_${col.id}`}
+                          onClick={() => setAmmoBaseColorId(col.id)}
+                          className={`p-1 rounded border flex flex-col items-center gap-1 ${
+                            ammoBaseColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
+                          }`}
+                        >
+                          <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
+                          <span className="text-[9px] truncate w-full text-center">{col.name}</span>
+                        </button>
+                      ))}
                     </div>
+                  </div>
 
-                    {/* Tray Color */}
-                    <div className="flex flex-col">
-                      <label className="text-slate-500 mb-1">Ammo Tray</label>
-                      <select value={ammoTrayColor} onChange={(e) => setAmmoTrayColor(e.target.value)} className="bg-[#151e31] border border-[#1e293b] rounded p-1.5 text-slate-200">
-                        {BAMBU_PETG_COLORS.map(c => <option key={c.id} value={c.hex}>{c.name}</option>)}
-                      </select>
+                  <div>
+                    <div className="text-xs font-semibold mb-1.5">
+                      2. Vault Lid: <span className="text-[#38bdf8]">{activeAmmoLidColor?.name}</span>
                     </div>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {BAMBU_PETG_COLORS.map((col) => (
+                        <button
+                          key={`al_${col.id}`}
+                          onClick={() => setAmmoLidColorId(col.id)}
+                          className={`p-1 rounded border flex flex-col items-center gap-1 ${
+                            ammoLidColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
+                          }`}
+                        >
+                          <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
+                          <span className="text-[9px] truncate w-full text-center">{col.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-                    {/* Accent / Latches Color */}
-                    <div className="flex flex-col">
-                      <label className="text-slate-500 mb-1">Latches/Accents</label>
-                      <select value={ammoAccentColor} onChange={(e) => setAmmoAccentColor(e.target.value)} className="bg-[#151e31] border border-[#1e293b] rounded p-1.5 text-slate-200">
-                        {BAMBU_PETG_COLORS.map(c => <option key={c.id} value={c.hex}>{c.name}</option>)}
-                      </select>
+                  <div>
+                    <div className="text-xs font-semibold mb-1.5">
+                      3. Ammo Tray: <span className="text-[#fecdd3]">{activeAmmoTrayColor?.name}</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {BAMBU_PETG_COLORS.map((col) => (
+                        <button
+                          key={`at_${col.id}`}
+                          onClick={() => setAmmoTrayColorId(col.id)}
+                          className={`p-1 rounded border flex flex-col items-center gap-1 ${
+                            ammoTrayColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
+                          }`}
+                        >
+                          <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
+                          <span className="text-[9px] truncate w-full text-center">{col.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-semibold mb-1.5">
+                      4. Latches &amp; Accents: <span className="text-[#38bdf8]">{activeAmmoLatchColor?.name}</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {BAMBU_PETG_COLORS.map((col) => (
+                        <button
+                          key={`aa_${col.id}`}
+                          onClick={() => setAmmoLatchColorId(col.id)}
+                          className={`p-1 rounded border flex flex-col items-center gap-1 ${
+                            ammoLatchColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
+                          }`}
+                        >
+                          <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
+                          <span className="text-[9px] truncate w-full text-center">{col.name}</span>
+                        </button>
+                      ))}
                     </div>
                   </div>
 
@@ -5026,7 +5091,7 @@ Date: ${new Date().toISOString()}
                   </div>
                 </div>
               </div>
-            ) : (
+            ) : activeTab === 'cargo' ? (
             /* ==========================================
                THE CARGO MATRIX SIDEBAR CONTROLS
             ========================================== */
@@ -5236,24 +5301,13 @@ Date: ${new Date().toISOString()}
               <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-widest text-[#38bdf8] flex items-center gap-1.5">
-                    <Palette size={13} /> Colors (13 Bambu PETG Swatches)
+                    <Palette size={13} /> Colors Swatches
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const t = cargoBoxColorId;
-                      setCargoBoxColorId(cargoTextColorId);
-                      setCargoTextColorId(t);
-                    }}
-                    className="px-2 py-1 rounded bg-[#151e31] border border-[#334155] text-[10px] font-semibold flex items-center gap-1"
-                  >
-                    <ArrowLeftRight size={11} className="text-[#38bdf8]" /> Swap
-                  </button>
                 </div>
 
                 <div>
                   <div className="text-xs font-semibold mb-1.5">
-                    1. Box Body, Hinges &amp; Latch: <span className="text-[#fecdd3]">{activeCargoBoxColor?.name}</span>
+                    1. Box Body &amp; Hinges: <span className="text-[#fecdd3]">{activeCargoBoxColor?.name}</span>
                   </div>
                   <div className="grid grid-cols-5 gap-1.5">
                     {BAMBU_PETG_COLORS.map((col) => (
@@ -5312,7 +5366,7 @@ Date: ${new Date().toISOString()}
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* STICKY FOOTER */}
