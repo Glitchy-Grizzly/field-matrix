@@ -677,6 +677,19 @@ export default function App() {
   const ammoMagnetPairs = Math.max(ammoShellX, ammoShellY) >= 150 ? 6 : 4;
   const ammoTotalMagnets = ammoMagnetPairs * 2;
 
+  // --- DYNAMIC MAGNET SIZING LOGIC ---
+  const isAmmoBulk = ammoTotalRounds >= 150;
+  const isAmmoWeekend = ammoTotalRounds >= 75 && ammoTotalRounds < 150;
+  const isShotgun = currentCalSpec?.category === 'Shotgun';
+  const isRifle = currentCalSpec?.category === 'Rifle';
+  
+  let activeMagnetDia = 5.0; // Default Light Duty (5x2mm)
+  if (isShotgun || isAmmoBulk) {
+    activeMagnetDia = 8.0; // Heavy Duty (8x2mm)
+  } else if (isAmmoWeekend || isRifle) {
+    activeMagnetDia = 6.0; // Medium Duty (6x2mm)
+  }
+
   // Dynamic Lid Character Limit based on inner border width (78% of shell width minus 8mm frame)
   const ammoInnerFrameWidthMm = Math.max(24, ammoShellX * 0.78 - (enableAmmoLidBorder ? 12 : 4));
   const ammoMaxLidChars = Math.max(5, Math.min(18, Math.floor(ammoInnerFrameWidthMm / 7.5)));
@@ -1153,6 +1166,8 @@ export default function App() {
     const subText = showAmmoRoundCount ? `${totalRounds} RDS` : '';
     const numLatches = shellW >= 130 ? 2 : 1;
     const magPairs = Math.max(shellW, shellD) >= 150 ? 6 : 4;
+    const magDia = Number((activeMagnetDia + 0.2).toFixed(1)); // 0.2mm glue tolerance
+    const magDepth = 2.15; // 2mm magnet + 0.15mm glue tolerance
 
     return `// ============================================================================
 // FIELDMATRIX 3D - AMMO MATRIX (FULL MULTI-PART PRODUCTION ASSEMBLY)
@@ -1200,6 +1215,8 @@ shaft_h = ${shaftH};
 tbar_w = min(tray_w * 0.45, max(30, pitch * 2.2));
 num_latches = ${numLatches};
 mag_pairs = ${magPairs};
+mag_d = ${magDia};
+mag_t = ${magDepth};
 
 // --- 1. STANDING BALLISTIC TRAY (WITH 8x3MM MAGNET FEET) ---
 module ballistic_tray() {
@@ -1261,9 +1278,9 @@ module ballistic_tray() {
 module tray_magnet_foot(x, y) {
     translate([x, y, -foot_h])
     difference() {
-        cylinder(h = foot_h, r1 = 6.5, r2 = 7.25);
+        cylinder(h = foot_h, r1 = (mag_d / 2) + 2.2, r2 = 7.25);
         translate([0, 0, -0.05])
-            cylinder(h = 3.2, d = 8.2);
+            cylinder(h = mag_t + 0.05, d = mag_d);
     }
 }
 
@@ -1427,25 +1444,25 @@ module base_shell() {
                 cylinder(d = 2.85, h = 8.0, center = true);
         }
 
-        // Base Floor 8x3mm Magnet Pockets
+        // Base Floor Dynamic 2mm Magnet Pockets
         mx = tray_w / 2 - 7.5;
         my = tray_d / 2 - 7.5;
         for (fx = [-mx, mx]) {
             for (fy = [-my, my]) {
-                translate([fx, fy, floor_t - 3.1])
-                    cylinder(h = 3.2, d = 8.2);
+                translate([fx, fy, floor_t - mag_t])
+                    cylinder(h = mag_t + 0.1, d = mag_d);
             }
         }
         if (mag_pairs == 6) {
             if (shell_w >= shell_d) {
                 for (fy = [-my, my]) {
-                    translate([0, fy, floor_t - 3.1])
-                        cylinder(h = 3.2, d = 8.2);
+                    translate([0, fy, floor_t - mag_t])
+                        cylinder(h = mag_t + 0.1, d = mag_d);
                 }
             } else {
                 for (fx = [-mx, mx]) {
-                    translate([fx, 0, floor_t - 3.1])
-                        cylinder(h = 3.2, d = 8.2);
+                    translate([fx, 0, floor_t - mag_t])
+                        cylinder(h = mag_t + 0.1, d = mag_d);
                 }
             }
         }
@@ -1708,14 +1725,9 @@ if (export_part == "full") {
         snap_in_t_handle(true);
 
     // 6. Cam-Action Draw Latches
-    translate([col3_x, shell_d * 0.35, 6.6]) rotate([0, 90, 0])
-    color("${ammoAccentColor}")
-        cam_latch();
-
-    if (num_latches == 2) {
-        translate([col3_x + 20, shell_d * 0.35, 6.6]) rotate([0, 90, 0])
-        color("${ammoAccentColor}")
-            cam_latch();
+    for (i = [0 : num_latches - 1]) {
+        translate([col3_x, shell_d * 0.35 + (i * 16), 6.6]) rotate([0, 90, 0])
+        color("${ammoAccentColor}") cam_latch();
     }
 } else if (export_part == "lid_only") {
     translate([0, 0, lid_z])
@@ -1777,7 +1789,7 @@ if (export_part == "full") {
       spec += `- Exterior Shell    : ${ammoShellX} x ${ammoShellY} x ${ammoShellZ} mm\n`;
       spec += `- Standing Tray     : ${ammoTrayX} x ${ammoTrayY} x ${ammoTrayZ} mm\n`;
       spec += `- Bore & Pitch      : Ø${currentCalSpec.holeDia} mm Hole / ${currentCalSpec.pitch} mm Pitch\n`;
-      spec += `- Hardware BOM      : 4x M3x20mm SHCS, 4x M3 Hex Nuts, ${magCount}x (8x3mm) Magnets\n`;
+      spec += `- Hardware BOM      : 4x M3x20mm SHCS, 4x M3 Hex Nuts, ${magCount}x (${activeMagnetDia}x2mm) Magnets\n`;
       spec += `- Base / Lid Color  : ${getPetgName(ammoBaseColor)} (${ammoBaseColor}) / ${getPetgName(ammoLidColor)} (${ammoLidColor})\n`;
       spec += `- Tray / Accent     : ${getPetgName(ammoTrayColor)} (${ammoTrayColor}) / ${getPetgName(ammoAccentColor)} (${ammoAccentColor})\n`;
       spec += `- Lid Inlay Text    : "${ammoLidTitle}"${showAmmoRoundCount ? ` / "${ammoTotalRounds} RDS"` : ' (Round Count Off)'}\n`;
@@ -3439,24 +3451,24 @@ Date: ${new Date().toISOString()}
 
       magCoords.forEach(([fx, fy]) => {
         // Tray Standoff Foot
-        const foot = new THREE.Mesh(new THREE.CylinderGeometry(6.5, 7.25, footH, 16), accentMat);
+        const foot = new THREE.Mesh(new THREE.CylinderGeometry(activeMagnetDia / 2 + 2.2, 7.25, footH, 16), trayMat); // Changed from accentMat to trayMat
         foot.position.set(fx, -ammoTrayZ / 2 - footH / 2, fy);
         trayGroup.add(foot);
 
         // Base Floor Embedded Magnet Boss (Always physically present in Base Floor)
-        const baseBoss = new THREE.Mesh(new THREE.CylinderGeometry(6.5, 6.5, 0.6, 16), accentMat);
+        const baseBoss = new THREE.Mesh(new THREE.CylinderGeometry(activeMagnetDia / 2 + 2.2, activeMagnetDia / 2 + 2.2, 0.6, 16), baseMat); // Changed from accentMat to baseMat
         baseBoss.position.set(fx, floorT + 0.3, fy);
         baseShellGroup.add(baseBoss);
 
         if (showMagnetXray) {
-          // 1. Tray Foot Magnet (Ø8x3mm)
-          const trayMag = new THREE.Mesh(new THREE.CylinderGeometry(4.07, 4.07, 3.15, 16), magTrayMat);
-          trayMag.position.set(fx, -ammoTrayZ / 2 - footH + 1.6, fy);
+          // 1. Tray Foot Magnet (Dynamically Sized 2mm thick)
+          const trayMag = new THREE.Mesh(new THREE.CylinderGeometry(activeMagnetDia / 2, activeMagnetDia / 2, 2.0, 16), magTrayMat);
+          trayMag.position.set(fx, -ammoTrayZ / 2 - footH + 1.0, fy); // Center of 2mm depth
           trayGroup.add(trayMag);
 
-          // 2. Base Shell Floor Magnet (Ø8x3mm - Always visible in bottom shell!)
-          const baseMag = new THREE.Mesh(new THREE.CylinderGeometry(4.07, 4.07, 3.15, 16), magBaseMat);
-          baseMag.position.set(fx, floorT - 1.6, fy);
+          // 2. Base Shell Floor Magnet (Dynamically Sized 2mm thick)
+          const baseMag = new THREE.Mesh(new THREE.CylinderGeometry(activeMagnetDia / 2, activeMagnetDia / 2, 2.0, 16), magBaseMat);
+          baseMag.position.set(fx, floorT - 1.0, fy); // Center of 2mm depth
           ammoGroup.add(baseMag);
 
           // Magnetic Flux Alignment Line
