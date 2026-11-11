@@ -184,7 +184,12 @@ let auth = null;
 try {
   const app = initializeApp(firebaseConfig);
 
-  if (typeof window !== 'undefined' && RECAPTCHA_V3_SITE_KEY) {
+  const isLocalOrPreview =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' ||
+      window.location.hostname.includes('github.dev'));
+
+  if (typeof window !== 'undefined' && RECAPTCHA_V3_SITE_KEY && !isLocalOrPreview) {
     try {
       initializeAppCheck(app, {
         provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_V3_SITE_KEY),
@@ -2541,6 +2546,8 @@ Date: ${new Date().toISOString()}
     await saveDesignToFirestore(codeToAdd);
 
     const currentPrice = Number(calculatePrice().toFixed(2));
+    const orderPayload = buildOrderPayload(codeToAdd);
+    delete orderPayload.createdAt;
 
     setCart((prevCart) => {
       const existingIndex = prevCart.findIndex(
@@ -2560,6 +2567,7 @@ Date: ${new Date().toISOString()}
           designCode: codeToAdd,
           price: currentPrice,
           quantity: 1,
+          orderPayload,
         },
       ];
     });
@@ -2621,11 +2629,14 @@ Date: ${new Date().toISOString()}
         navigator.clipboard.writeText(designCode);
         setCodeCopied(true);
         await saveDesignToFirestore(designCode);
+        const orderPayload = buildOrderPayload(designCode);
+        delete orderPayload.createdAt; // Remove serverTimestamp sentinel for JSON transport
         itemsToCheckout = [
           {
             designCode,
             price: Number(calculatePrice().toFixed(2)),
             quantity: 1,
+            orderPayload,
           },
         ];
       }
@@ -2635,18 +2646,22 @@ Date: ${new Date().toISOString()}
         return;
       }
 
-      const functions = getFunctions();
-      const createCheckoutLink = httpsCallable(functions, "createCheckoutLink");
-
-      const response = await createCheckoutLink({
-        items: itemsToCheckout,
+      const response = await fetch("https://us-central1-fieldmatrix-3d.cloudfunctions.net/createCheckoutLink", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: itemsToCheckout }),
       });
 
-      console.log("SQUARE LINK:", response.data.url);
-      window.location.href = response.data.url;
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to initiate checkout.");
+      }
+
+      console.log("SQUARE LINK:", data.url);
+      window.location.href = data.url;
     } catch (error) {
       console.error("Checkout Error:", error);
-      alert("Unable to initiate checkout. Please try again.");
+      alert(`Unable to initiate checkout: ${error.message}`);
     } finally {
       setIsCheckingOut(false);
     }
