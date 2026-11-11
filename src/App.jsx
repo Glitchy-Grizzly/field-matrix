@@ -554,7 +554,6 @@ function createDrawerContourPoints(hw, hd, cornerR, notchR, openSide, handlePos,
 }
 
 export default function App() {
-  const isEtsyCustomer = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('source') === 'etsy';
   const [activeTab, setActiveTab] = useState('bench');
   const [isSuccessPage, setIsSuccessPage] = useState(false);
   useEffect(() => {
@@ -576,18 +575,6 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [designCode, setDesignCode] = useState('');
-  // Auto-update the design code prefix whenever you switch tabs
-  useEffect(() => {
-    setDesignCode((prev) => {
-      // Keep your existing 6 random characters, or generate them if it's the first load
-      const suffix = prev.includes('-') 
-        ? prev.split('-')[1] 
-        : Math.random().toString(36).substring(2, 8).toUpperCase();
-      
-      // Grab the correct prefix (AMMO-, CARGO-, or BENCH-) straight from your catalog
-      return `${PRODUCT_CATALOG[activeTab].codePrefix}${suffix}`;
-    });
-  }, [activeTab]);
   const [adminMode, setAdminMode] = useState(false);
   const [adminUnlocked, setAdminUnlocked] = useState(false);
 
@@ -905,6 +892,29 @@ export default function App() {
   const [cargoBorder, setCargoBorder] = useState(true);
   const [foldAngle, setFoldAngle] = useState(35);
 
+  // ---> PASTE HELPER & AUTO-UPDATING DESIGN CODE HOOK HERE <---
+  const getActiveTierTag = useCallback(() => {
+    if (activeTab === 'bench') return (sizePreset || 'CUSTOM').toUpperCase();
+    if (activeTab === 'cargo') return (cargoPreset || 'CUSTOM').toUpperCase();
+    if (activeTab === 'ammo') return `${ammoTotalRounds}RD`;
+    return 'CUSTOM';
+  }, [activeTab, sizePreset, cargoPreset, ammoTotalRounds]);
+
+  useEffect(() => {
+    setDesignCode((prev) => {
+      const parts = prev ? prev.split('-') : [];
+      const lastPart = parts[parts.length - 1];
+      const suffix =
+        lastPart && lastPart.length === 6
+          ? lastPart
+          : Math.random().toString(36).substring(2, 8).toUpperCase();
+
+      const prefix = PRODUCT_CATALOG[activeTab]?.codePrefix || 'MATRIX-';
+      const tierTag = getActiveTierTag();
+      return `${prefix}${tierTag}-${suffix}`;
+    });
+  }, [activeTab, getActiveTierTag]);
+  // ---> END OF PASTE <---
 
   const applyBenchPreset = useCallback((presetKey) => {
     const p = BENCH_PRESETS[presetKey];
@@ -2535,8 +2545,9 @@ Date: ${new Date().toISOString()}
 
   const handleOpenSpecModal = () => {
     const prefix = PRODUCT_CATALOG[activeTab]?.codePrefix || 'MATRIX-';
+    const tierTag = getActiveTierTag();
     const randomChars = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const newCode = `${prefix}${randomChars}`;
+    const newCode = `${prefix}${tierTag}-${randomChars}`;
     setDesignCode(newCode);
     setCodeCopied(false);
     setModalTab('spec');
@@ -2583,8 +2594,9 @@ Date: ${new Date().toISOString()}
 
     // Generate a fresh Design Code so if the user builds another item, it doesn't overwrite the previous one
     const prefix = PRODUCT_CATALOG[activeTab]?.codePrefix || 'MATRIX-';
+    const tierTag = getActiveTierTag();
     const nextChars = Math.random().toString(36).substring(2, 8).toUpperCase();
-    setDesignCode(`${prefix}${nextChars}`);
+    setDesignCode(`${prefix}${tierTag}-${nextChars}`);
   };
 
   const handleUpdateCartQty = (code, delta) => {
@@ -4370,30 +4382,41 @@ Date: ${new Date().toISOString()}
               )}
 
               {isEtsyMode ? (
-                <a
-                  href={currentProductMeta.etsyUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={handleCheckoutActionClick}
-                  className="px-5 py-2 rounded-lg bg-[#f43f5e] hover:bg-[#fb7185] text-white font-bold text-xs flex items-center gap-1.5"
-                >
-                  {codeCopied
-                    ? `Code Copied! Select "${
-                        activeTab === 'bench'
-                          ? sizePreset
-                          : activeTab === 'ammo'
-                          ? `${ammoTotalRounds} Rds (${currentCalSpec.short})`
-                          : cargoPreset
-                      }" on Etsy`
-                    : `Copy Code & Finish on Etsy (${
-                        activeTab === 'bench'
-                          ? sizePreset
-                          : activeTab === 'ammo'
-                          ? `${ammoTotalRounds} Rds`
-                          : cargoPreset
-                      })`}{' '}
-                  <ExternalLink size={14} />
-                </a>
+                <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
+                  <a
+                    href={currentProductMeta.etsyUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={handleCheckoutActionClick}
+                    className="px-5 py-2 rounded-lg bg-[#f43f5e] hover:bg-[#fb7185] text-white font-bold text-xs flex items-center gap-1.5"
+                  >
+                    {codeCopied
+                      ? `Code Copied! Select "${
+                          activeTab === 'bench'
+                            ? sizePreset
+                            : activeTab === 'ammo'
+                            ? `${ammoTotalRounds} Rds (${currentCalSpec.short})`
+                            : cargoPreset
+                        }" on Etsy`
+                      : `Copy Code & Finish on Etsy (${
+                          activeTab === 'bench'
+                            ? sizePreset
+                            : activeTab === 'ammo'
+                            ? `${ammoTotalRounds} Rds`
+                            : cargoPreset
+                        })`}{' '}
+                    <ExternalLink size={14} />
+                  </a>
+
+                  {/* Etsy Multi-Item Helper Hint */}
+                  <div className="flex items-start gap-2 w-full text-xs text-slate-400 bg-slate-800/50 p-2.5 rounded-lg border border-slate-700/50">
+                    <span className="text-blue-400 text-sm leading-none">💡</span>
+                    <p>
+                      <strong className="text-slate-300">Ordering multiple different builds on Etsy?</strong><br />
+                      Copy this code, add it to your Etsy cart, then come back here to design your next one. We'll generate a fresh code for each new item!
+                    </p>
+                  </div>
+                </div>
               ) : (
                 <div className="flex flex-col items-end gap-2">
                   {/* Mini Cart Summary Pills (shows when 1 or more items are in the cart) */}
@@ -4426,17 +4449,6 @@ Date: ${new Date().toISOString()}
                           </button>
                         </div>
                       ))}
-                    </div>
-                  )}
-
-                  {/* Etsy Multi-Item Helper Hint (Only shows if ?source=etsy is in the URL) */}
-                  {isEtsyCustomer && (
-                    <div className="flex items-start gap-2 mt-2 mb-4 text-xs text-slate-400 bg-slate-800/50 p-2 rounded border border-slate-700/50">
-                      <span className="text-blue-400 text-sm leading-none">💡</span>
-                      <p>
-                        <strong className="text-slate-300">Ordering multiple different builds on Etsy?</strong><br />
-                        Copy this code, add it to your Etsy cart, then come back here to design your next one. We'll generate a fresh code for each new item!
-                      </p>
                     </div>
                   )}
 
