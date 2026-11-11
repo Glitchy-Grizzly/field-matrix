@@ -1534,9 +1534,10 @@ module vault_lid() {
                 }
 
                 // Inner TPU Mounting Scaffold & Centering Frame (Hangs from ceiling_z)
-                pad_w = tray_w - 1.2;
-                pad_d = tray_d - 1.2;
-                scaf_h = max(2.0, ceiling_z - 2.5); // Leaves 2.5mm recess below lid rim for TPU pad
+                pad_w = tray_w - 1.6;
+                pad_d = tray_d - 1.6;
+                // Reach down 14.5mm from lid ceiling so the TPU pad contacts the brass rims!
+                scaf_h = (shell_z - 3.0) - (floor_t + foot_h + floor_thick + round_oal) - 3.4;
 
                 translate([0, 0, ceiling_z - scaf_h / 2]) {
                     // 1. Outer Centering Frame Lip (1.6mm tall retaining rim around TPU pad)
@@ -1697,11 +1698,11 @@ module cam_latch() {
 
 // --- 6. TPU RATTLE PAD ---
 module tpu_rattle_pad() {
-    pad_t = 4.5;
+    pad_t = 5.5;
     difference() {
-        cube([tray_w - 0.5, tray_d - 0.5, pad_t], center = true);
-        // Handle cutout slot + 8.5mm wide so the T-bar nests cleanly inside
-        cube([9.5, max(tbar_w, rows * pitch * 0.5 + 12) + 2.0, pad_t + 2.0], center = true);
+        cube([tray_w - 2.0, tray_d - 2.0, pad_t], center = true);
+        // Handle cutout slot + 11.5mm wide so the T-bar nests cleanly inside
+        cube([11.5, max(tbar_w, rows * pitch * 0.5 + 12) + 4.0, pad_t + 2.0], center = true);
     }
 }
 
@@ -3290,11 +3291,12 @@ Date: ${new Date().toISOString()}
       lidWRight.position.set(ammoShellX / 2 - wallT / 2, 4.5, lidOffsetZ);
       lidPivot.add(lidWLeft, lidWRight);
 
-      // 4.5mm TPU Anti-Rattle Pad Seated on 13.6mm Lid Standoff Ribs
-      const padW = ammoTrayX - 0.5;
-      const padD = ammoTrayY - 0.5;
-      const standoffH = 13.6;
-      const padThick = 4.5;
+      // 5.5mm TPU Anti-Rattle Pad Seated on 14.5mm Extended Lid Standoff Scaffold
+      const padW = ammoTrayX - 1.6;
+      const padD = ammoTrayY - 1.6;
+      const roundOal = currentCalSpec?.oal || 29.7;
+      const standoffH = Number(((ammoShellZ - 3.0) - (floorT + 4.5 + 2.4 + roundOal) - 3.4).toFixed(2));
+      const padThick = 5.5;
       const lidCeilingY = 9.0;
       const standoffBottomY = lidCeilingY - standoffH;
       const hw = Math.min(ammoTrayX * 0.45, Math.max(28, (currentCalSpec?.pitch || 12) * 2.2)) / 2 + 1.5;
@@ -3347,11 +3349,11 @@ Date: ${new Date().toISOString()}
 
       // Center Handle Cutout Slot
       const holePath = new THREE.Path();
-      holePath.moveTo(-hw, -4.75);
-      holePath.lineTo(hw, -4.75);
-      holePath.lineTo(hw, 4.75);
-      holePath.lineTo(-hw, 4.75);
-      holePath.lineTo(-hw, -4.75);
+      holePath.moveTo(-hw, -5.75);
+      holePath.lineTo(hw, -5.75);
+      holePath.lineTo(hw, 5.75);
+      holePath.lineTo(-hw, 5.75);
+      holePath.lineTo(-hw, -5.75);
       tpuShape.holes.push(holePath);
 
       const tpuGeo = new THREE.ExtrudeGeometry(tpuShape, { depth: padThick, bevelEnabled: false });
@@ -4267,7 +4269,7 @@ Date: ${new Date().toISOString()}
                           { id: 'tray_only', label: 'Standing Tray' },
                           { id: 'handle_only', label: 'T-Handle (Flat)' },
                           { id: 'latch_only', label: 'Cam Latches (Flat)' },
-                          { id: 'tpu_pad', label: 'TPU Rattle Pad (4.5mm)' }
+                          { id: 'tpu_pad', label: 'TPU Rattle Pad (5.5mm)' }
                         ]
                         : [
                           { id: 'full', label: 'Full 3MF' },
