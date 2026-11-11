@@ -189,7 +189,7 @@ try {
     (window.location.hostname === 'localhost' ||
       window.location.hostname.includes('github.dev'));
 
-  if (typeof window !== 'undefined' && RECAPTCHA_V3_SITE_KEY && !isLocalOrPreview) {
+  if (false && typeof window !== 'undefined' && RECAPTCHA_V3_SITE_KEY && !isLocalOrPreview) {
     try {
       initializeAppCheck(app, {
         provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_V3_SITE_KEY),
@@ -4114,6 +4114,7 @@ Date: ${new Date().toISOString()}
                       }
                     } catch (err) {
                       console.error("Google Admin Auth Error:", err);
+                      alert(`Admin Sign-In Error (${err.code || 'Error'}): ${err.message}`);
                     }
                   }}
                   className="w-full py-2.5 rounded-lg bg-white text-slate-900 font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-100 transition-all shadow cursor-pointer"
