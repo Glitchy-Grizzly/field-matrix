@@ -1555,7 +1555,7 @@ module vault_lid() {
                 pad_w = tray_w - 1.6;
                 pad_d = tray_d - 1.6;
                 // Reach down 14.5mm from lid ceiling so the TPU pad contacts the brass rims!
-                scaf_h = (shell_z - 3.0) - (floor_t + foot_h + floor_thick + round_oal) - 3.4;
+                scaf_h = (shell_z - 3.0) - (floor_t + foot_h + floor_thick + round_oal) - 6.4;
 
                 translate([0, 0, ceiling_z - scaf_h / 2]) {
                     // 1. Outer Centering Frame Lip (1.6mm tall retaining rim around TPU pad)
@@ -1594,30 +1594,32 @@ module vault_lid() {
                         cube([10, 1.8, lid_z - 2]);
                 }
 
-                // Dual Rear Lid Hinge Knuckles + Non-Binding Gussets
+                // Dual Rear Lid Hinge Knuckles + Print-Flat 45-Deg Gussets
                 for (side = [-1, 1]) {
                     hx = side * hinge_x_span;
                     union() {
                         translate([hx, hinge_y, 0])
                         rotate([0, 90, 0])
                             cylinder(r = hinge_r, h = lid_knuckle_w, center = true);
-                        // Gusset stays strictly above Z = 0.4 so it never hits base wall when closed!
+                        // Anchored flush to Z = lid_z (print bed) so it prints with zero overhang chatter!
                         hull() {
                             translate([hx, hinge_y, 2.3])
                                 cube([lid_knuckle_w, hinge_r * 2, 3.8], center = true);
-                            translate([hx, -shell_d / 2 + 1.0, 6.5])
-                                cube([lid_knuckle_w, 2.0, 4.0], center = true);
+                            translate([hx, -shell_d / 2 - 0.5, lid_z - 1.0])
+                                cube([lid_knuckle_w, 3.0, 2.0], center = true);
                         }
                     }
                 }
 
-                // Lid-Mounted Front M3 Latch Pivot Ears (Prints upside-down with 45-deg gussets)
+                // Lid-Mounted Front M3 Latch Pivot Ears (Anchored flush to Z = lid_z on print bed)
                 for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
                     for (cx = [-8.6, 8.6]) {
                         hull() {
                             translate([lx + cx, shell_d / 2 + 4.2, 6.0])
                             rotate([0, 90, 0])
                                 cylinder(r = 4.5, h = 3.6, center = true);
+                            translate([lx + cx, shell_d / 2 + 1.2, lid_z - 0.75])
+                                cube([3.6, 4.4, 1.5], center = true);
                             translate([lx + cx, shell_d / 2 - 0.5, (lid_z + 1.5) / 2])
                                 cube([3.6, 1.0, lid_z - 1.5], center = true);
                         }
@@ -2106,29 +2108,32 @@ module vault_lid() {
                         cube([10, 1.8, lid_z - 2]);
                 }
 
-                // Hinge Knuckles
+                // Dual Rear Lid Hinge Knuckles + Print-Flat 45-Deg Gussets
                 for (side = [-1, 1]) {
                     hx = side * hinge_x_span;
                     union() {
                         translate([hx, hinge_y, 0])
                         rotate([0, 90, 0])
                             cylinder(r = hinge_r, h = lid_knuckle_w, center = true);
+                        // Anchored flush to Z = lid_z (print bed) so it prints with zero overhang chatter!
                         hull() {
                             translate([hx, hinge_y, 2.3])
                                 cube([lid_knuckle_w, hinge_r * 2, 3.8], center = true);
-                            translate([hx, -shell_d / 2 + 1.0, 6.5])
-                                cube([lid_knuckle_w, 2.0, 4.0], center = true);
+                            translate([hx, -shell_d / 2 - 0.5, lid_z - 1.0])
+                                cube([lid_knuckle_w, 3.0, 2.0], center = true);
                         }
                     }
                 }
 
-                // Latch Pivot Ears
+                // Lid-Mounted Front M3 Latch Pivot Ears (Anchored flush to Z = lid_z on print bed)
                 for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
                     for (cx = [-8.6, 8.6]) {
                         hull() {
                             translate([lx + cx, shell_d / 2 + 4.2, 6.0])
                             rotate([0, 90, 0])
                                 cylinder(r = 4.5, h = 3.6, center = true);
+                            translate([lx + cx, shell_d / 2 + 1.2, lid_z - 0.75])
+                                cube([3.6, 4.4, 1.5], center = true);
                             translate([lx + cx, shell_d / 2 - 0.5, (lid_z + 1.5) / 2])
                                 cube([3.6, 1.0, lid_z - 1.5], center = true);
                         }
