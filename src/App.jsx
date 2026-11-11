@@ -554,6 +554,7 @@ function createDrawerContourPoints(hw, hd, cornerR, notchR, openSide, handlePos,
 }
 
 export default function App() {
+  const isEtsyCustomer = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('source') === 'etsy';
   const [activeTab, setActiveTab] = useState('bench');
   const [isSuccessPage, setIsSuccessPage] = useState(false);
   useEffect(() => {
@@ -589,6 +590,13 @@ export default function App() {
   }, [activeTab]);
   const [adminMode, setAdminMode] = useState(false);
   const [adminUnlocked, setAdminUnlocked] = useState(false);
+
+  // <-- PASTE THE USEEFFECT RIGHT HERE -->
+  useEffect(() => {
+    document.title = `FieldMatrix 3D - ${PRODUCT_CATALOG[activeTab]?.name || 'Configurator'}`;
+  }, [activeTab]);
+  // <------------------------------------>
+
   const [recallCode, setRecallCode] = useState('');
   const [statusBanner, setStatusBanner] = useState(null);
   const [modalTab, setModalTab] = useState('spec'); // 'spec' | 'scad'
@@ -4418,6 +4426,17 @@ Date: ${new Date().toISOString()}
                           </button>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Etsy Multi-Item Helper Hint (Only shows if ?source=etsy is in the URL) */}
+                  {isEtsyCustomer && (
+                    <div className="flex items-start gap-2 mt-2 mb-4 text-xs text-slate-400 bg-slate-800/50 p-2 rounded border border-slate-700/50">
+                      <span className="text-blue-400 text-sm leading-none">💡</span>
+                      <p>
+                        <strong className="text-slate-300">Ordering multiple different builds on Etsy?</strong><br />
+                        Copy this code, add it to your Etsy cart, then come back here to design your next one. We'll generate a fresh code for each new item!
+                      </p>
                     </div>
                   )}
 
