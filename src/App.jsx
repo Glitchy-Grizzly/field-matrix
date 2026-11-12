@@ -261,6 +261,8 @@ const AMMO_CALIBERS = {
   '9mm':    { id: '9mm',    name: '9x19mm Parabellum',     short: '9MM',    category: 'Pistol',  holeDia: 10.3, pitch: 12.2, oal: 29.7, trayZ: 16.5, shellZ: 40.5 },
   '45acp':  { id: '45acp',  name: '.45 ACP',               short: '.45ACP', category: 'Pistol',  holeDia: 12.5, pitch: 14.5, oal: 32.4, trayZ: 18.0, shellZ: 43.0 },
   '357mag': { id: '357mag', name: '.38 Spl / .357 Mag',    short: '.357',   category: 'Pistol',  holeDia: 10.2, pitch: 12.2, oal: 40.4, trayZ: 22.0, shellZ: 51.0 },
+  '44mag':  { id: '44mag',  name: '.44 S&W Spl / .44 Mag', short: '.44MAG', category: 'Pistol',  holeDia: 12.0, pitch: 15.0, oal: 40.9, trayZ: 22.0, shellZ: 53.0 },
+  '45colt': { id: '45colt', name: '.45 Colt (.45 LC)',     short: '.45LC',  category: 'Pistol',  holeDia: 12.6, pitch: 15.0, oal: 40.6, trayZ: 22.0, shellZ: 53.0 },
   '223rem': { id: '223rem', name: '.223 Rem / 5.56 NATO',  short: '5.56',   category: 'Rifle',   holeDia: 10.0, pitch: 12.0, oal: 57.4, trayZ: 28.0, shellZ: 68.0 },
   '308win': { id: '308win', name: '.308 Win / 7.62 NATO',  short: '.308',   category: 'Rifle',   holeDia: 12.4, pitch: 14.6, oal: 71.1, trayZ: 34.0, shellZ: 82.0 },
   '270win': { id: '270win', name: '.270 Winchester',       short: '.270',   category: 'Rifle',   holeDia: 12.4, pitch: 14.6, oal: 84.8, trayZ: 40.0, shellZ: 95.5 },
@@ -4992,30 +4994,49 @@ Date: ${new Date().toISOString()}
           ) : activeTab === 'ammo' ? (
               /* ================= AMMOMATRIX LEFT PANEL CONTROLS ================= */
               <div className="space-y-4">
-                {/* 1. CALIBER SELECTOR */}
+                {/* 1. CALIBER SELECTOR (GROUPED BY CATEGORY) */}
                 <div className="bg-[#0f172a] p-3 rounded-xl border border-[#1e293b]">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">1. Caliber Spec</span>
-                    <span className="text-[10px] font-mono text-amber-400">{currentCalSpec?.category}</span>
+                    <span className="text-[10px] font-mono text-amber-400">{currentCalSpec?.category === 'Pistol' ? 'Pistol / Lever' : currentCalSpec?.category}</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-                    {Object.values(AMMO_CALIBERS).map((cal) => (
-                      <button
-                        key={cal.id}
-                        onClick={() => handleSelectAmmoCaliber(cal.id)}
-                        disabled={isEtsyMode && cal.id !== '22lr'}
-                        className={`text-left p-2 rounded-lg border transition-all ${
-                          ammoCaliber === cal.id
-                            ? 'bg-amber-500/15 border-amber-500/60 text-white'
-                            : isEtsyMode && cal.id !== '22lr'
-                            ? 'opacity-40 cursor-not-allowed border-[#1e293b]'
-                            : 'bg-[#151e31] border-[#1e293b] text-slate-300 hover:border-slate-600'
-                        }`}
-                      >
-                        <div className="font-bold text-xs">{cal.short}</div>
-                        <div className="text-[9px] text-slate-500 mt-1">Ø{cal.holeDia}mm</div>
-                      </button>
-                    ))}
+                  <div className="space-y-3 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                    {[
+                      { id: 'Rimfire', label: 'Rimfire' },
+                      { id: 'Pistol',  label: 'Pistol & Lever-Action (.357 / .44 / .45)' },
+                      { id: 'Rifle',   label: 'Centerfire Rifles' },
+                      { id: 'Shotgun', label: 'Shotgun' }
+                    ].map((group) => {
+                      const groupCalibers = Object.values(AMMO_CALIBERS).filter(
+                        (cal) => cal.category === group.id
+                      );
+                      return (
+                        <div key={group.id} className="space-y-1.5">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-[#38bdf8] border-b border-[#1e293b] pb-1">
+                            {group.label}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {groupCalibers.map((cal) => (
+                              <button
+                                key={cal.id}
+                                onClick={() => handleSelectAmmoCaliber(cal.id)}
+                                disabled={isEtsyMode && cal.id !== '22lr'}
+                                className={`text-left p-2 rounded-lg border transition-all ${
+                                  ammoCaliber === cal.id
+                                    ? 'bg-amber-500/15 border-amber-500/60 text-white'
+                                    : isEtsyMode && cal.id !== '22lr'
+                                    ? 'opacity-40 cursor-not-allowed border-[#1e293b]'
+                                    : 'bg-[#151e31] border-[#1e293b] text-slate-300 hover:border-slate-600'
+                                }`}
+                              >
+                                <div className="font-bold text-xs">{cal.short}</div>
+                                <div className="text-[9px] text-slate-500 mt-0.5 truncate">{cal.name}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
