@@ -1591,27 +1591,16 @@ module vault_lid() {
                     }
                 }
 
-                // Exterior Tactical Ribs
+                // Exterior Tactical Ribs for the Lid (Matches the Base!)
                 for (dir = [-1, 1]) {
-                    // Left & Right Side Ribs
-                    translate([-shell_w / 2 - 1.8, dir * (shell_d * 0.26) - 5, 0])
-                        cube([1.8, 10, base_z - 2]);
-                    translate([shell_w / 2, dir * (shell_d * 0.26) - 5, 0])
-                        cube([1.8, 10, base_z - 2]);
-                    
-                    // Front Side Ribs
-                    translate([dir * (shell_w * 0.36) - 5, shell_d / 2, 0])
-                        cube([10, 1.8, base_z - 2]);
-
-                    // Rear Anti-Tip Outrigger Heels (Dual Purpose: Stabilizer + 110-Deg Lid Stop)
-                    hull() {
-                        // Top anchor (blends into back wall just below the hinge clevis)
-                        translate([dir * (shell_w * 0.36) - 5, -shell_d / 2 - 1.8, base_z - 6.0])
-                            cube([10, 1.8, 4.0]);
-                        // Extended floor heel (Pushes footprint back 12mm to physically arrest tipping)
-                        translate([dir * (shell_w * 0.36) - 5, -shell_d / 2 - 12.0, 0])
-                            cube([10, 12.0, 3.0]);
-                    }
+                    translate([-shell_w / 2 - 1.8, dir * (shell_d * 0.26) - 5, 2])
+                        cube([1.8, 10, lid_z - 2]);
+                    translate([shell_w / 2, dir * (shell_d * 0.26) - 5, 2])
+                        cube([1.8, 10, lid_z - 2]);
+                    translate([dir * (shell_w * 0.36) - 5, -shell_d / 2 - 1.8, 2])
+                        cube([10, 1.8, lid_z - 2]);
+                    translate([dir * (shell_w * 0.36) - 5, shell_d / 2, 2])
+                        cube([10, 1.8, lid_z - 2]);
                 }
 
                 // Dual Rear Lid Hinge Knuckles + Print-Flat 45-Deg Gussets
