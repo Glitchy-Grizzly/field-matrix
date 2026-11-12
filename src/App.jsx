@@ -1399,16 +1399,25 @@ module base_shell() {
                 translate([-shell_w / 2 + wall_t, -shell_d / 2 + wall_t, floor_t])
                     cube([shell_w - wall_t * 2, shell_d - wall_t * 2, base_z + 1]);
             }
-            // Exterior Tactical Ribs
+            // Exterior Tactical Ribs & Rear Anti-Tip Outrigger Heels
             for (dir = [-1, 1]) {
+                // Left & Right Side Ribs
                 translate([-shell_w / 2 - 1.8, dir * (shell_d * 0.26) - 5, 0])
                     cube([1.8, 10, base_z - 2]);
                 translate([shell_w / 2, dir * (shell_d * 0.26) - 5, 0])
                     cube([1.8, 10, base_z - 2]);
-                translate([dir * (shell_w * 0.36) - 5, -shell_d / 2 - 1.8, 0])
-                    cube([10, 1.8, base_z - 2]);
+                
+                // Front Side Ribs
                 translate([dir * (shell_w * 0.36) - 5, shell_d / 2, 0])
                     cube([10, 1.8, base_z - 2]);
+
+                // Rear Anti-Tip Outrigger Heels (Dual Purpose: Stabilizer + 110-Deg Lid Stop)
+                hull() {
+                    translate([dir * (shell_w * 0.36) - 5, -shell_d / 2 - 1.8, base_z - 6.0])
+                        cube([10, 1.8, 4.0]);
+                    translate([dir * (shell_w * 0.36) - 5, -shell_d / 2 - 12.0, 0])
+                        cube([10, 12.0, 3.0]);
+                }
             }
 
             // Dual M3x20mm Rear Corner Hinge Clevises (Zero-Play 0.2mm tolerance!)
@@ -1572,7 +1581,7 @@ module vault_lid() {
                         for (gx = [-1, 1]) {
                             for (gy = [-1, 1]) {
                                 translate([gx * (pad_w * 0.28), gy * (pad_d * 0.25), 0])
-                                    cube([pad_w * 0.30, pad_d * 0.32, scaf_h + 1], center = true);
+                                    cube([pad_w * 0.40, pad_d * 0.40, scaf_h + 1], center = true);
                             }
                         }
                         // Center Y-Axis Handle Clearance Slot (11mm wide in X, grip_len + 5mm long in Y!)
@@ -1580,18 +1589,27 @@ module vault_lid() {
                     }
                 }
 
-                // Exterior Tactical Ribs for the Lid (Matches the Base!)
+                // Exterior Tactical Ribs
                 for (dir = [-1, 1]) {
-                    // Left & Right side ribs (starts at Z=2 to leave 2mm gap at parting line)
-                    translate([-shell_w / 2 - 1.8, dir * (shell_d * 0.26) - 5, 2])
-                        cube([1.8, 10, lid_z - 2]);
-                    translate([shell_w / 2, dir * (shell_d * 0.26) - 5, 2])
-                        cube([1.8, 10, lid_z - 2]);
-                    // Front & Back ribs
-                    translate([dir * (shell_w * 0.36) - 5, -shell_d / 2 - 1.8, 2])
-                        cube([10, 1.8, lid_z - 2]);
-                    translate([dir * (shell_w * 0.36) - 5, shell_d / 2, 2])
-                        cube([10, 1.8, lid_z - 2]);
+                    // Left & Right Side Ribs
+                    translate([-shell_w / 2 - 1.8, dir * (shell_d * 0.26) - 5, 0])
+                        cube([1.8, 10, base_z - 2]);
+                    translate([shell_w / 2, dir * (shell_d * 0.26) - 5, 0])
+                        cube([1.8, 10, base_z - 2]);
+                    
+                    // Front Side Ribs
+                    translate([dir * (shell_w * 0.36) - 5, shell_d / 2, 0])
+                        cube([10, 1.8, base_z - 2]);
+
+                    // Rear Anti-Tip Outrigger Heels (Dual Purpose: Stabilizer + 110-Deg Lid Stop)
+                    hull() {
+                        // Top anchor (blends into back wall just below the hinge clevis)
+                        translate([dir * (shell_w * 0.36) - 5, -shell_d / 2 - 1.8, base_z - 6.0])
+                            cube([10, 1.8, 4.0]);
+                        // Extended floor heel (Pushes footprint back 12mm to physically arrest tipping)
+                        translate([dir * (shell_w * 0.36) - 5, -shell_d / 2 - 12.0, 0])
+                            cube([10, 12.0, 3.0]);
+                    }
                 }
 
                 // Dual Rear Lid Hinge Knuckles + Print-Flat 45-Deg Gussets
@@ -1975,16 +1993,25 @@ module base_shell() {
                 }
             }
 
-            // Exterior Tactical Ribs
+            // Exterior Tactical Ribs & Rear Anti-Tip Outrigger Heels
             for (dir = [-1, 1]) {
+                // Left & Right Side Ribs
                 translate([-shell_w / 2 - 1.8, dir * (shell_d * 0.26) - 5, 0])
                     cube([1.8, 10, base_z - 2]);
                 translate([shell_w / 2, dir * (shell_d * 0.26) - 5, 0])
                     cube([1.8, 10, base_z - 2]);
-                translate([dir * (shell_w * 0.36) - 5, -shell_d / 2 - 1.8, 0])
-                    cube([10, 1.8, base_z - 2]);
+                
+                // Front Side Ribs
                 translate([dir * (shell_w * 0.36) - 5, shell_d / 2, 0])
                     cube([10, 1.8, base_z - 2]);
+
+                // Rear Anti-Tip Outrigger Heels (Stabilizer + 110-Deg Lid Stop)
+                hull() {
+                    translate([dir * (shell_w * 0.36) - 5, -shell_d / 2 - 1.8, base_z - 6.0])
+                        cube([10, 1.8, 4.0]);
+                    translate([dir * (shell_w * 0.36) - 5, -shell_d / 2 - 12.0, 0])
+                        cube([10, 12.0, 3.0]);
+                }
             }
 
             // Rear Hinge Clevises
@@ -3244,9 +3271,19 @@ Date: ${new Date().toISOString()}
         // Front & Back exterior vertical ribs
         const fbRibFront = new THREE.Mesh(new THREE.BoxGeometry(ribWidth, baseZ - 2, ribThick), baseMat);
         fbRibFront.position.set(dir * (ammoShellX * 0.36), (baseZ - 2) / 2, ammoShellY / 2 + ribThick / 2);
-        const fbRibBack = fbRibFront.clone();
-        fbRibBack.position.set(dir * (ammoShellX * 0.36), (baseZ - 2) / 2, -ammoShellY / 2 - ribThick / 2);
-        baseShellGroup.add(fbRibFront, fbRibBack);
+        baseShellGroup.add(fbRibFront);
+        const heelShape = new THREE.Shape();
+        heelShape.moveTo(0, 0);
+        heelShape.lineTo(12.0, 0);
+        heelShape.lineTo(12.0, 3.0);
+        heelShape.lineTo(1.8, baseZ - 2.0);
+        heelShape.lineTo(0, baseZ - 2.0);
+        heelShape.closePath();
+        const heelGeo = new THREE.ExtrudeGeometry(heelShape, { depth: ribWidth, bevelEnabled: false });
+        heelGeo.rotateY(Math.PI / 2);
+        const heelMesh = new THREE.Mesh(heelGeo, baseMat);
+        heelMesh.position.set(dir * (ammoShellX * 0.36) - ribWidth / 2, 0, -ammoShellY / 2);
+        baseShellGroup.add(heelMesh);
       });
 
       // 2. TRUE DUAL M3 REAR CORNER HINGES (Base Clevis Ears + M3 Bolts)
@@ -3807,9 +3844,19 @@ Date: ${new Date().toISOString()}
 
         const fbRibFront = new THREE.Mesh(new THREE.BoxGeometry(ribWidth, baseZ - 2, ribThick), boxMat);
         fbRibFront.position.set(dir * (cargoWidth * 0.36), (baseZ - 2) / 2, cargoLength / 2 + ribThick / 2);
-        const fbRibBack = fbRibFront.clone();
-        fbRibBack.position.set(dir * (cargoWidth * 0.36), (baseZ - 2) / 2, -cargoLength / 2 - ribThick / 2);
-        baseShellGroup.add(fbRibFront, fbRibBack);
+        baseShellGroup.add(fbRibFront);
+        const heelShape = new THREE.Shape();
+        heelShape.moveTo(0, 0);
+        heelShape.lineTo(12.0, 0);
+        heelShape.lineTo(12.0, 3.0);
+        heelShape.lineTo(1.8, baseZ - 2.0);
+        heelShape.lineTo(0, baseZ - 2.0);
+        heelShape.closePath();
+        const heelGeo = new THREE.ExtrudeGeometry(heelShape, { depth: ribWidth, bevelEnabled: false });
+        heelGeo.rotateY(Math.PI / 2);
+        const heelMesh = new THREE.Mesh(heelGeo, boxMat);
+        heelMesh.position.set(dir * (cargoWidth * 0.36) - ribWidth / 2, 0, -cargoLength / 2);
+        baseShellGroup.add(heelMesh);
       });
 
       // 2. TRUE DUAL M3 REAR CORNER HINGES (Base Clevis Ears + M3 Bolts)
