@@ -120,7 +120,7 @@ const CARGO_PRESETS = {
     height: 20,
     compX: 2,
     compY: 2,
-    etsyPrice: 24.00
+    etsyPrice: 27.00
   },
   Pursuit: {
     id: 'Pursuit',
@@ -131,7 +131,7 @@ const CARGO_PRESETS = {
     height: 25,
     compX: 3,
     compY: 2,
-    etsyPrice: 31.00
+    etsyPrice: 44.00
   },
   Frontier: {
     id: 'Frontier',
@@ -142,7 +142,7 @@ const CARGO_PRESETS = {
     height: 35,
     compX: 4,
     compY: 3,
-    etsyPrice: 39.00
+    etsyPrice: 82.00
   }
 };
 
