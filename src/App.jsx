@@ -103,7 +103,7 @@ const CARGO_PRESETS = {
   Trace: {
     id: 'Trace',
     label: 'Trace',
-    summary: '80×60×16mm (32mm Closed)',
+    summary: '80×60×32mm Total',
     width: 80,
     length: 60,
     height: 16,
@@ -114,7 +114,7 @@ const CARGO_PRESETS = {
   Trail: {
     id: 'Trail',
     label: 'Trail',
-    summary: '120×90×20mm (40mm Closed)',
+    summary: '120×90×40mm Total',
     width: 120,
     length: 90,
     height: 20,
@@ -125,7 +125,7 @@ const CARGO_PRESETS = {
   Pursuit: {
     id: 'Pursuit',
     label: 'Pursuit',
-    summary: '160×120×25mm (50mm Closed)',
+    summary: '160×120×50mm Total',
     width: 160,
     length: 120,
     height: 25,
@@ -136,7 +136,7 @@ const CARGO_PRESETS = {
   Frontier: {
     id: 'Frontier',
     label: 'Frontier',
-    summary: '200×150×35mm (70mm Closed)',
+    summary: '200×150×70mm Total',
     width: 200,
     length: 150,
     height: 35,
@@ -321,7 +321,7 @@ function InfoPopover({ title, text, formula }) {
       {open && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute left-0 bottom-full mb-2 w-64 p-3 rounded-lg bg-[#0f172a] border border-[#38bdf8]/50 shadow-2xl z-50 text-left pointer-events-auto"
+          className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 p-3 rounded-lg bg-[#0f172a] border border-[#38bdf8]/50 shadow-2xl z-50 text-left pointer-events-auto"
         >
           <div className="text-[11px] font-bold text-[#38bdf8] mb-1">{title}</div>
           <p className="text-[11px] leading-relaxed text-[#cbd5e1] font-normal">{text}</p>
@@ -5391,12 +5391,13 @@ Date: ${new Date().toISOString()}
                       </div>
                       <input
                         type="range"
-                        min="12"
-                        max="50"
-                        value={cargoHeight}
+                        min="24"
+                        max="100"
+                        step="2"
+                        value={cargoHeight * 2}
                         onChange={(e) => {
                           setCargoPreset('Custom');
-                          setCargoHeight(parseInt(e.target.value, 10));
+                          setCargoHeight(parseInt(e.target.value, 10) / 2);
                         }}
                         className="w-full box-studio-slider"
                       />
