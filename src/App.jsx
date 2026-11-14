@@ -1514,6 +1514,16 @@ module base_shell() {
                 }
             }
         }
+        // --- ANTI-SLIP FOOT POCKETS ---
+          // 10.5mm diameter, 0.6mm deep (Bridged support-free on layer 4!)
+          foot_inset_x = shell_w / 2 - 14;
+          foot_inset_y = shell_d / 2 - 14;
+          for (fx = [-foot_inset_x, foot_inset_x]) {
+              for (fy = [-foot_inset_y, foot_inset_y]) {
+                  translate([fx, fy, -0.1])
+                      cylinder(d = 10.5, h = 0.7, center = false);
+              }
+          }
     } // Closes difference()
 } // Closes module base_shell()
 
@@ -1638,10 +1648,14 @@ module vault_lid() {
 
             // M3 Front Latch Pin Bores in Lid (Outer ear 3.3mm, Inner ear 2.85mm self-tapping for M3x20mm)
             for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
-                translate([lx - 5.0, shell_d / 2 + 4.2, 6.0])
+                clearance_off = (lx < 0) ? -5.0 : 5.0;
+                thread_off    = (lx < 0) ?  5.0 : -5.0;
+                
+                translate([lx + clearance_off, shell_d / 2 + 4.2, 6.0])
                 rotate([0, 90, 0])
                     cylinder(d = 3.3, h = 16.0, center = true);
-                translate([lx + 5.0, shell_d / 2 + 4.2, 6.0])
+                    
+                translate([lx + thread_off, shell_d / 2 + 4.2, 6.0])
                 rotate([0, 90, 0])
                     cylinder(d = 2.85, h = 16.0, center = true);
             }
@@ -1667,6 +1681,18 @@ module vault_lid() {
             translate([0, 0, lid_z - 0.8])
             linear_extrude(height = 1.0)
                 lid_inlay_2d();
+
+            // --- STACKING DIMPLES ---
+            // 13mm wide at the surface, dropping 1.5mm deep at a 45-deg angle.
+            // Prints 100% support-free when the lid is printed upside down!
+            foot_inset_x = shell_w / 2 - 14;
+            foot_inset_y = shell_d / 2 - 14;
+            for (fx = [-foot_inset_x, foot_inset_x]) {
+                for (fy = [-foot_inset_y, foot_inset_y]) {
+                    translate([fx, fy, lid_z - 1.5])
+                        cylinder(d1 = 10.0, d2 = 13.0, h = 1.6, center = false);
+                }
+            }
         }
     }
 }
@@ -2057,6 +2083,17 @@ module base_shell() {
             rotate([0, 90, 0])
                 cylinder(d = 2.85, h = 8.0, center = true);
         }
+
+        // --- ANTI-SLIP FOOT POCKETS ---
+        // 10.5mm diameter, 0.6mm deep (Bridged support-free on layer 4!)
+        foot_inset_x = shell_w / 2 - 14;
+        foot_inset_y = shell_d / 2 - 14;
+        for (fx = [-foot_inset_x, foot_inset_x]) {
+            for (fy = [-foot_inset_y, foot_inset_y]) {
+                translate([fx, fy, -0.1])
+                    cylinder(d = 10.5, h = 0.7, center = false);
+            }
+        }
     }
 }
 
@@ -2161,9 +2198,13 @@ module vault_lid() {
 
             // Bores & Cutouts
             for (lx = (num_latches == 2 ? [-shell_w * 0.23, shell_w * 0.23] : [0])) {
-                translate([lx - 5.0, shell_d / 2 + 4.2, 6.0])
+                clearance_off = (lx < 0) ? -5.0 : 5.0;
+                thread_off    = (lx < 0) ?  5.0 : -5.0;
+                
+                translate([lx + clearance_off, shell_d / 2 + 4.2, 6.0])
                 rotate([0, 90, 0]) cylinder(d = 3.3, h = 16.0, center = true);
-                translate([lx + 5.0, shell_d / 2 + 4.2, 6.0])
+                
+                translate([lx + thread_off, shell_d / 2 + 4.2, 6.0])
                 rotate([0, 90, 0]) cylinder(d = 2.85, h = 16.0, center = true);
             }
 
@@ -2181,6 +2222,18 @@ module vault_lid() {
             translate([0, 0, lid_z - 0.8])
             linear_extrude(height = 1.0)
                 lid_inlay_2d();
+
+            // --- STACKING DIMPLES ---
+            // 13mm wide at the surface, dropping 1.5mm deep at a 45-deg angle.
+            // Prints 100% support-free when the lid is printed upside down!
+            foot_inset_x = shell_w / 2 - 14;
+            foot_inset_y = shell_d / 2 - 14;
+            for (fx = [-foot_inset_x, foot_inset_x]) {
+                for (fy = [-foot_inset_y, foot_inset_y]) {
+                    translate([fx, fy, lid_z - 1.5])
+                        cylinder(d1 = 10.0, d2 = 13.0, h = 1.6, center = false);
+                }
+            }
         }
     }
 }
