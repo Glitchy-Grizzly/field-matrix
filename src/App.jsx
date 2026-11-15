@@ -1529,12 +1529,15 @@ module base_shell() {
 
 // --- 4. VAULT LID & FLUSH MULTI-COLOR INLAY ---
 module lid_inlay_2d() {
-    bw = shell_w * 0.78;
-    bd = shell_d * 0.58;
+    // Bound the width and depth so it never hits the stacking dimples
+    bw = min(shell_w * 0.78, shell_w - 46); 
+    bd = min(shell_d * 0.58, shell_d - 46);
+    
     // Scale title font size by both frame height/width AND character length so it never hits the border!
     char_count = max(4, len(lid_title));
     title_sz = min(bw * 0.16, bd * 0.26, ((bw - 12.0) / char_count) * 1.32);
     sub_sz = min(bw * 0.09, bd * 0.14);
+    
     if (enable_lid_border) {
         difference() {
             square([bw, bd], center = true);
@@ -2106,8 +2109,8 @@ module chamfered_rect_2d(w, l, c) {
 }
 
 module lid_inlay_2d() {
-    bw = shell_w - 24;
-    bl = shell_d - 24;
+    bw = shell_w - 46; // Shrunk to completely clear the stacking dimples
+    bl = shell_d - 46;
     max_chars = max(4, len(box_text_1), len(box_text_2));
     
     // Scale text dynamically to fit frame
