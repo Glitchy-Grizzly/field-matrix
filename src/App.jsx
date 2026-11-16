@@ -73,7 +73,7 @@ const BENCH_PRESETS = {
     width: 140,
     depth: 110,
     height: 15.5,
-    etsyPrice: 56.00
+    etsyPrice: 59.00
   },
   Pursuit: {
     id: 'Pursuit',
@@ -84,7 +84,7 @@ const BENCH_PRESETS = {
     width: 165,
     depth: 120,
     height: 17.0,
-    etsyPrice: 74.00
+    etsyPrice: 82.00
   },
   Frontier: {
     id: 'Frontier',
@@ -95,7 +95,7 @@ const BENCH_PRESETS = {
     width: 185,
     depth: 120,
     height: 18.0,
-    etsyPrice: 104.00
+    etsyPrice: 114.00
   }
 };
 
@@ -142,7 +142,7 @@ const CARGO_PRESETS = {
     height: 35,
     compX: 4,
     compY: 3,
-    etsyPrice: 82.00
+    etsyPrice: 85.00
   }
 };
 
