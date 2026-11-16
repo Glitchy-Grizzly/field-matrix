@@ -811,8 +811,6 @@ export default function App() {
 
   const triggerHiddenAdmin = useCallback(() => {
     setAdminMode(true);
-    setAdminPinInput('');
-    setAdminPinError(false);
   }, []);
 
   const handleLogoSecretClick = () => {
@@ -1699,15 +1697,15 @@ module vault_lid() {
             linear_extrude(height = 1.0)
                 lid_inlay_2d();
 
-            // --- STACKING DIMPLES ---
-            // 13mm wide at the surface, dropping 1.5mm deep at a 45-deg angle.
-            // Prints 100% support-free when the lid is printed upside down!
+            // --- STACKING DIMPLES (45-DEG SELF-CLOSING CONE) ---
+            // 10.6mm wide at lid surface, tapering at 45-deg down to a 1.6mm point (2.25mm deep).
+            // Zero flat ceiling = zero bridging strings, and renders cleanly in F5!
             foot_inset_x = shell_w / 2 - 14;
             foot_inset_y = shell_d / 2 - 14;
             for (fx = [-foot_inset_x, foot_inset_x]) {
                 for (fy = [-foot_inset_y, foot_inset_y]) {
-                    translate([fx, fy, lid_z - 1.5])
-                        cylinder(d1 = 10.0, d2 = 13.0, h = 1.6, center = false);
+                    translate([fx, fy, lid_z - 2.25])
+                        cylinder(d1 = 1.6, d2 = 10.8, h = 2.3, center = false);
                 }
             }
         }
@@ -2240,15 +2238,15 @@ module vault_lid() {
             linear_extrude(height = 1.0)
                 lid_inlay_2d();
 
-            // --- STACKING DIMPLES ---
-            // 13mm wide at the surface, dropping 1.5mm deep at a 45-deg angle.
-            // Prints 100% support-free when the lid is printed upside down!
+            // --- STACKING DIMPLES (45-DEG SELF-CLOSING CONE) ---
+            // 10.6mm wide at lid surface, tapering at 45-deg down to a 1.6mm point (2.25mm deep).
+            // Zero flat ceiling = zero bridging strings, and renders cleanly in F5!
             foot_inset_x = shell_w / 2 - 14;
             foot_inset_y = shell_d / 2 - 14;
             for (fx = [-foot_inset_x, foot_inset_x]) {
                 for (fy = [-foot_inset_y, foot_inset_y]) {
-                    translate([fx, fy, lid_z - 1.5])
-                        cylinder(d1 = 10.0, d2 = 13.0, h = 1.6, center = false);
+                    translate([fx, fy, lid_z - 2.25])
+                        cylinder(d1 = 1.6, d2 = 10.8, h = 2.3, center = false);
                 }
             }
         }
