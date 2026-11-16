@@ -155,7 +155,7 @@ const PRODUCT_CATALOG = {
     codePrefix: 'BENCH-',
     name: 'The Bench Matrix',
     subtitle: 'Modular Swing-Drawer Storage System',
-    etsyUrl: 'https://www.etsy.com/shop/GlitchyGrizzly',
+    etsyUrl: 'https://www.etsy.com/ca/listing/4609941600/the-bench-matrix-modular-organizer',
     squareUrl: SQUARE_CHECKOUT_URL,
     hasOpenScadGenerator: false
   },
