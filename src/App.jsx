@@ -560,6 +560,7 @@ export default function App() {
   const [isSuccessPage, setIsSuccessPage] = useState(false);
   useEffect(() => {
     const path = window.location.pathname.toLowerCase();
+    const params = new URLSearchParams(window.location.search);
     
     if (path === '/success') {
       setIsSuccessPage(true);
@@ -571,6 +572,22 @@ export default function App() {
     if (slug && PRODUCT_CATALOG[slug]) {
       setActiveTab(slug);
       setIsEtsyMode(true); // Automatically lock to Etsy purchase funnel
+      
+      // Auto-select caliber if passed in the URL (e.g., /ammo?cal=9mm)
+      if (slug === 'ammo') {
+        const calParam = params.get('cal');
+        if (calParam && AMMO_CALIBERS[calParam.toLowerCase()]) {
+          const targetCal = AMMO_CALIBERS[calParam.toLowerCase()];
+          
+          // Lock the UI to only show this specific pricing category!
+          setLockedCategory(targetCal.category); 
+          
+          // Delay state update slightly to ensure the tab transition is complete
+          setTimeout(() => {
+            handleSelectAmmoCaliber(calParam.toLowerCase());
+          }, 10);
+        }
+      }
     }
   }, []);
   const [showModal, setShowModal] = useState(false);
@@ -596,6 +613,7 @@ export default function App() {
   // ==========================================
   // PRODUCT 3 STATE: THE AMMO MATRIX
   // ==========================================
+  const [lockedCategory, setLockedCategory] = useState(null);
   const [ammoCaliber, setAmmoCaliber] = useState('9mm');
   const [ammoPreset, setAmmoPreset] = useState('50');
   const [ammoCols, setAmmoCols] = useState(10);
@@ -948,12 +966,8 @@ export default function App() {
       const cKey = CARGO_PRESETS[cargoPreset] ? cargoPreset : 'Trail';
       applyCargoPreset(cKey);
 
-      // Force Ammo Matrix onto 22lr (or current allowed Etsy caliber) & snap cols/rows to preset
-      const targetCal = AMMO_CALIBERS['22lr'];
-      if (ammoCaliber !== '22lr') {
-        setAmmoCaliber('22lr');
-        setAmmoLidTitle(targetCal.short);
-      }
+      // Snap Ammo Matrix cols/rows to the active preset without overriding the caliber
+      const targetCal = AMMO_CALIBERS[ammoCaliber] || AMMO_CALIBERS['22lr'];
       const presets = getCaliberPresets(targetCal);
       const activeP = presets.find((p) => p.id === ammoPreset) || presets[0];
       setAmmoCols(activeP.cols);
@@ -1144,9 +1158,9 @@ export default function App() {
       // Define Etsy Retail Price Tables
       const AMMO_PRICES = {
         Rimfire: { standard: 46.00, weekend: 58.00, bulk: 74.00 },
-        Pistol:  { standard: 49.00, weekend: 64.00, bulk: 82.00 },
-        Rifle:   { standard: 54.00, weekend: 72.00, bulk: 94.00 },
-        Shotgun: { standard: 58.00, weekend: 78.00, bulk: 99.00 }
+        Pistol:  { standard: 52.00, weekend: 67.00, bulk: 85.00 },
+        Rifle:   { standard: 57.00, weekend: 75.00, bulk: 114.00 },
+        Shotgun: { standard: 62.00, weekend: 82.00, bulk: 122.00 }
       };
 
       const tierMap = AMMO_PRICES[cat] || AMMO_PRICES.Rimfire;
@@ -5051,7 +5065,9 @@ Date: ${new Date().toISOString()}
                       { id: 'Pistol',  label: 'Pistol & Lever-Action (.357 / .44 / .45)' },
                       { id: 'Rifle',   label: 'Centerfire Rifles' },
                       { id: 'Shotgun', label: 'Shotgun' }
-                    ].map((group) => {
+                    ]
+                    .filter((group) => !isEtsyMode || !lockedCategory || group.id === lockedCategory)
+                    .map((group) => {
                       const groupCalibers = Object.values(AMMO_CALIBERS).filter(
                         (cal) => cal.category === group.id
                       );
@@ -5065,12 +5081,9 @@ Date: ${new Date().toISOString()}
                               <button
                                 key={cal.id}
                                 onClick={() => handleSelectAmmoCaliber(cal.id)}
-                                disabled={isEtsyMode && cal.id !== '22lr'}
                                 className={`text-left p-2 rounded-lg border transition-all ${
                                   ammoCaliber === cal.id
                                     ? 'bg-amber-500/15 border-amber-500/60 text-white'
-                                    : isEtsyMode && cal.id !== '22lr'
-                                    ? 'opacity-40 cursor-not-allowed border-[#1e293b]'
                                     : 'bg-[#151e31] border-[#1e293b] text-slate-300 hover:border-slate-600'
                                 }`}
                               >
