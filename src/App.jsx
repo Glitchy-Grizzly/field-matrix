@@ -30,6 +30,14 @@ import {
   Shield
 } from 'lucide-react';
 
+import {
+  generateBenchShellSCAD,
+  generateBenchDrawerSCAD,
+  generateBenchLidSCAD,
+  generateBenchLatchSCAD,
+  generateBenchLabelSCAD,
+} from './benchV2Generator';
+
 // ==========================================
 // 1. FIREBASE, APP CHECK & CHECKOUT CONFIGURATION
 // ==========================================
@@ -56,46 +64,50 @@ const BENCH_PRESETS = {
   Trace: {
     id: 'Trace',
     label: 'Trace',
-    summary: '1 Tier • 5 Drawers',
-    tiers: 1,
-    drawersPerTier: 5,
-    width: 110,
-    depth: 95,
-    height: 14.0,
-    etsyPrice: 36.00
+    summary: '2 Tiers • 35mm Low-Profile',
+    tiers: 2,
+    numDrawers: 2,
+    width: 200,
+    depth: 150,
+    height: 35,
+    lidStyle: 1,
+    etsyPrice: 44.00
   },
   Trail: {
     id: 'Trail',
     label: 'Trail',
-    summary: '2 Tiers • 4 Drawers/Tier (8 Total)',
+    summary: '2 Tiers • 50mm Standard',
     tiers: 2,
-    drawersPerTier: 4,
-    width: 140,
-    depth: 110,
-    height: 15.5,
-    etsyPrice: 56.00
+    numDrawers: 2,
+    width: 200,
+    depth: 150,
+    height: 50,
+    lidStyle: 2,
+    etsyPrice: 58.00
   },
   Pursuit: {
     id: 'Pursuit',
     label: 'Pursuit',
-    summary: '2 Tiers • 5 Drawers/Tier (10 Total)',
-    tiers: 2,
-    drawersPerTier: 5,
-    width: 165,
-    depth: 120,
-    height: 17.0,
-    etsyPrice: 74.00
+    summary: '3 Tiers • 50mm Deep Bay',
+    tiers: 3,
+    numDrawers: 2,
+    width: 200,
+    depth: 150,
+    height: 50,
+    lidStyle: 3,
+    etsyPrice: 79.00
   },
   Frontier: {
     id: 'Frontier',
     label: 'Frontier',
-    summary: '3 Tiers • 5 Drawers/Tier (15 Total)',
+    summary: '3 Tiers • 70mm Heavy Duty',
     tiers: 3,
-    drawersPerTier: 5,
-    width: 185,
-    depth: 120,
-    height: 18.0,
-    etsyPrice: 104.00
+    numDrawers: 3,
+    width: 200,
+    depth: 150,
+    height: 70,
+    lidStyle: 3,
+    etsyPrice: 108.00
   }
 };
 
@@ -154,10 +166,10 @@ const PRODUCT_CATALOG = {
     id: 'bench',
     codePrefix: 'BENCH-',
     name: 'The Bench Matrix',
-    subtitle: 'Modular Swing-Drawer Storage System',
+    subtitle: 'Modular V-Rail Workbench System',
     etsyUrl: 'https://www.etsy.com/shop/GlitchyGrizzly',
     squareUrl: SQUARE_CHECKOUT_URL,
-    hasOpenScadGenerator: false
+    hasOpenScadGenerator: true
   },
   cargo: {
     id: 'cargo',
@@ -842,36 +854,38 @@ export default function App() {
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
 
   // ==========================================
-  // PRODUCT 1 STATE: THE BENCH MATRIX
+  // PRODUCT 1 STATE: THE BENCH MATRIX V2
   // ==========================================
   const [sizePreset, setSizePreset] = useState('Trail');
-  const [tiers, setTiers] = useState(BENCH_PRESETS.Trail.tiers);
-  const [drawersPerTier, setDrawersPerTier] = useState(BENCH_PRESETS.Trail.drawersPerTier);
-  const [opening, setOpening] = useState('Left');
-  const [handlePos, setHandlePos] = useState('Front');
-  const [width, setWidth] = useState(BENCH_PRESETS.Trail.width);
-  const [depth, setDepth] = useState(BENCH_PRESETS.Trail.depth);
-  const [height, setHeight] = useState(BENCH_PRESETS.Trail.height);
-  const [lockToP1S, setLockToP1S] = useState(true);
+  const [tiers, setTiers] = useState(BENCH_PRESETS.Trail.tiers); // Number of stacked shells (1-4)
+  const [drawersPerTier, setDrawersPerTier] = useState(BENCH_PRESETS.Trail.numDrawers); // 1, 2, or 3 bays wide per shell
+  const [benchLidStyle, setBenchLidStyle] = useState(BENCH_PRESETS.Trail.lidStyle); // 1=Worktop, 2=Organizer, 3=Carry Handle
+  const [width, setWidth] = useState(BENCH_PRESETS.Trail.width); // 200mm
+  const [depth, setDepth] = useState(BENCH_PRESETS.Trail.depth); // 150mm
+  const [height, setHeight] = useState(BENCH_PRESETS.Trail.height); // 35, 50, 70, 100mm shell height
 
   const [enableLabelSlot, setEnableLabelSlot] = useState(true);
-  const [labelWidth, setLabelWidth] = useState(30);
-  const [labelHeight, setLabelHeight] = useState(11);
+  const [labelWidth, setLabelWidth] = useState(60);
+  const [labelHeight, setLabelHeight] = useState(13);
   const [labelFont, setLabelFont] = useState('Inter');
   const [labels, setLabels] = useState({
-    tier_1_box_3: 'M3 Bolts',
-    tier_1_box_2: 'Hex Nuts',
-    tier_0_box_3: 'Nozzles'
+    tier_1_box_0: 'M3 BOLTS',
+    tier_1_box_1: 'HEX NUTS',
+    tier_0_box_0: 'WASHERS',
+    tier_0_box_1: 'HEAT INSERTS'
   });
 
+  // Per-drawer internal fused divider grid: { h: divRows (1-4), v: divCols (1-3) }
   const [drawerDividers, setDrawerDividers] = useState({});
-  const [batchH, setBatchH] = useState(1);
-  const [batchV, setBatchV] = useState(1);
+  const [batchH, setBatchH] = useState(3); // Default 3 rows front-to-back
+  const [batchV, setBatchV] = useState(1); // Default 1 col left-to-right
 
-  const [casingColorId, setCasingColorId] = useState('cocoa-brown');
-  const [drawerColorId, setDrawerColorId] = useState('matte-latte-brown');
+  // Bench V2 uses rugged PETG swatches + Latch/Handle accent color
+  const [casingColorId, setCasingColorId] = useState('petg-black');
+  const [drawerColorId, setDrawerColorId] = useState('petg-dark-beige');
+  const [benchLatchColorId, setBenchLatchColorId] = useState('petg-orange');
 
-  const [swingOpenAmount, setSwingOpenAmount] = useState(0);
+  const [swingOpenAmount, setSwingOpenAmount] = useState(0); // 0 to 1 horizontal slide-out
   const [openDrawersMap, setOpenDrawersMap] = useState({});
   const [explodedView, setExplodedView] = useState(false);
   const [xrayMode, setXrayMode] = useState(false);
@@ -923,10 +937,11 @@ export default function App() {
     if (!p) return;
     setSizePreset(presetKey);
     setTiers(p.tiers);
-    setDrawersPerTier(p.drawersPerTier);
+    setDrawersPerTier(p.numDrawers);
     setWidth(p.width);
     setDepth(p.depth);
     setHeight(p.height);
+    if (p.lidStyle) setBenchLidStyle(p.lidStyle);
   }, []);
 
   const applyCargoPreset = useCallback((presetKey) => {
@@ -975,42 +990,33 @@ export default function App() {
   );
 
   const activeCasingColor = useMemo(
-    () => BAMBU_PLA_COLORS.find((c) => c.id === casingColorId) || BAMBU_PLA_COLORS[16],
+    () => BAMBU_PETG_COLORS.find((c) => c.id === casingColorId) || BAMBU_PETG_COLORS[8],
     [casingColorId]
   );
   const activeDrawerColor = useMemo(
-    () => BAMBU_PLA_COLORS.find((c) => c.id === drawerColorId) || BAMBU_PLA_COLORS[9],
+    () => BAMBU_PETG_COLORS.find((c) => c.id === drawerColorId) || BAMBU_PETG_COLORS[7],
     [drawerColorId]
   );
+  const activeBenchLatchColor = useMemo(
+    () => BAMBU_PETG_COLORS.find((c) => c.id === benchLatchColorId) || BAMBU_PETG_COLORS[0],
+    [benchLatchColorId]
+  );
 
-  const maxLabelHeight = useMemo(() => {
-    const raw = height <= 20 ? 6 + (height - 10) * 0.8 : height - 6;
-    return Math.max(6, Math.round(raw * 10) / 10);
-  }, [height]);
-
-  const maxLabelWidth = useMemo(() => {
-    if (width >= 58) return 60;
-    return Math.max(10, Math.round(60 - 2 * (58 - width)));
-  }, [width]);
-
-  useEffect(() => {
-    if (labelHeight > maxLabelHeight) setLabelHeight(maxLabelHeight);
-  }, [maxLabelHeight, labelHeight]);
-
-  useEffect(() => {
-    if (labelWidth > maxLabelWidth) setLabelWidth(maxLabelWidth);
-  }, [maxLabelWidth, labelWidth]);
-
-  // ---> PASTE DYNAMIC BENCH & CARGO CHARACTER LIMITS HERE <---
-  // 1. Bench Matrix: Calculate effective label plate width (mm) and allow ~1 char per 1.85mm
   const effectiveBenchLabelWidthMm = useMemo(() => {
-    const dW = width - 2.6 * 2 - 2.0; // Drawer outer width
-    return Math.min(labelWidth, maxLabelWidth, dW - 14);
-  }, [width, labelWidth, maxLabelWidth]);
+    const bayW = (width - 3.2 * (drawersPerTier + 1)) / drawersPerTier;
+    const faceW = bayW - 0.4;
+    return Math.min(80, faceW - 12);
+  }, [width, drawersPerTier]);
 
   const benchMaxLabelChars = useMemo(() => {
-    return Math.max(4, Math.min(22, Math.floor(effectiveBenchLabelWidthMm / 1.85)));
+    return Math.max(4, Math.min(18, Math.floor(effectiveBenchLabelWidthMm / 4.2)));
   }, [effectiveBenchLabelWidthMm]);
+
+  const singleTierHeightMm = height;
+  const totalStackedHeightMm = useMemo(() => {
+    return Number((tiers * height + (benchLidStyle === 0 ? 0 : 18)).toFixed(1)); // Tiers + 18mm Top Lid
+  }, [tiers, height]);
+  const isOverP1SLimit = Math.max(width, depth, height) > P1S_MAX_HEIGHT_MM;
 
   // Automatically trim any existing drawer labels if the box/label width is shrunk
   useEffect(() => {
@@ -1029,60 +1035,25 @@ export default function App() {
     });
   }, [benchMaxLabelChars]);
 
-  // 2. Cargo Matrix: Calculate inner frame width (mm) inside the border and scale character limit
+  // Cargo Matrix: Calculate inner frame width (mm) inside the border and scale character limit
   const cargoInnerFrameWidthMm = useMemo(() => {
-    // Border inset is 5mm + 2mm line width + 3mm breathing room on each side = 20mm total inset
     const totalInset = cargoBorder ? 20 : 12;
     return Math.max(20, cargoWidth - totalInset);
   }, [cargoWidth, cargoBorder]);
 
   const cargoMaxLidChars = useMemo(() => {
-    // Scales smoothly: Trace (80mm) -> 10 chars, Trail (120mm) -> 15 chars, Pursuit (160mm) -> 20 chars, Frontier (200mm) -> 24 chars
     return Math.max(6, Math.min(24, Math.floor(cargoInnerFrameWidthMm / 6.5)));
   }, [cargoInnerFrameWidthMm]);
 
-  // Automatically trim Cargo Lid Text if the user switches to a smaller box width
   useEffect(() => {
     if (cargoText && cargoText.length > cargoMaxLidChars) {
       setCargoText((prev) => prev.slice(0, cargoMaxLidChars));
     }
   }, [cargoMaxLidChars, cargoText]);
 
-  const singleTierHeightMm = useMemo(() => {
-    return Number(
-      (drawersPerTier * (height + TIER_CLEARANCE_PER_DRAWER_MM) + TIER_FRAME_BASE_TOP_MM).toFixed(1)
-    );
-  }, [drawersPerTier, height]);
-
-  const totalStackedHeightMm = useMemo(() => {
-    return Number((tiers * singleTierHeightMm - (tiers - 1) * 0.5).toFixed(1));
-  }, [tiers, singleTierHeightMm]);
-
-  const isOverP1SLimit = singleTierHeightMm > P1S_MAX_HEIGHT_MM;
-
-  const maxAllowedDrawersForCurrentHeight = useMemo(() => {
-    return Math.max(
-      1,
-      Math.min(
-        10,
-        Math.floor(
-          (P1S_MAX_HEIGHT_MM - TIER_FRAME_BASE_TOP_MM) /
-            (height + TIER_CLEARANCE_PER_DRAWER_MM)
-        )
-      )
-    );
-  }, [height]);
-
-  const maxAllowedHeightForCurrentDrawers = useMemo(() => {
-    const raw =
-      (P1S_MAX_HEIGHT_MM - TIER_FRAME_BASE_TOP_MM) / drawersPerTier -
-      TIER_CLEARANCE_PER_DRAWER_MM;
-    return Math.max(10, Math.min(30, Math.floor(raw * 10) / 10));
-  }, [drawersPerTier]);
-
   const getDividerForDrawer = useCallback(
     (t, b) => {
-      return drawerDividers[`tier_${t}_box_${b}`] || { h: 1, v: 1 };
+      return drawerDividers[`tier_${t}_box_${b}`] || { h: 3, v: 1 };
     },
     [drawerDividers]
   );
@@ -1100,12 +1071,16 @@ export default function App() {
     setBatchH(hCount);
     setBatchV(vCount);
     const updated = {};
+    const openAll = {};
     for (let t = 0; t < tiers; t++) {
       for (let b = 0; b < drawersPerTier; b++) {
-        updated[`tier_${t}_box_${b}`] = { h: hCount, v: vCount };
+        const key = `tier_${t}_box_${b}`;
+        updated[key] = { h: hCount, v: vCount };
+        openAll[key] = true;
       }
     }
     setDrawerDividers(updated);
+    setOpenDrawersMap((prev) => ({ ...prev, ...openAll }));
   };
 
   const calculatePrice = () => {
@@ -1115,12 +1090,15 @@ export default function App() {
     if (activeTab === 'bench') {
       // 1. In Etsy Mode, return the flat all-inclusive preset price ($36 / $56 / $69 / $99)
       if (isEtsyMode && BENCH_PRESETS[sizePreset]?.etsyPrice) {
-        return BENCH_PRESETS[sizePreset].etsyPrice;
+        const presetDefaultLid = BENCH_PRESETS[sizePreset].lidStyle || 1;
+        const lidDiff = (benchLidStyle === 3 ? 6 : benchLidStyle === 2 ? 3 : 0) - (presetDefaultLid === 3 ? 6 : presetDefaultLid === 2 ? 3 : 0);
+        return BENCH_PRESETS[sizePreset].etsyPrice + lidDiff;
       }
 
-      // 2. Competitive Direct Mode Dynamic Calculation
-      const baseFee = 13.50;
+      // 2. Competitive Direct Mode Dynamic Calculation (Includes Lid Style Upcharge)
+      const baseFee = benchLidStyle === 0 ? 6.50 : 13.50; // Lower base fee when ordering add-on tiers with no lid!
       const tierCost = tiers * 3.50;
+      const lidCost = benchLidStyle === 3 ? 6.50 : benchLidStyle === 2 ? 3.50 : benchLidStyle === 1 ? 0.00 : -4.00;
       const volumeFactor = ((width * depth * height) / 25000) * 1.15;
       const drawersCost = totalDrawers * (1.20 + volumeFactor * 0.175);
       
@@ -1133,7 +1111,7 @@ export default function App() {
         }
       }
 
-      return baseFee + tierCost + drawersCost + dividersCost;
+      return baseFee + tierCost + lidCost + drawersCost + dividersCost;
 
     } else if (activeTab === 'ammo') {
       // 3. AMMO MATRIX TIERED PRICING MATRIX
@@ -1843,36 +1821,35 @@ if (export_part == "full") {
       spec += `- Tray / Accent     : ${activeAmmoTrayColor.name} (${activeAmmoTrayColor.hex}) / ${activeAmmoLatchColor.name} (${activeAmmoLatchColor.hex})\n`;
       spec += `- Lid Inlay Text    : "${ammoLidTitle}"${showAmmoRoundCount ? ` / "${ammoTotalRounds} RDS"` : ' (Round Count Off)'}\n`;
     } else if (activeTab === 'bench') {
-      spec += `[ 1. GEOMETRY & CONFIGURATION ]\n`;
+      const lidNames = {
+     0: '0. None (Expansion Add-On Tiers Only)',
+     1: '1. Stackable Worktop (18mm)',
+     2: '2. 4-Bin Organizer Tray (18mm)',
+     3: '3. Tactical Carry Handle (18mm)'
+    };
+    const totalLatches = (tiers + (benchLidStyle === 0 ? 0 : 1)) * 2;
+    const totalM3Bolts = totalLatches + (benchLidStyle === 3 ? 2 : 0);
+
+      spec += `[ 1. BENCH MATRIX V2 GEOMETRY & ARCHITECTURE ]\n`;
       spec += `- Preset Tier        : ${sizePreset}\n`;
-      spec += `- Number of Tiers    : ${tiers}\n`;
-      spec += `- Drawers per Tier   : ${drawersPerTier} (${tiers * drawersPerTier} Total Drawers)\n`;
-      spec += `- Single Tier Height : ${singleTierHeightMm} mm (Max 250.0 mm Solid Pivot Rod)\n`;
-      spec += `- Total Stack Height : ${totalStackedHeightMm} mm\n`;
-      spec += `- Opening Pivot Side : ${opening} Hinge Rod\n`;
-      spec += `- Finger Pull Handle : ${handlePos} Curved Corner Notch\n`;
-      spec += `- Outer Width        : ${width} mm\n`;
-      spec += `- Outer Depth        : ${depth} mm\n`;
-      spec += `- Drawer Height      : ${height.toFixed(1)} mm\n\n`;
+      spec += `- Top Lid Style      : ${lidNames[benchLidStyle] || 'Style ' + benchLidStyle} (18mm Height)\n`;
+      spec += `- Stacked Shells     : ${tiers} Tiers x ${height}mm (${totalStackedHeightMm}mm Total Stack Height)\n`;
+      spec += `- Bays per Tier      : ${drawersPerTier} Columns (${tiers * drawersPerTier} Total V-Rail Drawers)\n`;
+      spec += `- Footprint          : ${width}mm (W) x ${depth}mm (D)\n`;
+      spec += `- Hardware BOM       : ${totalM3Bolts}x M3x20mm SHCS Bolts (${totalLatches} Cam-Latches${benchLidStyle === 3 ? ' + 2 Handle Pivots' : ''})\n\n`;
 
-      spec += `[ 2. COLORS (20 BAMBU LAB PLA SWATCHES) ]\n`;
-      spec += `- Outer Casing & Rod : ${activeCasingColor.name} (${activeCasingColor.hex})\n`;
-      spec += `- Drawers & Dividers : ${activeDrawerColor.name} (${activeDrawerColor.hex})\n\n`;
+      spec += `[ 2. COLORS (BAMBU LAB PETG SWATCHES) ]\n`;
+      spec += `- Shells & Top Lid   : ${activeCasingColor.name} (${activeCasingColor.hex})\n`;
+      spec += `- V-Rail Drawers     : ${activeDrawerColor.name} (${activeDrawerColor.hex})\n`;
+      spec += `- Latches & Accents  : ${activeBenchLatchColor.name} (${activeBenchLatchColor.hex})\n\n`;
 
-      spec += `[ 3. LABEL SLOT SETTINGS ]\n`;
-      spec += `- Enable Label Slot  : ${enableLabelSlot ? 'YES' : 'NO'}\n`;
-      if (enableLabelSlot) {
-        spec += `- Label Slot Width   : ${labelWidth} mm\n`;
-        spec += `- Label Slot Height  : ${labelHeight} mm\n`;
-        spec += `- Font Family        : ${labelFont}\n`;
-      }
-      spec += `\n[ 4. PER-DRAWER DIVIDERS (H x V) & CUSTOM LABELS ]\n`;
+      spec += `[ 3. PER-DRAWER FUSED GRIDS (ROWS x COLS) & U-TRACK LABELS ]\n`;
       for (let t = tiers - 1; t >= 0; t--) {
         spec += `--- Tier ${t + 1} ---\n`;
-        for (let b = drawersPerTier - 1; b >= 0; b--) {
+        for (let b = 0; b < drawersPerTier; b++) {
           const lbl = (labels[`tier_${t}_box_${b}`] || '').trim() || '(No Label)';
           const div = getDividerForDrawer(t, b);
-          spec += `  Drawer ${b + 1}: Sections [${div.h}H x ${div.v}V] | Label: "${lbl}"\n`;
+          spec += `  Bay ${b + 1}: Grid [${div.h} Rows x ${div.v} Cols] | Label: "${lbl}"\n`;
         }
       }
     } else {
@@ -2304,13 +2281,76 @@ if (export_part == "full") {
     URL.revokeObjectURL(url);
   };
 
+  const generateBenchV2ScadFromApp = (mode = scadExportMode) => {
+    const firstDrawerDiv = getDividerForDrawer(0, 0);
+    const firstLabel = (labels['tier_0_box_0'] || 'FASTENERS').trim();
+
+    if (mode === 'drawer_only') {
+      return generateBenchDrawerSCAD({
+        width,
+        depth,
+        height,
+        numDrawers: drawersPerTier,
+        divCols: firstDrawerDiv.v || 1,
+        divRows: firstDrawerDiv.h || 3,
+      });
+    }
+    if (mode === 'lid_only') {
+      return generateBenchLidSCAD({
+        width,
+        depth,
+        lidH: 18,
+        lidStyle: benchLidStyle,
+        showHandle: benchLidStyle === 3,
+      });
+    }
+    if (mode === 'latch_only') {
+      return generateBenchLatchSCAD();
+    }
+    if (mode === 'label_only') {
+      const activeLabels = [];
+      for (let t = tiers - 1; t >= 0; t--) {
+        for (let b = 0; b < drawersPerTier; b++) {
+          const txt = (labels[`tier_${t}_box_${b}`] || '').trim();
+          if (txt) activeLabels.push(txt);
+        }
+      }
+      return generateBenchLabelSCAD({
+        labelsList: activeLabels,
+        width,
+        numDrawers: drawersPerTier,
+        shellColorHex: activeCasingColor.hex,
+        drawerColorHex: activeDrawerColor.hex,
+      });
+    }
+    // Default ('full' or 'shell_only'): Export the Parametric Multi-Bay Shell
+    return generateBenchShellSCAD({
+      width,
+      depth,
+      height,
+      numDrawers: drawersPerTier,
+    });
+  };
+
+  const getBenchScadFilename = (mode = scadExportMode) => {
+    const cleanCode = designCode || 'BENCH-V2';
+    return `${cleanCode}_${sizePreset.toUpperCase()}_${width}x${depth}x${height}mm_${drawersPerTier}Bay_Lid${benchLidStyle}_${mode.toUpperCase()}.scad`;
+  };
+  
   const handleDownloadScad = () => {
-    const scadContent = activeTab === 'ammo'
-      ? generateAmmoMatrixScad(scadExportMode)
-      : generateScadCode(scadExportMode);
-    const filename = activeTab === 'ammo'
-      ? getAmmoScadFilename(scadExportMode)
-      : getCargoScadFilename(scadExportMode);
+    const scadContent =
+      activeTab === 'ammo'
+        ? generateAmmoMatrixScad(scadExportMode)
+        : activeTab === 'bench'
+        ? generateBenchV2ScadFromApp(scadExportMode)
+        : generateScadCode(scadExportMode);
+
+    const filename =
+      activeTab === 'ammo'
+        ? getAmmoScadFilename(scadExportMode)
+        : activeTab === 'bench'
+        ? getBenchScadFilename(scadExportMode)
+        : getCargoScadFilename(scadExportMode);
 
     if (!scadContent) return;
 
@@ -2377,54 +2417,52 @@ Date: ${new Date().toISOString()}
     };
 
     if (activeTab === 'bench') {
-    const benchConfig = {
-      sizePreset,
-      tiers,
-      drawersPerTier,
-      opening,
-      handlePos,
-      width: Number(width),
-      depth: Number(depth),
-      height: Number(height),
-      singleTierHeightMm,
-      totalStackedHeightMm,
-      enableLabelSlot,
-      labelWidth,
-      labelHeight,
-      labelFont,
-      labels,
-      drawerDividers,
-      casingColorId,
-      casingColorHex: activeCasingColor.hex,
-      drawerColorId,
-      drawerColorHex: activeDrawerColor.hex
-    };
+      const benchConfig = {
+        sizePreset,
+        tiers,
+        drawersPerTier,
+        benchLidStyle,
+        width: Number(width),
+        depth: Number(depth),
+        height: Number(height),
+        singleTierHeightMm,
+        totalStackedHeightMm,
+        enableLabelSlot,
+        labels,
+        drawerDividers,
+        casingColorId,
+        casingColorHex: activeCasingColor.hex,
+        drawerColorId,
+        drawerColorHex: activeDrawerColor.hex,
+        benchLatchColorId,
+        benchLatchColorHex: activeBenchLatchColor.hex
+      };
 
-    return {
-      ...basePayload,
-      dimensionsSummary: `${sizePreset}: ${width}W x ${depth}D x ${totalStackedHeightMm}H mm (${tiers} Tiers, ${tiers * drawersPerTier} Drawers)`,
-      colorsSummary: `Casing: ${activeCasingColor.name} / Drawers: ${activeDrawerColor.name}`,
-      configuration: benchConfig,
-      productionOutput: {
-        specSheet: generateSpecSheet()
-      },
-      width: Number(width),
-      length: Number(depth),
-      height: Number(height),
-      scadCode: generateSpecSheet(),
-      tiers,
-      drawersPerTier,
-      opening,
-      handlePos,
-      enableLabelSlot,
-      labelWidth,
-      labelHeight,
-      labelFont,
-      labels,
-      drawerDividers,
-      casingColorId,
-      drawerColorId
-    };
+      return {
+        ...basePayload,
+        dimensionsSummary: `${sizePreset}: ${width}W x ${depth}D x ${totalStackedHeightMm}H mm (${tiers} Tiers, ${drawersPerTier} Bays/Tier, Lid ${benchLidStyle})`,
+        colorsSummary: `Shell: ${activeCasingColor.name} / Drawers: ${activeDrawerColor.name} / Accent: ${activeBenchLatchColor.name}`,
+        configuration: benchConfig,
+        productionOutput: {
+          scadFilename: getBenchScadFilename(scadExportMode),
+          scadCode: generateBenchV2ScadFromApp(scadExportMode),
+          specSheet: generateSpecSheet()
+        },
+        width: Number(width),
+        length: Number(depth),
+        height: Number(height),
+        scadCode: generateBenchV2ScadFromApp(scadExportMode),
+        scadFilename: getBenchScadFilename(scadExportMode),
+        tiers,
+        drawersPerTier,
+        benchLidStyle,
+        enableLabelSlot,
+        labels,
+        drawerDividers,
+        casingColorId,
+        drawerColorId,
+        benchLatchColorId
+      };
   } else if (activeTab === 'ammo') {
       const magCount = Math.max(ammoShellX, ammoShellY) >= 150 ? 12 : 8;
 
@@ -2636,12 +2674,14 @@ Date: ${new Date().toISOString()}
 
   const handleResetDirectDimensions = () => {
     if (activeTab === 'bench') {
-      // Bench Matrix default direct dimensions
-      setWidth(140);
-      setDepth(110);
-      setHeight(15.5);
+      // Bench Matrix V2 default direct dimensions (Trail Preset)
+      setSizePreset('Trail');
+      setWidth(200);
+      setDepth(150);
+      setHeight(50);
       setTiers(2);
-      setDrawersPerTier(4);
+      setDrawersPerTier(2);
+      setBenchLidStyle(2);
     } else if (activeTab === 'cargo') {
       setCargoWidth(120);
       setCargoLength(90);
@@ -2735,20 +2775,17 @@ Date: ${new Date().toISOString()}
           setActiveTab('bench');
           if (cfg.sizePreset ?? data.sizePreset) setSizePreset(cfg.sizePreset ?? data.sizePreset);
           setTiers(cfg.tiers ?? data.tiers ?? 2);
-          setDrawersPerTier(cfg.drawersPerTier ?? data.drawersPerTier ?? 4);
-          setOpening(cfg.opening ?? data.opening ?? 'Left');
-          setHandlePos(cfg.handlePos ?? data.handlePos ?? 'Front');
-          setWidth(cfg.width ?? data.width ?? 140);
-          setDepth(cfg.depth ?? cfg.length ?? data.length ?? 110);
-          setHeight(cfg.height ?? data.height ?? 15.5);
+          setDrawersPerTier(cfg.drawersPerTier ?? data.drawersPerTier ?? 2);
+          setBenchLidStyle(cfg.benchLidStyle ?? data.benchLidStyle ?? 2);
+          setWidth(cfg.width ?? data.width ?? 200);
+          setDepth(cfg.depth ?? cfg.length ?? data.length ?? 150);
+          setHeight(cfg.height ?? data.height ?? 50);
           setEnableLabelSlot(cfg.enableLabelSlot ?? data.enableLabelSlot ?? true);
-          setLabelWidth(cfg.labelWidth ?? data.labelWidth ?? 30);
-          setLabelHeight(cfg.labelHeight ?? data.labelHeight ?? 11);
-          setLabelFont(cfg.labelFont ?? data.labelFont ?? 'Inter');
           setLabels(cfg.labels || data.labels || {});
           setDrawerDividers(cfg.drawerDividers || data.drawerDividers || {});
-          setCasingColorId(cfg.casingColorId || data.casingColorId || 'cocoa-brown');
-          setDrawerColorId(cfg.drawerColorId || data.drawerColorId || 'matte-latte-brown');
+          setCasingColorId(cfg.casingColorId || data.casingColorId || 'petg-black');
+          setDrawerColorId(cfg.drawerColorId || data.drawerColorId || 'petg-dark-beige');
+          setBenchLatchColorId(cfg.benchLatchColorId || data.benchLatchColorId || 'petg-orange');
         } else if (data.productLine === 'ammo' || cfg.ammoCaliber || data.ammoCaliber) {
           setActiveTab('ammo');
 
@@ -2995,8 +3032,8 @@ Date: ${new Date().toISOString()}
       camera.lookAt(0, targetY, 0);
 
       drawerPivotsRef.current.forEach((item) => {
-        if (item?.pivotGroup) {
-          item.pivotGroup.rotation.y += ((item.targetAngle || 0) - item.pivotGroup.rotation.y) * 0.16;
+        if (item?.pivotGroup && typeof item.targetZ === 'number') {
+          item.pivotGroup.position.z += (item.targetZ - item.pivotGroup.position.z) * 0.16;
         }
       });
 
@@ -3052,149 +3089,253 @@ Date: ${new Date().toISOString()}
       });
       group.remove(child);
     }
+    // Save current Z positions so open drawers don't snap shut on rebuild!
+    const prevDrawerZ = {};
+    drawerPivotsRef.current.forEach((item) => {
+      if (item?.drawerKey && item?.pivotGroup) {
+        prevDrawerZ[item.drawerKey] = item.pivotGroup.position.z;
+      }
+    });
     drawerPivotsRef.current = [];
 
     if (activeTab === 'bench') {
       const casingMat = new THREE.MeshStandardMaterial({
         color: activeCasingColor.hex,
-        roughness: activeCasingColor.roughness ?? 0.55,
+        roughness: 0.55,
         transparent: xrayMode,
         opacity: xrayMode ? 0.32 : 1.0
       });
       const drawerMat = new THREE.MeshStandardMaterial({
         color: activeDrawerColor.hex,
-        roughness: activeDrawerColor.roughness ?? 0.5,
+        roughness: 0.5,
         transparent: xrayMode,
         opacity: xrayMode ? 0.45 : 1.0
       });
+      const latchMat = new THREE.MeshStandardMaterial({
+        color: activeBenchLatchColor.hex,
+        roughness: 0.4
+      });
 
-      const wallThick = 2.6;
-      const tierUnitPitch = height + TIER_CLEARANCE_PER_DRAWER_MM;
-      const singleTierH = drawersPerTier * tierUnitPitch + TIER_FRAME_BASE_TOP_MM;
-      const explodeDrawerGap = explodedView ? Math.max(14, height * 0.85) : 0;
-      const explodeTierGap = explodedView ? drawersPerTier * explodeDrawerGap + 28 : 0;
-
-      const pivotIsLeft = opening === 'Left';
-      const closedSideSign = pivotIsLeft ? -1 : 1;
-      const openSideName = pivotIsLeft ? 'right' : 'left';
+      const wall = 3.2;
+      const bayW = (width - wall * (drawersPerTier + 1)) / drawersPerTier;
+      const faceW = bayW - 0.4; // Individual drawer face framed inside each bay!
+      const explodeGap = explodedView ? 28 : 0;
+      const lidH = 18;
 
       for (let t = 0; t < tiers; t++) {
+        const tierY = t * (height + explodeGap);
         const tierGroup = new THREE.Group();
-        tierGroup.position.y = t * (singleTierH + explodeTierGap);
-        const visualTierH = singleTierH + (drawersPerTier - 1) * explodeDrawerGap;
+        tierGroup.position.y = tierY;
 
-        const plateGeo = new THREE.BoxGeometry(width, wallThick, depth);
-        const bottomPlate = new THREE.Mesh(plateGeo, casingMat);
-        bottomPlate.position.set(0, wallThick / 2, 0);
-        tierGroup.add(bottomPlate);
+        const topBottomGeo = new THREE.BoxGeometry(width, wall, depth);
+        const bottomPlate = new THREE.Mesh(topBottomGeo, casingMat);
+        bottomPlate.position.set(0, wall / 2, 0);
+        const topPlate = new THREE.Mesh(topBottomGeo, casingMat);
+        topPlate.position.set(0, height - wall / 2, 0);
+        const backPlate = new THREE.Mesh(new THREE.BoxGeometry(width, height, wall), casingMat);
+        backPlate.position.set(0, height / 2, -depth / 2 + wall / 2);
+        tierGroup.add(bottomPlate, topPlate, backPlate);
 
-        const topPlate = new THREE.Mesh(plateGeo, casingMat);
-        topPlate.position.set(0, visualTierH - wallThick / 2, 0);
-        tierGroup.add(topPlate);
+        for (let wIdx = 0; wIdx <= drawersPerTier; wIdx++) {
+          const wallX = -width / 2 + wall / 2 + wIdx * (bayW + wall);
+          const vWall = new THREE.Mesh(new THREE.BoxGeometry(wall, height - wall * 2, depth - wall), casingMat);
+          vWall.position.set(wallX, height / 2, wall / 2);
+          tierGroup.add(vWall);
+        }
 
-        const backWall = new THREE.Mesh(new THREE.BoxGeometry(width, visualTierH, wallThick), casingMat);
-        backWall.position.set(0, visualTierH / 2, -depth / 2 + wallThick / 2);
-        tierGroup.add(backWall);
+        const latchZ = depth / 2 - 30;
+        [-1, 1].forEach((side) => {
+          [-14, 14].forEach((zOff) => {
+            const rib = new THREE.Mesh(new THREE.BoxGeometry(8.5, height, 7), casingMat);
+            rib.position.set(side * (width / 2 + 4.25), height / 2, latchZ + zOff);
+            tierGroup.add(rib);
+          });
+          if (t > 0) {
+            const latchMesh = new THREE.Mesh(new THREE.BoxGeometry(4.5, 22, 21.4), latchMat);
+            latchMesh.position.set(side * (width / 2 + 5.5), 2, latchZ);
+            tierGroup.add(latchMesh);
+          }
+        });
 
-        const sideWall = new THREE.Mesh(new THREE.BoxGeometry(wallThick, visualTierH, depth), casingMat);
-        sideWall.position.set(closedSideSign * (width / 2 - wallThick / 2), visualTierH / 2, 0);
-        tierGroup.add(sideWall);
-
-        const rodRadius = 4.6;
-        const pivotWorldX = closedSideSign * (width / 2 - 7.5);
-        const pivotWorldZ = depth / 2 - 7.5;
-
-        const rodMesh = new THREE.Mesh(new THREE.CylinderGeometry(rodRadius, rodRadius, visualTierH, 24), casingMat);
-        rodMesh.position.set(pivotWorldX, visualTierH / 2, pivotWorldZ);
-        tierGroup.add(rodMesh);
-
-        const dW = width - wallThick * 2 - 2.0;
-        const dD = depth - wallThick - 2.5;
-        const dH = height;
-        const drawerFloorThick = 1.6;
-        const drawerWallThick = 1.8;
-        const cornerR = 8.0;
-        const notchR = Math.min(12.5, Math.min(dW, dD) * 0.24);
-
-        const outerPts = createDrawerContourPoints(dW / 2, dD / 2, cornerR, notchR, openSideName, handlePos, 0);
-        const innerPts = createDrawerContourPoints(dW / 2, dD / 2, cornerR, notchR, openSideName, handlePos, drawerWallThick);
-
-        const floorShape = new THREE.Shape(outerPts);
-        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: drawerFloorThick, bevelEnabled: false });
-        floorGeo.rotateX(-Math.PI / 2);
-
-        const wallShape = new THREE.Shape(outerPts);
-        wallShape.holes.push(new THREE.Path(innerPts.slice().reverse()));
-        const perimeterWallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: Math.max(2, dH - drawerFloorThick), bevelEnabled: false });
-        perimeterWallGeo.rotateX(-Math.PI / 2);
+        const dW = bayW - 0.8;
+        const dD = depth - wall * 2 - 0.4;
+        const dH = height - wall * 2 - 0.8;
 
         for (let b = 0; b < drawersPerTier; b++) {
           const drawerKey = `tier_${t}_box_${b}`;
-          const drawerY = wallThick + b * (tierUnitPitch + explodeDrawerGap) + 0.5;
+          const bayCenterX = -width / 2 + wall + bayW / 2 + b * (bayW + wall);
           const pivotGroup = new THREE.Group();
-          pivotGroup.position.set(pivotWorldX, drawerY, pivotWorldZ);
+          const maxPullDist = dD * 0.88;
+          const initialZ =
+            prevDrawerZ[drawerKey] !== undefined
+              ? prevDrawerZ[drawerKey]
+              : openDrawersMap[drawerKey]
+              ? maxPullDist * 0.92
+              : 0;
+          pivotGroup.position.set(bayCenterX, height / 2, initialZ);
 
-          const drawerCenterX = -closedSideSign * (wallThick / 2);
-          const drawerCenterZ = wallThick / 2;
-          const drawerLocal = new THREE.Group();
-          drawerLocal.position.set(drawerCenterX - pivotWorldX, 0, drawerCenterZ - pivotWorldZ);
-          drawerLocal.userData = { drawerKey };
+          const dGroup = new THREE.Group();
+          dGroup.userData = { drawerKey };
 
-          const floorMesh = new THREE.Mesh(floorGeo, drawerMat);
-          floorMesh.userData = { drawerKey };
-          drawerLocal.add(floorMesh);
+          const dFloor = new THREE.Mesh(new THREE.BoxGeometry(dW, 2.4, dD), drawerMat);
+          dFloor.position.set(0, -dH / 2 + 1.2, 0);
+          const dBack = new THREE.Mesh(new THREE.BoxGeometry(dW, dH, 2.4), drawerMat);
+          dBack.position.set(0, 0, -dD / 2 + 1.2);
+          const dLeft = new THREE.Mesh(new THREE.BoxGeometry(3.6, dH, dD), drawerMat);
+          dLeft.position.set(-dW / 2 + 1.8, 0, 0);
+          const dRight = dLeft.clone();
+          dRight.position.set(dW / 2 - 1.8, 0, 0);
+          dGroup.add(dFloor, dBack, dLeft, dRight);
 
-          const wallMesh = new THREE.Mesh(perimeterWallGeo, drawerMat);
-          wallMesh.position.y = drawerFloorThick;
-          wallMesh.userData = { drawerKey };
-          drawerLocal.add(wallMesh);
-
-          const divConfig = getDividerForDrawer(t, b);
-          const innerSpanW = dW - drawerWallThick * 2 - 2;
-          const innerSpanD = dD - drawerWallThick * 2 - 2;
-          const divHeight = Math.max(2, dH - drawerFloorThick - 1.2);
-
-          for (let i = 1; i < (divConfig.h || 1); i++) {
-            const zPos = -innerSpanD / 2 + (innerSpanD / divConfig.h) * i;
-            const hDiv = new THREE.Mesh(new THREE.BoxGeometry(innerSpanW, divHeight, 1.4), drawerMat);
-            hDiv.position.set(0, drawerFloorThick + divHeight / 2, zPos);
-            hDiv.userData = { drawerKey };
-            drawerLocal.add(hDiv);
+          const divCfg = getDividerForDrawer(t, b);
+          const innerW = dW - 7.2;
+          const innerD = dD - 4.8;
+          const divH = dH - 4.4;
+          for (let r = 1; r < (divCfg.h || 1); r++) {
+            const zPos = -innerD / 2 + (innerD / divCfg.h) * r;
+            const rWall = new THREE.Mesh(new THREE.BoxGeometry(innerW, divH, 1.6), drawerMat);
+            rWall.position.set(0, -1, zPos);
+            dGroup.add(rWall);
           }
-          for (let j = 1; j < (divConfig.v || 1); j++) {
-            const xPos = -innerSpanW / 2 + (innerSpanW / divConfig.v) * j;
-            const vDiv = new THREE.Mesh(new THREE.BoxGeometry(1.4, divHeight, innerSpanD), drawerMat);
-            vDiv.position.set(xPos, drawerFloorThick + divHeight / 2, 0);
-            vDiv.userData = { drawerKey };
-            drawerLocal.add(vDiv);
+          for (let c = 1; c < (divCfg.v || 1); c++) {
+            const xPos = -innerW / 2 + (innerW / divCfg.v) * c;
+            const cWall = new THREE.Mesh(new THREE.BoxGeometry(1.6, divH, innerD), drawerMat);
+            cWall.position.set(xPos, -1, 0);
+            dGroup.add(cWall);
           }
+
+          const facePlate = new THREE.Mesh(new THREE.BoxGeometry(faceW, dH + 1.2, 2.4), drawerMat);
+          facePlate.position.set(0, 0, dD / 2 + 1.2);
+          dGroup.add(facePlate);
+
+          const trackW = Math.min(80, faceW - 12);
+          const trackH = 16;
+          const trackD = 5.0;
+          const uY = -height / 4;
+          const uZ = dD / 2 + 2.4 + trackD / 2;
+
+          // Hollow U-Channel Frame (Bottom Rail + Left/Right Side Rails + Front Lip, Open Top Slot!)
+          const uBottom = new THREE.Mesh(new THREE.BoxGeometry(trackW, 2.2, trackD), drawerMat);
+          uBottom.position.set(0, uY - trackH / 2 + 1.1, uZ);
+          const uLeft = new THREE.Mesh(new THREE.BoxGeometry(2.2, trackH, trackD), drawerMat);
+          uLeft.position.set(-trackW / 2 + 1.1, uY, uZ);
+          const uRight = uLeft.clone();
+          uRight.position.set(trackW / 2 - 1.1, uY, uZ);
+          // Front retaining lip (frames the left, right, and bottom of the slide-in label window)
+          const uFrontBottom = new THREE.Mesh(new THREE.BoxGeometry(trackW, 2.8, 1.4), drawerMat);
+          uFrontBottom.position.set(0, uY - trackH / 2 + 1.4, uZ + trackD / 2 - 0.7);
+          const uFrontL = new THREE.Mesh(new THREE.BoxGeometry(4.0, trackH, 1.4), drawerMat);
+          uFrontL.position.set(-trackW / 2 + 2.0, uY, uZ + trackD / 2 - 0.7);
+          const uFrontR = uFrontL.clone();
+          uFrontR.position.set(trackW / 2 - 2.0, uY, uZ + trackD / 2 - 0.7);
+          dGroup.add(uBottom, uLeft, uRight, uFrontBottom, uFrontL, uFrontR);
 
           if (enableLabelSlot) {
-            const effLW = Math.min(labelWidth, maxLabelWidth, dW - 14);
-            const effLH = Math.min(labelHeight, maxLabelHeight, dH - 2.5);
-            const labelTex = createLabelTexture(labels[drawerKey] || '', activeCasingColor.hex, activeDrawerColor.hex, labelFont);
+            const labelTex = createLabelTexture(
+              labels[drawerKey] || '',
+              activeCasingColor.hex, // Backer matches Shell color!
+              activeDrawerColor.hex, // Embossed text matches Drawer color!
+              labelFont
+            );
             const labelPlate = new THREE.Mesh(
-              new THREE.BoxGeometry(effLW, effLH, 1.2),
+              new THREE.BoxGeometry(trackW - 4.0, 12.6, 2.0),
               new THREE.MeshBasicMaterial({ map: labelTex })
             );
-            labelPlate.position.set(0, dH / 2, dD / 2 + 0.8);
-            labelPlate.userData = { drawerKey };
-            drawerLocal.add(labelPlate);
+            labelPlate.position.set(0, uY + 0.6, uZ);
+            dGroup.add(labelPlate);
           }
 
-          pivotGroup.add(drawerLocal);
+          pivotGroup.add(dGroup);
           tierGroup.add(pivotGroup);
-          drawerPivotsRef.current.push({ drawerKey, boxIndex: b, pivotGroup, targetAngle: 0 });
+          drawerPivotsRef.current.push({
+            drawerKey,
+            boxIndex: b,
+            pivotGroup,
+            maxPull: dD * 0.88,
+            targetZ: initialZ,
+          });
         }
+
         group.add(tierGroup);
       }
 
+      if (benchLidStyle > 0) {
+        const lidY = tiers * (height + explodeGap);
+        const lidGroup = new THREE.Group();
+        lidGroup.position.y = lidY;
+
+        if (benchLidStyle === 2) {
+          const lidFloor = new THREE.Mesh(new THREE.BoxGeometry(width, 8, depth), casingMat);
+          lidFloor.position.y = 4;
+          lidGroup.add(lidFloor);
+          const rimF = new THREE.Mesh(new THREE.BoxGeometry(width, 10, 8), casingMat);
+          rimF.position.set(0, 13, depth / 2 - 4);
+          const rimB = rimF.clone();
+          rimB.position.set(0, 13, -depth / 2 + 4);
+          const rimMid = rimF.clone();
+          rimMid.position.set(0, 13, 0);
+          const rimL = new THREE.Mesh(new THREE.BoxGeometry(10, 10, depth), casingMat);
+          rimL.position.set(-width / 2 + 5, 13, 0);
+          const rimR = rimL.clone();
+          rimR.position.set(width / 2 - 5, 13, 0);
+          lidGroup.add(rimF, rimB, rimMid, rimL, rimR);
+          [-width / 6, width / 6].forEach((bx) => {
+            const bDiv = new THREE.Mesh(new THREE.BoxGeometry(6, 10, depth / 2 - 8), casingMat);
+            bDiv.position.set(bx, 13, -depth / 4);
+            lidGroup.add(bDiv);
+          });
+        } else {
+          const mainLid = new THREE.Mesh(new THREE.BoxGeometry(width, lidH, depth), casingMat);
+          mainLid.position.y = lidH / 2;
+          lidGroup.add(mainLid);
+        }
+
+        if (benchLidStyle === 3) {
+          const recessMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(124, 2, 38),
+            new THREE.MeshStandardMaterial({ color: '#090d16', roughness: 0.9 })
+          );
+          recessMesh.position.set(0, lidH - 0.8, 0);
+          lidGroup.add(recessMesh);
+
+          [-44, 44].forEach((hx) => {
+            const tower = new THREE.Mesh(new THREE.BoxGeometry(16, 12, 18), casingMat);
+            tower.position.set(hx, lidH + 3, 0);
+            lidGroup.add(tower);
+          });
+
+          [-55.5, 55.5].forEach((ax) => {
+            const arm = new THREE.Mesh(new THREE.BoxGeometry(7, 11, 28), latchMat);
+            arm.position.set(ax, lidH + 2.5, 10);
+            lidGroup.add(arm);
+          });
+
+          const gripBar = new THREE.Mesh(new THREE.BoxGeometry(118, 11, 14), latchMat);
+          gripBar.position.set(0, lidH + 2.5, 24);
+          lidGroup.add(gripBar);
+        }
+
+        const latchZ = depth / 2 - 30;
+        [-1, 1].forEach((side) => {
+          [-14, 14].forEach((zOff) => {
+            const rib = new THREE.Mesh(new THREE.BoxGeometry(8.5, lidH, 7), casingMat);
+            rib.position.set(side * (width / 2 + 4.25), lidH / 2, latchZ + zOff);
+            lidGroup.add(rib);
+          });
+          const lidLatch = new THREE.Mesh(new THREE.BoxGeometry(4.5, 22, 21.4), latchMat);
+          lidLatch.position.set(side * (width / 2 + 5.5), 2, latchZ);
+          lidGroup.add(lidLatch);
+        });
+
+        group.add(lidGroup);
+      }
+
       if (showDimensions) {
-        const wSprite = createDimensionSprite(`${width} mm`);
+        const wSprite = createDimensionSprite(`${width} mm W`);
         wSprite.position.set(0, 6, depth / 2 + 28);
         group.add(wSprite);
-        const hSprite = createDimensionSprite(`${singleTierHeightMm} mm / tier`, isOverP1SLimit);
-        hSprite.position.set(width / 2 + 38, singleTierH / 2, depth / 2);
+        const hSprite = createDimensionSprite(`${totalStackedHeightMm} mm Stack`);
+        hSprite.position.set(width / 2 + 42, totalStackedHeightMm / 2, depth / 2);
         group.add(hSprite);
       }
     } else if (activeTab === 'ammo') {
@@ -4021,27 +4162,26 @@ Date: ${new Date().toISOString()}
     activeTab,
     tiers,
     drawersPerTier,
+    benchLidStyle,
     enableAmmoLidBorder,
-    opening,
-    handlePos,
     width,
     depth,
     height,
     enableLabelSlot,
     labelWidth,
     labelHeight,
-    maxLabelWidth,
-    maxLabelHeight,
     labelFont,
     labels,
     drawerDividers,
     getDividerForDrawer,
     activeCasingColor,
     activeDrawerColor,
+    activeBenchLatchColor,
     explodedView,
     xrayMode,
     showDimensions,
     singleTierHeightMm,
+    totalStackedHeightMm,
     isOverP1SLimit,
     cargoWidth,
     cargoLength,
@@ -4082,15 +4222,13 @@ Date: ${new Date().toISOString()}
   ]);
 
   useEffect(() => {
-    const pivotSign = opening === 'Left' ? -1 : 1;
-    const maxSwingRad = THREE.MathUtils.degToRad(68);
     drawerPivotsRef.current.forEach((item) => {
       const isIndividuallyOpen = !!openDrawersMap[item.drawerKey];
-      const explodedFan = explodedView ? 0.35 + ((drawersPerTier - 1 - item.boxIndex) / Math.max(1, drawersPerTier)) * 0.45 : 0;
-      const ratio = Math.max(swingOpenAmount, isIndividuallyOpen ? 0.78 : 0, explodedFan);
-      item.targetAngle = pivotSign * ratio * maxSwingRad;
+      const explodedSlide = explodedView ? 0.35 + (item.boxIndex * 0.18) : 0;
+      const ratio = Math.max(swingOpenAmount, isIndividuallyOpen ? 0.92 : 0, explodedSlide);
+      item.targetZ = ratio * (item.maxPull || 95);
     });
-  }, [swingOpenAmount, openDrawersMap, explodedView, opening, drawersPerTier]);
+  }, [swingOpenAmount, openDrawersMap, explodedView, drawersPerTier]);
   // ADD SUCCESS VIEW HERE
   if (isSuccessPage) {
     return (
@@ -4334,6 +4472,14 @@ Date: ${new Date().toISOString()}
                           { id: 'latch_only', label: 'Cam Latches (Flat)' },
                           { id: 'tpu_pad', label: 'TPU Rattle Pad (5.5mm)' }
                         ]
+                        : activeTab === 'bench'
+                      ? [
+                          { id: 'full', label: 'Tier Shell (.scad)' },
+                          { id: 'drawer_only', label: 'Drawer + Grid (.scad)' },
+                          { id: 'lid_only', label: `Top Lid (Style ${benchLidStyle})` },
+                          { id: 'latch_only', label: 'Cam-Latch (.scad)' },
+                          { id: 'label_only', label: 'Slide-In Label (.scad)' }
+                        ]
                         : [
                           { id: 'full', label: 'Full 3MF' },
                           { id: 'box_only', label: 'Base Only' },
@@ -4361,14 +4507,25 @@ Date: ${new Date().toISOString()}
 
             {adminUnlocked && currentProductMeta.hasOpenScadGenerator && modalTab === 'scad' && (
               <div className="px-5 py-3 min-h-[44px] flex-shrink-0 bg-[#090d16] border-b border-[#1e293b] text-[11px] font-mono text-[#38bdf8] break-all leading-relaxed">
-                Save Filename: <span className="text-white">{activeTab === 'ammo' ? getAmmoScadFilename(scadExportMode) : getCargoScadFilename(scadExportMode)}</span>
+                Save Filename:{' '}
+                <span className="text-white">
+                  {activeTab === 'ammo'
+                    ? getAmmoScadFilename(scadExportMode)
+                    : activeTab === 'bench'
+                    ? getBenchScadFilename(scadExportMode)
+                    : getCargoScadFilename(scadExportMode)}
+                </span>
               </div>
             )}
 
             <div className="p-4 overflow-y-auto flex-1 bg-[#0b0f19] m-4 rounded-lg border border-[#1e293b]">
               <pre className="text-xs font-mono text-[#e2e8f0] whitespace-pre-wrap leading-relaxed">
                 {adminUnlocked && currentProductMeta.hasOpenScadGenerator && modalTab === 'scad'
-                  ? (activeTab === 'ammo' ? generateAmmoMatrixScad(scadExportMode) : generateScadCode(scadExportMode))
+                  ? activeTab === 'ammo'
+                    ? generateAmmoMatrixScad(scadExportMode)
+                    : activeTab === 'bench'
+                    ? generateBenchV2ScadFromApp(scadExportMode)
+                    : generateScadCode(scadExportMode)
                   : generateSpecSheet()}
               </pre>
             </div>
@@ -4379,7 +4536,11 @@ Date: ${new Date().toISOString()}
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(
-                        activeTab === 'ammo' ? generateAmmoMatrixScad(scadExportMode) : generateScadCode(scadExportMode)
+                        activeTab === 'ammo'
+                          ? generateAmmoMatrixScad(scadExportMode)
+                          : activeTab === 'bench'
+                          ? generateBenchV2ScadFromApp(scadExportMode)
+                          : generateScadCode(scadExportMode)
                       );
                       setScadCopied(true);
                       setTimeout(() => setScadCopied(false), 2000);
@@ -4390,7 +4551,7 @@ Date: ${new Date().toISOString()}
                     {scadCopied ? 'Copied .SCAD!' : 'Copy .SCAD Code'}
                   </button>
                   <button
-                    onClick={() => (activeTab === 'ammo' ? handleDownloadScad() : downloadScadFile(scadExportMode))}
+                    onClick={handleDownloadScad}
                     className="px-3.5 py-2 rounded-lg bg-[#38bdf8] text-[#0b0f19] font-bold text-xs flex items-center gap-1.5"
                   >
                     <Download size={14} /> Download {scadExportMode.toUpperCase()} .SCAD
@@ -4598,7 +4759,7 @@ Date: ${new Date().toISOString()}
                     {isEtsyMode ? 'Select Etsy Size Tier:' : 'Preset Starting Sizes:'}
                   </span>
                   <span className="text-[#fecdd3] font-semibold">
-                    {BENCH_PRESETS[sizePreset]?.summary || 'Custom Size'}
+                    {BENCH_PRESETS[sizePreset]?.summary || 'Custom Build'}
                   </span>
                 </div>
                 <div className="grid grid-cols-4 gap-1.5">
@@ -4618,108 +4779,80 @@ Date: ${new Date().toISOString()}
                 </div>
               </div>
 
-              {/* CONFIGURATION */}
+              {/* V2 CONFIGURATION: LID STYLE, COLUMNS, TIER HEIGHT */}
               <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl">
                 <button
                   onClick={() => toggleSection('config')}
                   className="w-full px-3.5 py-2.5 flex items-center justify-between text-[11px] font-bold tracking-widest uppercase text-[#38bdf8] border-b border-[#1e293b]"
                 >
                   <span className="flex items-center gap-1.5">
-                    <Sliders size={13} /> {isEtsyMode ? 'Hardware Orientation' : 'Configuration & Dimensions'}
+                    <Sliders size={13} /> Bench Matrix V2 Architecture
                   </span>
                   {openSections.config ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
                 {openSections.config && (
                   <div className="p-3.5 space-y-3.5">
-                    {/* Opening & Handle Orientation (Available in BOTH Etsy & Direct Modes) */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold">Opening Side</span>
-                      <div className="grid grid-cols-2 gap-1 bg-[#090d16] p-0.5 rounded-md border border-[#1e293b]">
-                        {['Right', 'Left'].map((dir) => (
+                    {/* Interchangeable Lid Selector */}
+                    <div>
+                      <div className="text-xs font-semibold mb-1.5">Interchangeable Top Lid Style</div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {[
+                          { id: 1, label: 'Worktop Lid' },
+                          { id: 2, label: 'Organizer Lid' },
+                          { id: 3, label: 'Carry Handle' },
+                          { id: 0, label: 'No Lid (Add-On)' }
+                        ].map((st) => (
                           <button
-                            key={dir}
-                            onClick={() => setOpening(dir)}
-                            className={`px-3 py-1 rounded text-xs font-semibold ${
-                              opening === dir ? 'bg-[#3b1526] text-[#fecdd3]' : 'text-[#94a3b8]'
+                            key={st.id}
+                            onClick={() => setBenchLidStyle(st.id)}
+                            className={`py-1.5 px-2 rounded border text-[11px] font-bold transition-all ${
+                              benchLidStyle === st.id
+                                ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]'
+                                : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
                             }`}
                           >
-                            {dir}
+                            {st.label}
                           </button>
                         ))}
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold">Handle Notch</span>
-                      <div className="grid grid-cols-2 gap-1 bg-[#090d16] p-0.5 rounded-md border border-[#1e293b]">
-                        {['Front', 'Back'].map((pos) => (
+                    {/* Columns Per Tier (1 Full, 2 Split, 3 Triple) */}
+                    <div>
+                      <div className="text-xs font-semibold mb-1.5">Drawer Bays per Tier (Columns)</div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[
+                          { cols: 1, label: '1 Full Bay' },
+                          { cols: 2, label: '2 Split Bays' },
+                          { cols: 3, label: '3 Triple Bays' }
+                        ].map((c) => (
                           <button
-                            key={pos}
-                            onClick={() => setHandlePos(pos)}
-                            className={`px-3 py-1 rounded text-xs font-semibold ${
-                              handlePos === pos ? 'bg-[#3b1526] text-[#fecdd3]' : 'text-[#94a3b8]'
+                            key={c.cols}
+                            onClick={() => setDrawersPerTier(c.cols)}
+                            className={`py-1.5 px-2 rounded border text-[11px] font-bold transition-all ${
+                              drawersPerTier === c.cols
+                                ? 'bg-[#38bdf8]/20 border-[#38bdf8] text-[#38bdf8]'
+                                : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
                             }`}
                           >
-                            {pos}
+                            {c.label}
                           </button>
                         ))}
                       </div>
                     </div>
 
-                    {isEtsyMode ? (
-                      <div className="p-2.5 rounded-lg bg-[#151e31] border border-[#1e293b] text-[11px] text-[#cbd5e1] flex items-center justify-between">
-                        <span>Preset Dimensions ({sizePreset}):</span>
-                        <span className="font-mono font-bold text-[#38bdf8]">
-                          {width}W × {depth}D × {totalStackedHeightMm}H mm
-                        </span>
-                    </div>
-                  ) : (
-                    <>
-                      {/* DIRECT MODE ONLY: FULL MILLIMETER SLIDERS */}
-                      <div className="flex items-center justify-between bg-[#151e31] px-2.5 py-2 rounded-lg border border-[#1e293b]">
-                        <div className="flex items-center text-xs text-[#cbd5e1]">
-                          <Lock size={13} className="text-emerald-400 mr-1.5" />
-                          <span>Lock to 250 mm Max Rod Height</span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            Enforced
-                          </span>
-                      
-                          {/* Reset all dimensions to default */}
-                          <button
-                            type="button"
-                            onClick={handleResetDirectDimensions}
-                            title="Reset dimensions to default"
-                            className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-                          >
-                            <RotateCcw size={13} />
-                          </button>
-                        </div>
-
-
-                        {/* 
-                          TODO: Re-enable toggle when a larger printer is available
-                          <button
-                            type="button"
-                            onClick={() => setLockToP1S(!lockToP1S)}
-                            className={`w-9 h-5 rounded-full transition-colors relative ${lockToP1S ? 'bg-[#f43f5e]' : 'bg-[#334155]'}`}
-                          >
-                            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${lockToP1S ? 'translate-x-4' : ''}`} />
-                          </button>
-                        */}
-                      </div>
-
+                    {!isEtsyMode && (
+                      <>
+                        {/* Stacked Tiers Slider */}
                         <div>
                           <div className="flex justify-between text-xs mb-1">
-                            <span className="font-semibold">Number of tiers</span>
-                            <span className="text-[#fecdd3] font-bold">{tiers}</span>
+                            <span className="font-semibold">Stacked Shell Tiers</span>
+                            <span className="text-[#fecdd3] font-bold">{tiers} Tiers ({totalStackedHeightMm}mm Total)</span>
                           </div>
                           <input
                             type="range"
                             min="1"
-                            max="5"
+                            max="4"
                             value={tiers}
                             onChange={(e) => {
                               setSizePreset('Custom');
@@ -4729,79 +4862,27 @@ Date: ${new Date().toISOString()}
                           />
                         </div>
 
+                        {/* Shell Tier Height Selector */}
                         <div>
-                          <div className="flex justify-between text-xs mb-1">
-                            <span className="font-semibold">Drawers per tier ({totalStackedHeightMm} mm)</span>
-                            <span className="text-[#fecdd3] font-bold">{drawersPerTier}</span>
+                          <div className="text-xs font-semibold mb-1.5">Tier Shell Height (mm)</div>
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {[35, 50, 70, 100].map((hVal) => (
+                              <button
+                                key={hVal}
+                                onClick={() => {
+                                  setSizePreset('Custom');
+                                  setHeight(hVal);
+                                }}
+                                className={`py-1.5 rounded border text-xs font-bold ${
+                                  height === hVal
+                                    ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]'
+                                    : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8]'
+                                }`}
+                              >
+                                {hVal}mm
+                              </button>
+                            ))}
                           </div>
-                          <input
-                            type="range"
-                            min="1"
-                            max="10"
-                            value={drawersPerTier}
-                            onChange={(e) => {
-                              setSizePreset('Custom');
-                              const v = parseInt(e.target.value, 10);
-                              setDrawersPerTier(lockToP1S ? Math.min(v, maxAllowedDrawersForCurrentHeight) : v);
-                            }}
-                            className="w-full box-studio-slider"
-                          />
-                        </div>
-
-                        <div>
-                          <div className="flex justify-between text-xs mb-1">
-                            <span className="font-semibold">↔ Width (mm)</span>
-                            <span className="text-[#fecdd3] font-bold">{width} mm</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="50"
-                            max="200"
-                            value={width}
-                            onChange={(e) => {
-                              setSizePreset('Custom');
-                              setWidth(parseInt(e.target.value, 10));
-                            }}
-                            className="w-full box-studio-slider"
-                          />
-                        </div>
-
-                        <div>
-                          <div className="flex justify-between text-xs mb-1">
-                            <span className="font-semibold">↗ Depth (mm)</span>
-                            <span className="text-[#fecdd3] font-bold">{depth} mm</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="58"
-                            max="120"
-                            value={depth}
-                            onChange={(e) => {
-                              setSizePreset('Custom');
-                              setDepth(parseInt(e.target.value, 10));
-                            }}
-                            className="w-full box-studio-slider"
-                          />
-                        </div>
-
-                        <div>
-                          <div className="flex justify-between text-xs mb-1">
-                            <span className="font-semibold">↕ Drawer Height (mm)</span>
-                            <span className="text-[#fecdd3] font-bold">{height.toFixed(1)} mm</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="10"
-                            max="30"
-                            step="0.1"
-                            value={height}
-                            onChange={(e) => {
-                              setSizePreset('Custom');
-                              const v = parseFloat(e.target.value);
-                              setHeight(lockToP1S ? Math.min(v, maxAllowedHeightForCurrentDrawers) : v);
-                            }}
-                            className="w-full box-studio-slider"
-                          />
                         </div>
                       </>
                     )}
@@ -4809,36 +4890,31 @@ Date: ${new Date().toISOString()}
                 )}
               </div>
 
-              {/* COLORS (BENCH MATRIX) */}
+              {/* COLORS (13 BAMBU PETG SWATCHES) */}
               <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl">
                 <button
                   onClick={() => toggleSection('colors')}
                   className="w-full px-3.5 py-2.5 flex items-center justify-between text-[11px] font-bold tracking-widest uppercase text-[#38bdf8] border-b border-[#1e293b]"
                 >
                   <span className="flex items-center gap-1.5">
-                    <Palette size={13} /> Colors (20 Bambu PLA Swatches)
+                    <Palette size={13} /> Colors 
                   </span>
                   {openSections.colors ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
                 {openSections.colors && (
                   <div className="p-3.5 space-y-3.5">
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const temp = casingColorId;
-                          setCasingColorId(drawerColorId);
-                          setDrawerColorId(temp);
-                        }}
-                        className="flex-1 py-1.5 px-2 rounded bg-[#151e31] hover:bg-[#1e293b] border border-[#334155] text-[11px] font-semibold flex items-center justify-center gap-1.5"
-                      >
-                        <ArrowLeftRight size={12} className="text-[#38bdf8]" /> Swap Colors
-                      </button>
-                    </div>
                     <div>
-                      <div className="text-xs font-semibold mb-1.5">1. Outer Casing: {activeCasingColor.name}</div>
+                      <div className="text-xs font-semibold mb-1.5">
+                        1. Shells &amp; Lid:{' '}
+                        <span
+                          className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60"
+                          style={{ color: activeCasingColor.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}
+                        >
+                          {activeCasingColor.name}
+                        </span>
+                      </div>
                       <div className="grid grid-cols-5 gap-1.5">
-                        {BAMBU_PLA_COLORS.map((col) => (
+                        {BAMBU_PETG_COLORS.map((col) => (
                           <button
                             key={`c_${col.id}`}
                             onClick={() => setCasingColorId(col.id)}
@@ -4847,15 +4923,23 @@ Date: ${new Date().toISOString()}
                             }`}
                           >
                             <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
-                            <span className="text-[9px] truncate w-full text-center">{col.name.replace('Matte ', '')}</span>
+                            <span className="text-[9px] truncate w-full text-center">{col.name}</span>
                           </button>
                         ))}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs font-semibold mb-1.5">2. Drawers &amp; Dividers: {activeDrawerColor.name}</div>
+                      <div className="text-xs font-semibold mb-1.5">
+                        2. V-Rail Drawers:{' '}
+                        <span
+                          className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60"
+                          style={{ color: activeDrawerColor.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}
+                        >
+                          {activeDrawerColor.name}
+                        </span>
+                      </div>
                       <div className="grid grid-cols-5 gap-1.5">
-                        {BAMBU_PLA_COLORS.map((col) => (
+                        {BAMBU_PETG_COLORS.map((col) => (
                           <button
                             key={`d_${col.id}`}
                             onClick={() => setDrawerColorId(col.id)}
@@ -4864,7 +4948,32 @@ Date: ${new Date().toISOString()}
                             }`}
                           >
                             <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
-                            <span className="text-[9px] truncate w-full text-center">{col.name.replace('Matte ', '')}</span>
+                            <span className="text-[9px] truncate w-full text-center">{col.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold mb-1.5">
+                        3. Cam-Latches &amp; Handle{' '}
+                        <span
+                          className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60"
+                          style={{ color: activeBenchLatchColor.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}
+                        >
+                          {activeBenchLatchColor.name}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {BAMBU_PETG_COLORS.map((col) => (
+                          <button
+                            key={`bl_${col.id}`}
+                            onClick={() => setBenchLatchColorId(col.id)}
+                            className={`p-1 rounded border flex flex-col items-center gap-1 ${
+                              benchLatchColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
+                            }`}
+                          >
+                            <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
+                            <span className="text-[9px] truncate w-full text-center">{col.name}</span>
                           </button>
                         ))}
                       </div>
@@ -4873,11 +4982,11 @@ Date: ${new Date().toISOString()}
                 )}
               </div>
 
-              {/* LABELS & DIVIDERS */}
+              {/* SLIDE-IN U-TRACK LABELS & FUSED INTERNAL GRIDS */}
               <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-[#38bdf8] flex items-center gap-1.5">
-                    <Tag size={13} /> Drawer Labels
+                    <Tag size={13} /> Labels
                   </span>
                   <button
                     type="button"
@@ -4889,26 +4998,26 @@ Date: ${new Date().toISOString()}
                 </div>
 
                 <div className="bg-[#151e31] p-2.5 rounded-lg border border-[#1e293b] flex items-center justify-between text-xs">
-                  <span className="text-[11px] font-semibold text-[#38bdf8]">Batch Dividers:</span>
+                  <span className="text-[11px] font-semibold text-[#38bdf8]">Batch Grid (Rows × Cols):</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-[10px] text-[#94a3b8]">H:</span>
+                    <span className="text-[10px] text-[#94a3b8]">R:</span>
                     {[1, 2, 3, 4].map((n) => (
                       <button
                         key={`bh_${n}`}
                         onClick={() => applyBatchDividers(n, batchV)}
                         className={`w-5 h-5 rounded text-[10px] font-bold ${batchH === n ? 'bg-[#f43f5e] text-white' : 'bg-[#0b0f19] text-[#94a3b8]'}`}
                       >
-                        {n - 1}
+                        {n}
                       </button>
                     ))}
-                    <span className="text-[10px] text-[#94a3b8] ml-2">V:</span>
+                    <span className="text-[10px] text-[#94a3b8] ml-2">C:</span>
                     {[1, 2, 3, 4].map((n) => (
                       <button
                         key={`bv_${n}`}
                         onClick={() => applyBatchDividers(batchH, n)}
                         className={`w-5 h-5 rounded text-[10px] font-bold ${batchV === n ? 'bg-[#f43f5e] text-white' : 'bg-[#0b0f19] text-[#94a3b8]'}`}
                       >
-                        {n - 1}
+                        {n}
                       </button>
                     ))}
                   </div>
@@ -4920,53 +5029,49 @@ Date: ${new Date().toISOString()}
                     return (
                       <div key={t} className="space-y-1.5">
                         <div className="text-[10px] font-bold text-[#38bdf8]">Tier {t + 1}</div>
-                        {Array.from({ length: drawersPerTier }).map((_, bRev) => {
-                          const b = drawersPerTier - 1 - bRev;
+                        {Array.from({ length: drawersPerTier }).map((_, b) => {
                           const key = `tier_${t}_box_${b}`;
                           const div = getDividerForDrawer(t, b);
                           return (
                             <div key={b} className="p-2 rounded bg-[#151e31] border border-[#1e293b] space-y-1">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-[#94a3b8] w-4">{b + 1}.</span>
+                                <span className="text-[10px] text-[#94a3b8] w-10">Bay {b + 1}:</span>
                                 <input
                                   type="text"
                                   maxLength={benchMaxLabelChars}
-                                  placeholder={`Label (max ${benchMaxLabelChars})...`}
+                                  placeholder={`LABEL (MAX ${benchMaxLabelChars})`}
                                   value={labels[key] || ''}
                                   onChange={(e) =>
                                     setLabels((p) => ({
                                       ...p,
-                                      [key]: e.target.value.slice(0, benchMaxLabelChars)
+                                      [key]: e.target.value.toUpperCase().slice(0, benchMaxLabelChars)
                                     }))
                                   }
-                                  className="flex-1 bg-[#0b0f19] border border-[#1e293b] rounded px-2 py-1 text-xs text-white"
+                                  className="flex-1 bg-[#0b0f19] border border-[#1e293b] rounded px-2 py-1 text-xs text-white font-mono"
                                 />
-                                <span className="text-[9px] font-mono text-[#64748b] w-8 text-right">
-                                  {(labels[key] || '').length}/{benchMaxLabelChars}
-                                </span>
                               </div>
-                              <div className="flex items-center justify-between pl-5 text-[10px]">
+                              <div className="flex items-center justify-between pl-10 text-[10px]">
                                 <div className="flex items-center gap-1">
-                                  <span className="text-[#64748b]">H:</span>
+                                  <span className="text-[#64748b]">Rows:</span>
                                   {[1, 2, 3, 4].map((n) => (
                                     <button
                                       key={n}
                                       onClick={() => setDividerForDrawer(t, b, 'h', n)}
                                       className={`w-4 h-4 rounded ${div.h === n ? 'bg-[#f43f5e] text-white' : 'bg-[#0b0f19] text-[#64748b]'}`}
                                     >
-                                      {n - 1}
+                                      {n}
                                     </button>
                                   ))}
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <span className="text-[#64748b]">V:</span>
+                                  <span className="text-[#64748b]">Cols:</span>
                                   {[1, 2, 3, 4].map((n) => (
                                     <button
                                       key={n}
                                       onClick={() => setDividerForDrawer(t, b, 'v', n)}
                                       className={`w-4 h-4 rounded ${div.v === n ? 'bg-[#f43f5e] text-white' : 'bg-[#0b0f19] text-[#64748b]'}`}
                                     >
-                                      {n - 1}
+                                      {n}
                                     </button>
                                   ))}
                                 </div>
@@ -5093,7 +5198,7 @@ Date: ${new Date().toISOString()}
                   
                   <div>
                     <div className="text-xs font-semibold mb-1.5">
-                      1. Base Shell Body: <span className="text-[#fecdd3]">{activeAmmoBaseColor?.name}</span>
+                      1. Base Shell Body: <span className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60" style={{ color: activeAmmoBaseColor?.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}>{activeAmmoBaseColor?.name}</span>
                     </div>
                     <div className="grid grid-cols-5 gap-1.5">
                       {BAMBU_PETG_COLORS.map((col) => (
@@ -5113,7 +5218,7 @@ Date: ${new Date().toISOString()}
 
                   <div>
                     <div className="text-xs font-semibold mb-1.5">
-                      2. Vault Lid: <span className="text-[#38bdf8]">{activeAmmoLidColor?.name}</span>
+                      2. Vault Lid: <span className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60" style={{ color: activeAmmoLidColor?.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}>{activeAmmoLidColor?.name}</span>
                     </div>
                     <div className="grid grid-cols-5 gap-1.5">
                       {BAMBU_PETG_COLORS.map((col) => (
@@ -5133,7 +5238,7 @@ Date: ${new Date().toISOString()}
 
                   <div>
                     <div className="text-xs font-semibold mb-1.5">
-                      3. Ammo Tray: <span className="text-[#fecdd3]">{activeAmmoTrayColor?.name}</span>
+                      3. Ammo Tray: <span className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60" style={{ color: activeAmmoTrayColor?.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}>{activeAmmoTrayColor?.name}</span>
                     </div>
                     <div className="grid grid-cols-5 gap-1.5">
                       {BAMBU_PETG_COLORS.map((col) => (
@@ -5153,7 +5258,7 @@ Date: ${new Date().toISOString()}
 
                   <div>
                     <div className="text-xs font-semibold mb-1.5">
-                      4. Latches &amp; Accents: <span className="text-[#38bdf8]">{activeAmmoLatchColor?.name}</span>
+                      4. Latches &amp; Accents: <span className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60" style={{ color: activeAmmoLatchColor?.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}>{activeAmmoLatchColor?.name}</span>
                     </div>
                     <div className="grid grid-cols-5 gap-1.5">
                       {BAMBU_PETG_COLORS.map((col) => (
@@ -5448,7 +5553,7 @@ Date: ${new Date().toISOString()}
 
                 <div>
                   <div className="text-xs font-semibold mb-1.5">
-                    1. Box Body &amp; Hinges: <span className="text-[#fecdd3]">{activeCargoBoxColor?.name}</span>
+                    1. Box Body &amp; Hinges: <span className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60" style={{ color: activeCargoBoxColor?.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}>{activeCargoBoxColor?.name}</span>
                   </div>
                   <div className="grid grid-cols-5 gap-1.5">
                     {BAMBU_PETG_COLORS.map((col) => (
@@ -5468,7 +5573,7 @@ Date: ${new Date().toISOString()}
 
                 <div>
                   <div className="text-xs font-semibold mb-1.5">
-                    2. Lid Text &amp; Frame Inlay: <span className="text-[#38bdf8]">{activeCargoTextColor?.name}</span>
+                    2. Lid Text &amp; Frame Inlay: <span className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60" style={{ color: activeCargoTextColor?.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}>{activeCargoTextColor?.name}</span>
                   </div>
                   <div className="grid grid-cols-5 gap-1.5">
                     {BAMBU_PETG_COLORS.map((col) => (
@@ -5488,7 +5593,7 @@ Date: ${new Date().toISOString()}
 
                 <div>
                   <div className="text-xs font-semibold mb-1.5">
-                    3. Cam Latches: <span className="text-[#38bdf8]">{activeCargoLatchColor?.name}</span>
+                    3. Cam Latches: <span className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60" style={{ color: activeCargoLatchColor?.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}>{activeCargoLatchColor?.name}</span>
                   </div>
                   <div className="grid grid-cols-5 gap-1.5">
                     {BAMBU_PETG_COLORS.map((col) => (
@@ -5608,7 +5713,7 @@ Date: ${new Date().toISOString()}
               activeTab === 'bench' ? (
                 <div className="flex items-center gap-2 bg-[#151e31] px-2.5 py-1 rounded-lg border border-[#1e293b] shrink-0">
                   <span className="text-[11px] font-semibold tabular-nums min-w-[115px]">
-                    Swing Drawers ({Math.round(swingOpenAmount * 100)}%):
+                    Slide Drawers ({Math.round(swingOpenAmount * 100)}%):
                   </span>
                   <input
                     type="range"
