@@ -232,17 +232,29 @@ module drawer() {
         }
     }
     
-    face_z_shift = (shell_h - drawer_h) / 2;
-    translate([0, -drawer_d/2 - 1.2, drawer_h/2 + face_z_shift]) {
-        cube([face_w, 2.4, shell_h - 0.4], center=true);
+    // 3. Flush-Bottom Front Faceplate & 45-Deg Self-Supporting U-Track Handle
+    face_h = drawer_h + 0.4; // Fits cleanly inside the bay opening AND sits flush at Z = 0!
+    translate([0, -drawer_d/2 - 1.2, face_h/2]) {
+        // Main Front Faceplate (Bottom sits at Z = 0 on the print bed!)
+        cube([face_w, 2.4, face_h], center=true);
         
-        translate([0, -1.2 - track_depth/2, -shell_h/4]) {
+        // U-Channel Label Slot & Handle (With 45-deg bottom bevel starting at Z = 0!)
+        // Bottom of U-track cavity sits at Z = 5.0mm; 45-deg bevel tapers from Z = 0 to Z = 5.0mm
+        translate([0, -1.2, -face_h/2]) {
             difference() {
-                cube([track_w, track_depth, track_h], center=true);
-                translate([0, 0, 1.2]) 
-                    cube([track_w - 4, track_depth - 2.4, track_h], center=true);
-                translate([0, -1.5, 1.2])
-                    cube([track_w - 8, track_depth, track_h], center=true);
+                // Outer U-Track body with 45-degree self-supporting bottom ramp from Z=0
+                hull() {
+                    translate([0, -track_depth/2, 5.0 + track_h/2])
+                        cube([track_w, track_depth, track_h], center=true);
+                    translate([0, -0.4, 0.4])
+                        cube([track_w, 0.8, 0.8], center=true);
+                }
+                // Inner Slide-In Label Slot Cutout (13.6mm tall x 2.6mm deep, open at top)
+                translate([0, -track_depth/2, 5.0 + (track_h / 2) + 1.4])
+                    cube([track_w - 4.0, track_depth - 2.4, track_h], center=true);
+                // Front Viewing Window Cutout
+                translate([0, -track_depth + 0.8, 5.0 + (track_h / 2) + 1.4])
+                    cube([track_w - 8.0, track_depth, track_h], center=true);
             }
         }
     }
@@ -559,6 +571,418 @@ for (i = [0 : len(labels) - 1]) {
         translate([0, 0, plate_t])
             linear_extrude(height = text_h)
             text(labels[i], size = ${fontSize}, font = "Liberation Sans:style=Bold", halign = "center", valign = "center");
+    }
+}
+`;
+}
+/**
+ * 6. GENERATE FULL MULTI-COLOR PRODUCTION ASSEMBLY (.scad)
+ * Lays out all configured shells, custom-divided drawers, lid, handle,
+ * cam-latches, and embossed labels with user-selected hex colors preserved.
+ */
+export function generateBenchFullAssemblySCAD({
+  width = 200,
+  depth = 150,
+  height = 50,
+  tiers = 2,
+  numDrawers = 2,
+  lidStyle = 2,
+  drawerConfigs = [], // Array of { rows, cols } for every drawer across all tiers
+  labelsList = [],
+  shellColorHex = "#222222",
+  drawerColorHex = "#9E8569",
+  latchColorHex = "#F36B21",
+} = {}) {
+  const totalDrawers = tiers * numDrawers;
+  const totalLatches = (tiers + (lidStyle > 0 ? 1 : 0)) * 2;
+
+  // Format per-drawer [rows, cols] array for OpenSCAD
+  const paddedConfigs = [];
+  for (let i = 0; i < Math.max(1, totalDrawers); i++) {
+    const cfg = drawerConfigs[i] || { rows: 3, cols: 1 };
+    paddedConfigs.push(`[${cfg.rows || 3}, ${cfg.cols || 1}]`);
+  }
+  const scadDrawerGridArray = `[${paddedConfigs.join(", ")}]`;
+
+  // Format non-empty labels for OpenSCAD
+  const validLabels = (labelsList || [])
+    .map((s) => String(s || "").trim())
+    .filter(Boolean);
+  const scadLabelsArray =
+    validLabels.length > 0
+      ? `[${validLabels.map((l) => `"${l.replace(/"/g, '\\"')}"`).join(", ")}]`
+      : `[]`;
+
+  return `// ============================================================================
+// THE BENCH MATRIX V2 - COMPLETE MULTI-COLOR PRODUCTION ASSEMBLY
+// Shells & Lid Color : ${shellColorHex}
+// Drawers Color      : ${drawerColorHex}
+// Latches & Accents  : ${latchColorHex}
+// ============================================================================
+
+/* [Assembly Configuration] */
+layout_mode = "print_plate"; // "print_plate" (Flat for 3MF Slicing) or "stacked" (3D Preview)
+width = ${width};
+depth = ${depth};
+height = ${height};
+tiers = ${tiers};
+num_drawers = ${numDrawers};
+lid_style = ${lidStyle}; // 0 = No Lid, 1 = Worktop, 2 = Organizer, 3 = Carry Handle
+lid_h = 18;
+
+shell_color  = "${shellColorHex}";
+drawer_color = "${drawerColorHex}";
+latch_color  = "${latchColorHex}";
+
+drawer_grids = ${scadDrawerGridArray};
+labels_list  = ${scadLabelsArray};
+
+/* [Hidden] */
+$fn = 48;
+wall = 3.2;
+dimple_r_outer = 4.5;
+dimple_r_inner = 2.5;
+dimple_depth = 2.0;
+
+latch_w = 22;
+rib_flat_w = 7;
+latch_boss_t = 8.5;
+latch_cut_d = 6.0;
+hole_offset_x = 4.8;
+latch_offset = depth/2 - 30;
+
+bay_w = (width - (wall * (num_drawers + 1))) / num_drawers;
+face_w = bay_w - 0.4;
+drawer_w = bay_w - 0.8;
+drawer_d = depth - (wall * 2) - 0.4;
+drawer_h = height - (wall * 2) - 0.8;
+d_wall = 3.6;
+inner_wall = 1.6;
+track_w = min(80, face_w - 12);
+track_h = 16;
+track_depth = 5;
+plate_w = track_w - 4.6;
+
+// --- 1. SHELL MODULE ---
+module bench_shell() {
+    difference() {
+        union() {
+            cube([width, depth, height], center=true);
+            for (side = [-1, 1]) {
+                hull() {
+                    translate([side * (width/2), -latch_offset, 0])
+                        cube([0.2, latch_w + (rib_flat_w * 2) + (latch_boss_t * 2), height], center=true);
+                    translate([side * (width/2 + latch_boss_t/2), -latch_offset, 0])
+                        cube([latch_boss_t, latch_w + (rib_flat_w * 2), height], center=true);
+                }
+            }
+        }
+        for (i = [0 : num_drawers - 1]) {
+            bay_center_x = -width/2 + wall + (bay_w/2) + i * (bay_w + wall);
+            translate([bay_center_x, -wall/2, 0])
+                cube([bay_w, depth, height - (wall*2)], center=true);
+        }
+        for (x = [-width/2 + 15, width/2 - 15]) {
+            for (y = [-depth/2 + 15, depth/2 - 15]) {
+                translate([x, y, height/2 - dimple_depth + 0.01])
+                    cylinder(h=dimple_depth, r1=dimple_r_inner, r2=dimple_r_outer);
+            }
+        }
+        for (side = [-1, 1]) {
+            translate([side * (width/2 + latch_boss_t - latch_cut_d/2 + 2.0), -latch_offset, 0])
+                cube([latch_cut_d + 4.0, latch_w, height + 1], center=true);
+            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 10, -height/2 + 8])
+                rotate([90, 0, 0]) cylinder(h = 22, r = 1.65, center=true);
+            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 14, -height/2 + 8])
+                rotate([90, 0, 0]) cylinder(h = 20, r = 2.9, center=true);
+            translate([side * (width/2 + hole_offset_x), -latch_offset + (latch_w/2) + 2.5, -height/2 + 8])
+                rotate([90, 0, 0]) cylinder(h = 6, r = 1.45, center=true);
+        }
+    }
+    for (side = [-1, 1]) {
+        translate([side * (width/2 + latch_boss_t - 2.0), -latch_offset, height/2 - 3])
+        hull() {
+            cube([4.0, latch_w + 4, 2], center=true);
+            translate([-side * 2.0, 0, -2.5]) cube([0.1, latch_w + 4, 2], center=true);
+        }
+        for (end = [-1, 1]) {
+            translate([side * (width/2 + 3.2), -latch_offset + end * (latch_w/2), -height/2 + 20])
+                rotate([0, 0, 45]) cube([1.6, 1.6, 4.0], center=true);
+        }
+    }
+    for (x = [-width/2 + 15, width/2 - 15]) {
+        for (y = [-depth/2 + 15, depth/2 - 15]) {
+            translate([x, y, -height/2 - (dimple_depth - 0.2)])
+                cylinder(h=dimple_depth - 0.2 + 0.05, r1=dimple_r_inner - 0.2, r2=dimple_r_outer - 0.2);
+        }
+    }
+    for (i = [0 : num_drawers - 1]) {
+        bay_center_x = -width/2 + wall + (bay_w/2) + i * (bay_w + wall);
+        for (side = [-1, 1]) {
+            rail_x = bay_center_x + side * (bay_w/2);
+            translate([rail_x, -wall/2, 0]) rotate([0, 45, 0]) cube([2.6, depth - wall*2, 2.6], center=true);
+            translate([rail_x, -depth/2 + 14, 0]) hull() {
+                rotate([0, 45, 0]) cube([2.6, 5.0, 2.6], center=true);
+                rotate([0, 45, 0]) cube([3.2, 1.5, 3.2], center=true);
+            }
+            translate([rail_x, depth/2 - 15, 0]) hull() {
+                rotate([0, 45, 0]) cube([2.6, 6.0, 2.6], center=true);
+                rotate([0, 45, 0]) cube([3.1, 2.0, 3.1], center=true);
+            }
+        }
+    }
+}
+
+// --- 2. DRAWER MODULE ---
+module drawer(div_rows = 3, div_cols = 1) {
+    difference() {
+        translate([0, 0, drawer_h/2]) cube([drawer_w, drawer_d, drawer_h], center=true);
+        translate([0, 0, drawer_h/2 + 2.4]) cube([drawer_w - (d_wall*2), drawer_d - 4.8, drawer_h], center=true);
+        for (side = [-1, 1]) {
+            translate([side * (drawer_w/2), -9, drawer_h/2]) rotate([0, 45, 0]) cube([3.1, drawer_d - 18, 3.1], center=true);
+            translate([side * (drawer_w/2), drawer_d/2 - 9, drawer_h/2]) rotate([0, 45, 0]) cube([2.7, 20, 2.7], center=true);
+            translate([side * (drawer_w/2), drawer_d/2 - 11.8, drawer_h/2]) hull() {
+                rotate([0, 45, 0]) cube([3.1, 6.5, 3.1], center=true);
+                rotate([0, 45, 0]) cube([3.5, 2.5, 3.5], center=true);
+            }
+        }
+    }
+    inner_w = drawer_w - (d_wall * 2);
+    inner_d = drawer_d - 4.8;
+    div_h = drawer_h - 2.4 - 2.0;
+    if (div_cols > 1) {
+        for (c = [1 : div_cols - 1]) {
+            div_x = -inner_w/2 + c * (inner_w / div_cols);
+            translate([div_x, 0, 2.4 + div_h/2]) cube([inner_wall, inner_d, div_h], center=true);
+        }
+    }
+    if (div_rows > 1) {
+        for (r = [1 : div_rows - 1]) {
+            div_y = -inner_d/2 + r * (inner_d / div_rows);
+            translate([0, div_y, 2.4 + div_h/2]) cube([inner_w, inner_wall, div_h], center=true);
+        }
+    }
+    // 3. Flush-Bottom Front Faceplate & 45-Deg Self-Supporting U-Track Handle
+    face_h = drawer_h + 0.4; // Fits cleanly inside the bay opening AND sits flush at Z = 0!
+    translate([0, -drawer_d/2 - 1.2, face_h/2]) {
+        // Main Front Faceplate (Bottom sits at Z = 0 on the print bed!)
+        cube([face_w, 2.4, face_h], center=true);
+        
+        // U-Channel Label Slot & Handle (With 45-deg bottom bevel starting at Z = 0!)
+        // Bottom of U-track cavity sits at Z = 5.0mm; 45-deg bevel tapers from Z = 0 to Z = 5.0mm
+        translate([0, -1.2, -face_h/2]) {
+            difference() {
+                // Outer U-Track body with 45-degree self-supporting bottom ramp from Z=0
+                hull() {
+                    translate([0, -track_depth/2, 5.0 + track_h/2])
+                        cube([track_w, track_depth, track_h], center=true);
+                    translate([0, -0.4, 0.4])
+                        cube([track_w, 0.8, 0.8], center=true);
+                }
+                // Inner Slide-In Label Slot Cutout (13.6mm tall x 2.6mm deep, open at top)
+                translate([0, -track_depth/2, 5.0 + (track_h / 2) + 1.4])
+                    cube([track_w - 4.0, track_depth - 2.4, track_h], center=true);
+                // Front Viewing Window Cutout
+                translate([0, -track_depth + 0.8, 5.0 + (track_h / 2) + 1.4])
+                    cube([track_w - 8.0, track_depth, track_h], center=true);
+            }
+        }
+    }
+}
+
+// --- 3. TOP LID & HANDLE MODULES ---
+module bench_lid() {
+    difference() {
+        union() {
+            cube([width, depth, lid_h], center=true);
+            for (side = [-1, 1]) {
+                hull() {
+                    translate([side * (width/2), -latch_offset, 0])
+                        cube([0.2, latch_w + (rib_flat_w * 2) + (latch_boss_t * 2), lid_h], center=true);
+                    translate([side * (width/2 + latch_boss_t/2), -latch_offset, 0])
+                        cube([latch_boss_t, latch_w + (rib_flat_w * 2), lid_h], center=true);
+                }
+            }
+        }
+        for (side = [-1, 1]) {
+            translate([side * (width/2 + latch_boss_t - latch_cut_d/2 + 2.0), -latch_offset, 0])
+                cube([latch_cut_d + 4.0, latch_w, lid_h + 1], center=true);
+            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 10, 0])
+                rotate([90, 0, 0]) cylinder(h = 22, r = 1.65, center=true);
+            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 14, 0])
+                rotate([90, 0, 0]) cylinder(h = 20, r = 2.9, center=true);
+            translate([side * (width/2 + hole_offset_x), -latch_offset + (latch_w/2) + 2.5, 0])
+                rotate([90, 0, 0]) cylinder(h = 6, r = 1.45, center=true);
+        }
+        if (lid_style == 1) {
+            for (x = [-width/2 + 15, width/2 - 15]) {
+                for (y = [-depth/2 + 15, depth/2 - 15]) {
+                    translate([x, y, lid_h/2 - dimple_depth + 0.01])
+                        cylinder(h=dimple_depth, r1=dimple_r_inner, r2=dimple_r_outer);
+                }
+            }
+        }
+        if (lid_style == 2) {
+            tray_d = 10;
+            translate([0, -depth/4 - 2, lid_h/2]) hull() {
+                cube([width - 20, depth/2 - 12, 0.1], center=true);
+                translate([0, 0, -tray_d]) cube([width - 20 - (tray_d*2), depth/2 - 12 - (tray_d*2), 0.1], center=true);
+            }
+            bin_w = (width - 28) / 3;
+            for (b = [-1, 0, 1]) {
+                translate([b * (bin_w + 4), depth/4 + 2, lid_h/2]) hull() {
+                    cube([bin_w, depth/2 - 12, 0.1], center=true);
+                    translate([0, 0, -tray_d]) cube([bin_w - (tray_d*2), depth/2 - 12 - (tray_d*2), 0.1], center=true);
+                }
+            }
+        }
+        if (lid_style == 3) {
+            pocket_d = 5.0;
+            translate([0, 0, lid_h/2]) hull() {
+                cube([130, 44, 0.1], center=true);
+                translate([0, 0, -pocket_d]) cube([120, 34, 0.1], center=true);
+            }
+        }
+    }
+    if (lid_style == 3) {
+        pocket_d = 5.0;
+        for (side = [-1, 1]) {
+            difference() {
+                translate([side * 44, 0, lid_h/2 - pocket_d]) hull() {
+                    cube([16, 32, 0.1], center=true);
+                    translate([0, 0, 14]) cube([16, 18, 4], center=true);
+                }
+                translate([side * 44, 0, lid_h/2 + 6]) rotate([0, 90, 0]) cylinder(h = 24, r = 1.45, center=true);
+            }
+        }
+    }
+    for (x = [-width/2 + 15, width/2 - 15]) {
+        for (y = [-depth/2 + 15, depth/2 - 15]) {
+            translate([x, y, -lid_h/2 - (dimple_depth - 0.2)])
+                cylinder(h=dimple_depth - 0.2 + 0.05, r1=dimple_r_inner - 0.2, r2=dimple_r_outer - 0.2);
+        }
+    }
+}
+
+module carry_handle() {
+    difference() {
+        hull() {
+            for (side = [-1, 1]) {
+                translate([side * 52, 26, 0]) cylinder(h = 14, r = 8, center=true);
+                translate([side * 52, 0, 0]) cylinder(h = 14, r = 8, center=true);
+            }
+        }
+        hull() {
+            for (side = [-1, 1]) {
+                translate([side * 38.5, 14, 0]) cylinder(h = 20, r = 4, center=true);
+                translate([side * 38.5, -10, 0]) cylinder(h = 20, r = 4, center=true);
+            }
+        }
+        for (side = [-1, 1]) {
+            translate([side * 44, -2, 0]) cube([17, 22, 20], center=true);
+            translate([side * 50, 0, 0]) rotate([0, 90, 0]) cylinder(h = 30, r = 1.65, center=true);
+        }
+        for (fg = [-27, -9, 9, 27]) {
+            translate([fg, 10.5, 0]) cylinder(h = 20, r = 9.5, center=true);
+        }
+    }
+}
+
+// --- 4. CAM-LATCH MODULE ---
+module bench_latch(lw = 21.4, p2h = 13.6) {
+    difference() {
+        linear_extrude(height = lw, center = true) {
+            union() {
+                hull() { circle(r = 4.2); translate([1.2, -5.0]) circle(r = 3.2); }
+                hull() { translate([1.2, -5.0]) circle(r = 3.2); translate([1.2, -p2h - 1.5]) circle(r = 3.0); }
+                polygon(points = [
+                    [2.0, -p2h + 3.0], [-3.6, -p2h + 0.2], [-3.6, -p2h - 1.8],
+                    [1.5, -p2h - 3.5], [4.2, -p2h + 1.0]
+                ]);
+                hull() { translate([1.2, -p2h - 1.5]) circle(r = 3.0); translate([3.8, -p2h - 8.5]) circle(r = 2.2); }
+            }
+        }
+        cylinder(h = lw + 4, r = 1.65, center = true);
+        translate([-2.2, -p2h + 2.2, 0]) rotate([0, 0, -38]) cube([4.5, 4.5, lw + 2], center = true);
+        for (gy = [-5, -8.5, -12, -15.5]) {
+            translate([4.6, gy, 0]) cylinder(h = lw + 2, r = 0.8, center = true);
+        }
+        for (side = [-1, 1]) {
+            translate([0, -12.0, side * (lw / 2)]) rotate([0, 0, 45]) cube([2.2, 2.2, 3.0], center = true);
+        }
+    }
+}
+
+// --- 5. MASTER PRODUCTION LAYOUT ---
+if (layout_mode == "print_plate") {
+    // Column 1: Stacked Tier Shells (Printed on Back Wall for Zero Supports)
+    if (tiers > 0) {
+        for (t = [0 : tiers - 1]) {
+            translate([0, t * (height + 24), depth/2])
+                rotate([-90, 0, 0])
+                color(shell_color) bench_shell();
+
+            // Column 2: Individual Drawers for Each Bay in This Tier
+            for (b = [0 : num_drawers - 1]) {
+                d_idx = t * num_drawers + b;
+                d_rows = drawer_grids[d_idx][0];
+                d_cols = drawer_grids[d_idx][1];
+                translate([width/2 + 35 + b * (drawer_w + 18) + drawer_w/2, t * (drawer_d + 24), 0])
+                    color(drawer_color) drawer(d_rows, d_cols);
+            }
+        }
+    }
+
+    // Top Lid + Optional Carry Handle (Placed below Shells in Column 1)
+    if (lid_style > 0) {
+        translate([0, -height - 30, depth/2])
+            rotate([-90, 0, 0])
+            color(shell_color) bench_lid();
+
+        if (lid_style == 3) {
+            translate([0, -height - 95, 7])
+                color(latch_color) carry_handle();
+        }
+    }
+
+    // Column 3: All Required Cam-Latches Laid Flat on Their Side
+    for (l = [0 : ${totalLatches} - 1]) {
+        translate([-width/2 - 45, l * 32, 21.4 / 2])
+            color(latch_color) bench_latch();
+    }
+
+    // Column 4: All Custom Slide-In Embossed Labels (2-Color: Shell Base + Drawer Text)
+    if (len(labels_list) > 0) {
+        for (i = [0 : len(labels_list) - 1]) {
+            translate([-width/2 - 120, i * 20, 0]) {
+                color(shell_color)
+                    translate([0, 0, 1.0])
+                    cube([plate_w, 13.0, 2.0], center=true);
+                color(drawer_color)
+                    translate([0, 0, 2.0])
+                    linear_extrude(height = 0.8)
+                    text(labels_list[i], size = 6.5, font = "Liberation Sans:style=Bold", halign = "center", valign = "center");
+            }
+        }
+    }
+} else {
+    // 3D Stacked Assembly Preview Mode inside OpenSCAD
+    if (tiers > 0) {
+        for (t = [0 : tiers - 1]) {
+            translate([0, 0, t * height + height/2]) {
+                color(shell_color) bench_shell();
+                for (b = [0 : num_drawers - 1]) {
+                    d_idx = t * num_drawers + b;
+                    bay_cx = -width/2 + wall + (bay_w/2) + b * (bay_w + wall);
+                    translate([bay_cx, 0, -drawer_h/2])
+                        color(drawer_color) drawer(drawer_grids[d_idx][0], drawer_grids[d_idx][1]);
+                }
+            }
+        }
+    }
+    if (lid_style > 0) {
+        translate([0, 0, tiers * height + lid_h/2])
+            color(shell_color) bench_lid();
     }
 }
 `;

@@ -36,6 +36,7 @@ import {
   generateBenchLidSCAD,
   generateBenchLatchSCAD,
   generateBenchLabelSCAD,
+  generateBenchFullAssemblySCAD,
 } from './benchV2Generator';
 
 // ==========================================
@@ -71,7 +72,7 @@ const BENCH_PRESETS = {
     depth: 150,
     height: 35,
     lidStyle: 1,
-    etsyPrice: 44.00
+    etsyPrice: 54.00
   },
   Trail: {
     id: 'Trail',
@@ -83,7 +84,7 @@ const BENCH_PRESETS = {
     depth: 150,
     height: 50,
     lidStyle: 2,
-    etsyPrice: 58.00
+    etsyPrice: 68.00
   },
   Pursuit: {
     id: 'Pursuit',
@@ -95,7 +96,7 @@ const BENCH_PRESETS = {
     depth: 150,
     height: 50,
     lidStyle: 3,
-    etsyPrice: 79.00
+    etsyPrice: 92.00
   },
   Frontier: {
     id: 'Frontier',
@@ -107,7 +108,7 @@ const BENCH_PRESETS = {
     depth: 150,
     height: 70,
     lidStyle: 3,
-    etsyPrice: 108.00
+    etsyPrice: 118.00
   }
 };
 
@@ -1063,7 +1064,7 @@ export default function App() {
   const setDividerForDrawer = (t, b, axis, count) => {
     const key = `tier_${t}_box_${b}`;
     setDrawerDividers((prev) => {
-      const current = prev[key] || { h: 1, v: 1 };
+      const current = prev[key] || { h: 3, v: 1 };
       return { ...prev, [key]: { ...current, [axis]: count } };
     });
     setOpenDrawersMap((prev) => ({ ...prev, [key]: true }));
@@ -1093,35 +1094,50 @@ export default function App() {
 
       // 0. Standalone Replacement / Upgrade Lid Only (0 Tiers)
       if (tiers === 0) {
-        if (benchLidStyle === 3) return isEtsyMode ? 24.00 : 19.50; // Tactical Carry Handle Lid + 2 Latches
-        if (benchLidStyle === 2) return isEtsyMode ? 20.00 : 16.50; // 4-Bin Organizer Lid + 2 Latches
-        return isEtsyMode ? 16.00 : 13.50; // Stackable Worktop Lid + 2 Latches
+        const lidEtsyPrice = benchLidStyle === 3 ? 26.00 : benchLidStyle === 2 ? 22.00 : 18.00;
+        return isEtsyMode ? lidEtsyPrice : Number((lidEtsyPrice * 0.85).toFixed(2));
       }
 
-      // 1. In Etsy Mode, return the flat all-inclusive preset price ($36 / $56 / $69 / $99)
+      // 1. Add-On Expansion Tier Mode (No Lid, 1 to 4 Tiers)
+      if (benchLidStyle === 0) {
+        const singleTierBaseEtsy =
+          height >= 100 ? 42.00 : height >= 70 ? 35.00 : height >= 50 ? 29.00 : 24.00;
+        const extraBayUpcharge = (drawersPerTier - 2) * 2.50; // +/- $2.50 for 1-bay vs 2-bay vs 3-bay
+        const addOnEtsyTotal = tiers * (singleTierBaseEtsy + extraBayUpcharge);
+        return isEtsyMode ? addOnEtsyTotal : Number((addOnEtsyTotal * 0.85).toFixed(2));
+      }
+
+      // 2. Full Stack (Etsy Preset or Custom Direct Stack)
+      const stackBaseEtsy = 4.00; // Covers box, packing & M3 assembly overhead on every stack
+      const tierRateEtsy =
+        height >= 100 ? 37.00 : height >= 70 ? 29.00 : height >= 50 ? 23.50 : 20.00;
+      const lidRateEtsy =
+        benchLidStyle === 3 ? 21.50 : benchLidStyle === 2 ? 17.00 : 10.00;
+      const bayAdjustEtsy = tiers * (drawersPerTier - 2) * 2.50;
+
+      // In Etsy Mode, if on a named preset, use the preset base + any lid/bay adjustments
       if (isEtsyMode && BENCH_PRESETS[sizePreset]?.etsyPrice) {
-        const presetDefaultLid = BENCH_PRESETS[sizePreset].lidStyle || 1;
-        const lidDiff = (benchLidStyle === 3 ? 6 : benchLidStyle === 2 ? 3 : 0) - (presetDefaultLid === 3 ? 6 : presetDefaultLid === 2 ? 3 : 0);
-        return BENCH_PRESETS[sizePreset].etsyPrice + lidDiff;
+        const preset = BENCH_PRESETS[sizePreset];
+        const presetLidCost = preset.lidStyle === 3 ? 21.50 : preset.lidStyle === 2 ? 17.00 : 10.00;
+        const currentLidCost = benchLidStyle === 3 ? 21.50 : benchLidStyle === 2 ? 17.00 : 10.00;
+        const bayDiff = (drawersPerTier - preset.numDrawers) * tiers * 2.50;
+        return Number((preset.etsyPrice + (currentLidCost - presetLidCost) + bayDiff).toFixed(2));
       }
 
-      // 2. Competitive Direct Mode Dynamic Calculation (Includes Lid Style Upcharge)
-      const baseFee = benchLidStyle === 0 ? 6.50 : 13.50; // Lower base fee when ordering add-on tiers with no lid!
-      const tierCost = tiers * 3.50;
-      const lidCost = benchLidStyle === 3 ? 6.50 : benchLidStyle === 2 ? 3.50 : benchLidStyle === 1 ? 0.00 : -4.00;
-      const volumeFactor = ((width * depth * height) / 25000) * 1.15;
-      const drawersCost = totalDrawers * (1.20 + volumeFactor * 0.175);
-      
+      // Custom Stack Total (Etsy fallback vs Direct 15% Discount + Divider Wall adjustments)
       let dividersCost = 0;
       for (let t = 0; t < tiers; t++) {
         for (let b = 0; b < drawersPerTier; b++) {
           const div = getDividerForDrawer(t, b);
-          const extraWalls = Math.max(0, (div.h - 1) + (div.v - 1));
+          const extraWalls = Math.max(0, (div.h - 3) + (div.v - 1));
           dividersCost += extraWalls * 0.35;
         }
       }
 
-      return baseFee + tierCost + lidCost + drawersCost + dividersCost;
+      const fullStackEtsyEquiv = stackBaseEtsy + tiers * tierRateEtsy + lidRateEtsy + bayAdjustEtsy;
+      return isEtsyMode
+        ? Number(fullStackEtsyEquiv.toFixed(2))
+        : Number((fullStackEtsyEquiv * 0.85 + dividersCost).toFixed(2));
 
     } else if (activeTab === 'ammo') {
       // 3. AMMO MATRIX TIERED PRICING MATRIX
@@ -2293,18 +2309,43 @@ if (export_part == "full") {
 
   const generateBenchV2ScadFromApp = (mode = scadExportMode) => {
     const firstDrawerDiv = getDividerForDrawer(0, 0);
-    const firstLabel = (labels['tier_0_box_0'] || 'FASTENERS').trim();
 
-    if (mode === 'lid_only' || (tiers === 0 && mode === 'full')) {
-      return generateBenchLidSCAD({
+    // 1. FULL MULTI-COLOR MODEL ASSEMBLY (All Shells, Drawers, Lid, Handle, Latches & Labels)
+    if (mode === 'full') {
+      const drawerConfigs = [];
+      const activeLabels = [];
+      for (let t = 0; t < tiers; t++) {
+        for (let b = 0; b < drawersPerTier; b++) {
+          const div = getDividerForDrawer(t, b);
+          drawerConfigs.push({ rows: div.h || 3, cols: div.v || 1 });
+          const txt = (labels[`tier_${t}_box_${b}`] || '').trim();
+          if (txt && enableLabelSlot) activeLabels.push(txt);
+        }
+      }
+      return generateBenchFullAssemblySCAD({
         width,
         depth,
-        lidH: 18,
-        lidStyle: benchLidStyle || 3,
-        showHandle: (benchLidStyle || 3) === 3,
+        height,
+        tiers,
+        numDrawers: drawersPerTier,
+        lidStyle: benchLidStyle,
+        drawerConfigs,
+        labelsList: activeLabels,
+        shellColorHex: activeCasingColor.hex,
+        drawerColorHex: activeDrawerColor.hex,
+        latchColorHex: activeBenchLatchColor.hex,
       });
     }
 
+    // 2. INDIVIDUAL PART EXPORTS
+    if (mode === 'shell_only') {
+      return generateBenchShellSCAD({
+        width,
+        depth,
+        height,
+        numDrawers: drawersPerTier,
+      });
+    }
     if (mode === 'drawer_only') {
       return generateBenchDrawerSCAD({
         width,
@@ -2320,8 +2361,8 @@ if (export_part == "full") {
         width,
         depth,
         lidH: 18,
-        lidStyle: benchLidStyle,
-        showHandle: benchLidStyle === 3,
+        lidStyle: benchLidStyle || 3,
+        showHandle: (benchLidStyle || 3) === 3,
       });
     }
     if (mode === 'latch_only') {
@@ -2343,18 +2384,13 @@ if (export_part == "full") {
         drawerColorHex: activeDrawerColor.hex,
       });
     }
-    // Default ('full' or 'shell_only'): Export the Parametric Multi-Bay Shell
-    return generateBenchShellSCAD({
-      width,
-      depth,
-      height,
-      numDrawers: drawersPerTier,
-    });
+    return generateBenchShellSCAD({ width, depth, height, numDrawers: drawersPerTier });
   };
 
   const getBenchScadFilename = (mode = scadExportMode) => {
     const cleanCode = designCode || 'BENCH-V2';
-    return `${cleanCode}_${sizePreset.toUpperCase()}_${width}x${depth}x${height}mm_${drawersPerTier}Bay_Lid${benchLidStyle}_${mode.toUpperCase()}.scad`;
+    const colors = `shell-${casingColorId}_drw-${drawerColorId}_acc-${benchLatchColorId}`;
+    return `${cleanCode}_${sizePreset.toUpperCase()}_${tiers}T_${width}x${depth}x${height}mm_${drawersPerTier}Bay_Lid${benchLidStyle}_${colors}_${mode.toUpperCase()}.scad`;
   };
   
   const handleDownloadScad = () => {
@@ -4494,11 +4530,12 @@ Date: ${new Date().toISOString()}
                         ]
                         : activeTab === 'bench'
                       ? [
-                          { id: 'full', label: 'Tier Shell (.scad)' },
+                          { id: 'full', label: 'Entire Model (Multi-Color)' },
+                          { id: 'shell_only', label: 'Tier Shell (.scad)' },
                           { id: 'drawer_only', label: 'Drawer + Grid (.scad)' },
                           { id: 'lid_only', label: `Top Lid (Style ${benchLidStyle})` },
                           { id: 'latch_only', label: 'Cam-Latch (.scad)' },
-                          { id: 'label_only', label: 'Slide-In Label (.scad)' }
+                          { id: 'label_only', label: 'Slide-In Labels (.scad)' }
                         ]
                         : [
                           { id: 'full', label: 'Full 3MF' },
@@ -5725,7 +5762,16 @@ Date: ${new Date().toISOString()}
             </span>
             {isEtsyMode ? (
               <span className="px-2.5 py-0.5 rounded bg-[#3b1526] border border-[#f43f5e]/60 text-xs font-bold text-[#fecdd3]">
-                Etsy Tier: {activeTab === 'bench' ? sizePreset : activeTab === 'ammo' ? `${ammoTotalRounds} Rds` : cargoPreset}
+                Etsy:{' '}
+                {activeTab === 'bench'
+                  ? tiers === 0
+                    ? `Lid Only ($${calculatePrice().toFixed(0)})`
+                    : benchLidStyle === 0
+                    ? `+1 Add-On ${height}mm ($${calculatePrice().toFixed(0)})`
+                    : `${sizePreset} ($${calculatePrice().toFixed(0)})`
+                  : activeTab === 'ammo'
+                  ? `${ammoTotalRounds} Rds ($${calculatePrice().toFixed(0)})`
+                  : `${cargoPreset} ($${calculatePrice().toFixed(0)})`}
               </span>
             ) : (
               <span className="text-lg font-black text-[#38bdf8]">${calculatePrice().toFixed(2)}</span>
