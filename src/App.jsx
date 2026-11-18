@@ -958,8 +958,10 @@ export default function App() {
   // When entering Etsy Mode, snap any custom freeform dimensions back to the selected preset
   useEffect(() => {
     if (isEtsyMode) {
-      const bKey = BENCH_PRESETS[sizePreset] ? sizePreset : 'Trail';
-      applyBenchPreset(bKey);
+      if (sizePreset !== 'AddOn' && sizePreset !== 'LidOnly') {
+        const bKey = BENCH_PRESETS[sizePreset] ? sizePreset : 'Trail';
+        applyBenchPreset(bKey);
+      }
       const cKey = CARGO_PRESETS[cargoPreset] ? cargoPreset : 'Trail';
       applyCargoPreset(cKey);
 
@@ -1014,8 +1016,8 @@ export default function App() {
 
   const singleTierHeightMm = height;
   const totalStackedHeightMm = useMemo(() => {
-    return Number((tiers * height + (benchLidStyle === 0 ? 0 : 18)).toFixed(1)); // Tiers + 18mm Top Lid
-  }, [tiers, height]);
+    return Number((tiers * height + (benchLidStyle === 0 ? 0 : 18)).toFixed(1));
+  }, [tiers, height, benchLidStyle]);
   const isOverP1SLimit = Math.max(width, depth, height) > P1S_MAX_HEIGHT_MM;
 
   // Automatically trim any existing drawer labels if the box/label width is shrunk
@@ -1088,6 +1090,14 @@ export default function App() {
     const ammoLidSubtitle = showAmmoRoundCount ? `${ammoTotalRounds} RDS` : '';
     
     if (activeTab === 'bench') {
+
+      // 0. Standalone Replacement / Upgrade Lid Only (0 Tiers)
+      if (tiers === 0) {
+        if (benchLidStyle === 3) return isEtsyMode ? 24.00 : 19.50; // Tactical Carry Handle Lid + 2 Latches
+        if (benchLidStyle === 2) return isEtsyMode ? 20.00 : 16.50; // 4-Bin Organizer Lid + 2 Latches
+        return isEtsyMode ? 16.00 : 13.50; // Stackable Worktop Lid + 2 Latches
+      }
+
       // 1. In Etsy Mode, return the flat all-inclusive preset price ($36 / $56 / $69 / $99)
       if (isEtsyMode && BENCH_PRESETS[sizePreset]?.etsyPrice) {
         const presetDefaultLid = BENCH_PRESETS[sizePreset].lidStyle || 1;
@@ -2285,6 +2295,16 @@ if (export_part == "full") {
     const firstDrawerDiv = getDividerForDrawer(0, 0);
     const firstLabel = (labels['tier_0_box_0'] || 'FASTENERS').trim();
 
+    if (mode === 'lid_only' || (tiers === 0 && mode === 'full')) {
+      return generateBenchLidSCAD({
+        width,
+        depth,
+        lidH: 18,
+        lidStyle: benchLidStyle || 3,
+        showHandle: (benchLidStyle || 3) === 3,
+      });
+    }
+
     if (mode === 'drawer_only') {
       return generateBenchDrawerSCAD({
         width,
@@ -2870,7 +2890,7 @@ Date: ${new Date().toISOString()}
 
   const fitCameraToModel = useCallback(() => {
     if (activeTab === 'bench') {
-      const totalH = tiers * singleTierHeightMm;
+      const totalH = Math.max(18, tiers * singleTierHeightMm + (benchLidStyle === 0 ? 0 : 18));
       const maxSpan = Math.max(width, depth, totalH);
       controlsState.current.targetY = totalH * 0.45;
       controlsState.current.radius = Math.max(250, maxSpan * 1.9 + 90);
@@ -4786,104 +4806,175 @@ Date: ${new Date().toISOString()}
                   className="w-full px-3.5 py-2.5 flex items-center justify-between text-[11px] font-bold tracking-widest uppercase text-[#38bdf8] border-b border-[#1e293b]"
                 >
                   <span className="flex items-center gap-1.5">
-                    <Sliders size={13} /> Bench Matrix V2 Architecture
+                    <Sliders size={13} /> Bench Matrix Architecture
                   </span>
                   {openSections.config ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
                 {openSections.config && (
                   <div className="p-3.5 space-y-3.5">
-                    {/* Interchangeable Lid Selector */}
+                    {/* 1. BUILD MODE SELECTOR (VISIBLE IN BOTH ETSY & DIRECT MODES!) */}
                     <div>
-                      <div className="text-xs font-semibold mb-1.5">Interchangeable Top Lid Style</div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {[
-                          { id: 1, label: 'Worktop Lid' },
-                          { id: 2, label: 'Organizer Lid' },
-                          { id: 3, label: 'Carry Handle' },
-                          { id: 0, label: 'No Lid (Add-On)' }
-                        ].map((st) => (
-                          <button
-                            key={st.id}
-                            onClick={() => setBenchLidStyle(st.id)}
-                            className={`py-1.5 px-2 rounded border text-[11px] font-bold transition-all ${
-                              benchLidStyle === st.id
-                                ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]'
-                                : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
-                            }`}
-                          >
-                            {st.label}
-                          </button>
-                        ))}
+                      <div className="text-xs font-semibold mb-1.5 text-[#38bdf8]">
+                        1. Select Build Type
                       </div>
-                    </div>
-
-                    {/* Columns Per Tier (1 Full, 2 Split, 3 Triple) */}
-                    <div>
-                      <div className="text-xs font-semibold mb-1.5">Drawer Bays per Tier (Columns)</div>
                       <div className="grid grid-cols-3 gap-1.5">
                         {[
-                          { cols: 1, label: '1 Full Bay' },
-                          { cols: 2, label: '2 Split Bays' },
-                          { cols: 3, label: '3 Triple Bays' }
-                        ].map((c) => (
+                          {
+                            id: 'stack',
+                            label: 'Full Stack',
+                            active: tiers > 0 && benchLidStyle > 0,
+                            onClick: () => {
+                              if (tiers === 0) setTiers(BENCH_PRESETS[sizePreset]?.tiers || 2);
+                              if (benchLidStyle === 0) setBenchLidStyle(BENCH_PRESETS[sizePreset]?.lidStyle || 2);
+                            }
+                          },
+                          {
+                            id: 'addon',
+                            label: '+1 Add-On Tier',
+                            active: tiers > 0 && benchLidStyle === 0,
+                            onClick: () => {
+                              setSizePreset('AddOn');
+                              setTiers(1);
+                              setBenchLidStyle(0); // No Lid needed for expansion tiers!
+                            }
+                          },
+                          {
+                            id: 'lidonly',
+                            label: 'Lid Only',
+                            active: tiers === 0,
+                            onClick: () => {
+                              setSizePreset('LidOnly');
+                              setTiers(0);
+                              if (benchLidStyle === 0) setBenchLidStyle(3);
+                            }
+                          }
+                        ].map((mode) => (
                           <button
-                            key={c.cols}
-                            onClick={() => setDrawersPerTier(c.cols)}
-                            className={`py-1.5 px-2 rounded border text-[11px] font-bold transition-all ${
-                              drawersPerTier === c.cols
-                                ? 'bg-[#38bdf8]/20 border-[#38bdf8] text-[#38bdf8]'
+                            key={mode.id}
+                            type="button"
+                            onClick={mode.onClick}
+                            className={`py-2 px-2 rounded-lg border text-[11px] font-bold transition-all ${
+                              mode.active
+                                ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3] shadow'
                                 : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
                             }`}
                           >
-                            {c.label}
+                            {mode.label}
                           </button>
                         ))}
                       </div>
                     </div>
 
-                    {!isEtsyMode && (
-                      <>
-                        {/* Stacked Tiers Slider */}
-                        <div>
-                          <div className="flex justify-between text-xs mb-1">
-                            <span className="font-semibold">Stacked Shell Tiers</span>
-                            <span className="text-[#fecdd3] font-bold">{tiers} Tiers ({totalStackedHeightMm}mm Total)</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="1"
-                            max="4"
-                            value={tiers}
-                            onChange={(e) => {
-                              setSizePreset('Custom');
-                              setTiers(parseInt(e.target.value, 10));
-                            }}
-                            className="w-full box-studio-slider"
-                          />
+                    {/* 2. TOP LID STYLE (HIDDEN WHEN IN "+1 ADD-ON TIER" MODE) */}
+                    {benchLidStyle > 0 && (
+                      <div>
+                        <div className="text-xs font-semibold mb-1.5">
+                          Interchangeable Top Lid Style
                         </div>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {[
+                            { id: 1, label: 'Worktop Lid' },
+                            { id: 2, label: 'Organizer Lid' },
+                            { id: 3, label: 'Carry Handle' }
+                          ].map((st) => (
+                            <button
+                              key={st.id}
+                              type="button"
+                              onClick={() => setBenchLidStyle(st.id)}
+                              className={`py-1.5 px-2 rounded border text-[11px] font-bold transition-all ${
+                                benchLidStyle === st.id
+                                  ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]'
+                                  : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                              }`}
+                            >
+                              {st.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                        {/* Shell Tier Height Selector */}
+                    {/* 3. DRAWER BAYS & TIER HEIGHT (HIDDEN WHEN IN "LID ONLY" MODE) */}
+                    {tiers > 0 && (
+                      <>
                         <div>
-                          <div className="text-xs font-semibold mb-1.5">Tier Shell Height (mm)</div>
-                          <div className="grid grid-cols-4 gap-1.5">
-                            {[35, 50, 70, 100].map((hVal) => (
+                          <div className="text-xs font-semibold mb-1.5">
+                            Drawer Bays per Tier (Columns)
+                          </div>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {[
+                              { cols: 1, label: '1 Full Bay' },
+                              { cols: 2, label: '2 Split Bays' },
+                              { cols: 3, label: '3 Triple Bays' }
+                            ].map((c) => (
                               <button
-                                key={hVal}
-                                onClick={() => {
-                                  setSizePreset('Custom');
-                                  setHeight(hVal);
-                                }}
-                                className={`py-1.5 rounded border text-xs font-bold ${
-                                  height === hVal
-                                    ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]'
-                                    : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8]'
+                                key={c.cols}
+                                type="button"
+                                onClick={() => setDrawersPerTier(c.cols)}
+                                className={`py-1.5 px-2 rounded border text-[11px] font-bold transition-all ${
+                                  drawersPerTier === c.cols
+                                    ? 'bg-[#38bdf8]/20 border-[#38bdf8] text-[#38bdf8]'
+                                    : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
                                 }`}
                               >
-                                {hVal}mm
+                                {c.label}
                               </button>
                             ))}
                           </div>
                         </div>
+
+                        {/* Allow Tier Height selection in Direct Mode OR whenever "+1 Add-On Tier" is active! */}
+                        {(!isEtsyMode || benchLidStyle === 0) && (
+                          <div>
+                            <div className="text-xs font-semibold mb-1.5">
+                              Tier Shell Height (mm)
+                            </div>
+                            <div className="grid grid-cols-4 gap-1.5">
+                              {[35, 50, 70, 100].map((hVal) => (
+                                <button
+                                  key={hVal}
+                                  type="button"
+                                  onClick={() => {
+                                    if (benchLidStyle !== 0) setSizePreset('Custom');
+                                    setHeight(hVal);
+                                  }}
+                                  className={`py-1.5 rounded border text-xs font-bold ${
+                                    height === hVal
+                                      ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]'
+                                      : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8]'
+                                  }`}
+                                >
+                                  {hVal}mm
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Stacked Tiers Slider (1 to 4 Tiers): Direct Mode OR Add-On Mode */}
+                        {!isEtsyMode && (
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="font-semibold">
+                                {benchLidStyle === 0 ? 'Expansion Tiers to Add' : 'Stacked Shell Tiers'}
+                              </span>
+                              <span className="text-[#fecdd3] font-bold">
+                                {tiers} {tiers === 1 ? 'Tier' : 'Tiers'} ({totalStackedHeightMm}mm Total)
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              min="1"
+                              max="4"
+                              value={tiers}
+                              onChange={(e) => {
+                                if (benchLidStyle !== 0) setSizePreset('Custom');
+                                setTiers(parseInt(e.target.value, 10));
+                              }}
+                              className="w-full box-studio-slider"
+                            />
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -4928,31 +5019,33 @@ Date: ${new Date().toISOString()}
                         ))}
                       </div>
                     </div>
-                    <div>
-                      <div className="text-xs font-semibold mb-1.5">
-                        2. V-Rail Drawers:{' '}
-                        <span
-                          className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60"
-                          style={{ color: activeDrawerColor.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}
-                        >
-                          {activeDrawerColor.name}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-5 gap-1.5">
-                        {BAMBU_PETG_COLORS.map((col) => (
-                          <button
-                            key={`d_${col.id}`}
-                            onClick={() => setDrawerColorId(col.id)}
-                            className={`p-1 rounded border flex flex-col items-center gap-1 ${
-                              drawerColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
-                            }`}
+                    {tiers > 0 && (
+                      <div>
+                        <div className="text-xs font-semibold mb-1.5">
+                          2. V-Rail Drawers:{' '}
+                          <span
+                            className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60"
+                            style={{ color: activeDrawerColor.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}
                           >
-                            <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
-                            <span className="text-[9px] truncate w-full text-center">{col.name}</span>
-                          </button>
-                        ))}
+                            {activeDrawerColor.name}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-5 gap-1.5">
+                          {BAMBU_PETG_COLORS.map((col) => (
+                            <button
+                              key={`d_${col.id}`}
+                              onClick={() => setDrawerColorId(col.id)}
+                              className={`p-1 rounded border flex flex-col items-center gap-1 ${
+                                drawerColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
+                              }`}
+                            >
+                              <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
+                              <span className="text-[9px] truncate w-full text-center">{col.name}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
                     <div>
                       <div className="text-xs font-semibold mb-1.5">
                         3. Cam-Latches &amp; Handle{' '}
@@ -4983,6 +5076,7 @@ Date: ${new Date().toISOString()}
               </div>
 
               {/* SLIDE-IN U-TRACK LABELS & FUSED INTERNAL GRIDS */}
+              {tiers > 0 && (    
               <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-[#38bdf8] flex items-center gap-1.5">
@@ -4996,6 +5090,7 @@ Date: ${new Date().toISOString()}
                     <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${enableLabelSlot ? 'translate-x-4' : ''}`} />
                   </button>
                 </div>
+                
 
                 <div className="bg-[#151e31] p-2.5 rounded-lg border border-[#1e293b] flex items-center justify-between text-xs">
                   <span className="text-[11px] font-semibold text-[#38bdf8]">Batch Grid (Rows × Cols):</span>
@@ -5084,6 +5179,7 @@ Date: ${new Date().toISOString()}
                   })}
                 </div>
               </div>
+              )}
             </>
           ) : activeTab === 'ammo' ? (
               /* ================= AMMOMATRIX LEFT PANEL CONTROLS ================= */
@@ -5620,7 +5716,9 @@ Date: ${new Date().toISOString()}
           <div className="flex items-center justify-between text-xs">
             <span className="text-[#94a3b8]">
               {activeTab === 'bench'
-                ? `${tiers} Tiers • ${tiers * drawersPerTier} Drawers`
+                ? tiers === 0
+                  ? `Lid Only (Style ${benchLidStyle}) • 2 Cam-Latches`
+                  : `${tiers} Tiers • ${tiers * drawersPerTier} Drawers${benchLidStyle === 0 ? ' (No Lid)' : ''}`
                 : activeTab === 'ammo'
                   ? `${ammoShellX}×${ammoShellY}×${ammoShellZ}mm • ${ammoTotalRounds} Rds (${currentCalSpec.short})`
                   : `${cargoWidth}×${cargoLength}×${cargoHeight * 2}mm • ${cargoCompX * cargoCompY} Cells`}
