@@ -74,6 +74,16 @@ module bench_shell() {
         for (side = [-1, 1]) {
             translate([side * (width/2 + latch_boss_t - latch_cut_d/2 + 2.0), -latch_offset, 0])
                 cube([latch_cut_d + 4.0, latch_w, height + 1], center=true);
+
+            // Clean 45-degree chamfer strictly on the -Y pocket ceiling (no gap or M3 hit)
+            // True 45-degree (2.0mm x 2.0mm) self-supporting ceiling bevel
+                translate([side * (width/2 + latch_boss_t), -latch_offset - latch_w/2, 0])
+                    linear_extrude(height = height + 1, center = true)
+                        polygon(points = [
+                            [0.1,        0.1],
+                            [-side * 2.0, 0.1],
+                            [0.1,       -2.0]
+                        ]);
                 
             // 5a. TOP RIB M3 SHAFT HOLE (-Y side)
             translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 10, -height/2 + 8])
@@ -317,6 +327,15 @@ module bench_lid() {
         for (side = [-1, 1]) {
             translate([side * (width/2 + latch_boss_t - latch_cut_d/2 + 2.0), -latch_offset, 0])
                 cube([latch_cut_d + 4.0, latch_w, lid_h + 1], center=true);
+
+            // Full-span 45-degree self-supporting ceiling across the 6mm latch pocket
+            translate([side * (width/2 + latch_boss_t - latch_cut_d), -latch_offset - latch_w/2, 0])
+                linear_extrude(height = lid_h + 1, center = true)
+                    polygon(points = [
+                        [-side * 0.1,  0.1],
+                        [ side * (latch_cut_d + 2.0),  0.1],
+                        [ side * (latch_cut_d + 2.0), -latch_cut_d]
+                    ]);
                 
             translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 10, 0])
                 rotate([90, 0, 0])
@@ -691,6 +710,15 @@ module bench_shell() {
         for (side = [-1, 1]) {
             translate([side * (width/2 + latch_boss_t - latch_cut_d/2 + 2.0), -latch_offset, 0])
                 cube([latch_cut_d + 4.0, latch_w, height + 1], center=true);
+            // Clean 45-degree chamfer strictly on the -Y pocket ceiling (no gap or M3 hit)
+            // True 45-degree (2.0mm x 2.0mm) self-supporting ceiling bevel
+                translate([side * (width/2 + latch_boss_t), -latch_offset - latch_w/2, 0])
+                    linear_extrude(height = height + 1, center = true)
+                        polygon(points = [
+                            [0.1,        0.1],
+                            [-side * 2.0, 0.1],
+                            [0.1,       -2.0]
+                        ]);
             translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 10, -height/2 + 8])
                 rotate([90, 0, 0]) cylinder(h = 22, r = 1.65, center=true);
             translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 14, -height/2 + 8])
@@ -807,6 +835,14 @@ module bench_lid() {
         for (side = [-1, 1]) {
             translate([side * (width/2 + latch_boss_t - latch_cut_d/2 + 2.0), -latch_offset, 0])
                 cube([latch_cut_d + 4.0, latch_w, lid_h + 1], center=true);
+            // Full-span 45-degree self-supporting ceiling across the 6mm latch pocket
+            translate([side * (width/2 + latch_boss_t - latch_cut_d), -latch_offset - latch_w/2, 0])
+                linear_extrude(height = lid_h + 1, center = true)
+                    polygon(points = [
+                        [-side * 0.1,  0.1],
+                        [ side * (latch_cut_d + 2.0),  0.1],
+                        [ side * (latch_cut_d + 2.0), -latch_cut_d]
+                    ]);
             translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 10, 0])
                 rotate([90, 0, 0]) cylinder(h = 22, r = 1.65, center=true);
             translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 14, 0])
