@@ -99,7 +99,7 @@ module bench_shell() {
             // 5c. BOTTOM RIB BLIND HOLE (+Y side)
             translate([side * (width/2 + hole_offset_x), -latch_offset + (latch_w/2) + 2.5, -height/2 + 8])
                 rotate([90, 0, 0])
-                cylinder(h = 6, r = 1.45, center=true, $fn=32);
+                cylinder(h = 6, r = 1.35, center=true, $fn=32);
         }
     }
     
@@ -113,7 +113,7 @@ module bench_shell() {
                 }
             
             for (end = [-1, 1]) {
-                translate([side * (width/2 + 3.2), -latch_offset + end * (latch_w/2), -height/2 + 20])
+                translate([side * (width/2 + 1.4), -latch_offset + end * (latch_w/2), -height/2 + 20])
                     rotate([0, 0, 45])
                     cube([1.6, 1.6, 4.0], center=true);
                 }
@@ -328,7 +328,7 @@ dimple_depth = 2.0;
 latch_w = 22; 
 rib_flat_w = 7;       
 latch_boss_t = 8.5;   
-latch_cut_d = 6.0;
+latch_cut_d = 7.8;
 hole_offset_x = 4.8;  
 latch_offset = depth/2 - 30; 
 
@@ -371,7 +371,7 @@ module bench_lid() {
                 
             translate([side * (width/2 + hole_offset_x), -latch_offset + (latch_w/2) + 2.5, 0])
                 rotate([90, 0, 0])
-                cylinder(h = 6, r = 1.45, center=true, $fn=32);
+                cylinder(h = 6, r = 1.35, center=true, $fn=32);
         }
         
         if (lid_style == 1) {
@@ -494,7 +494,7 @@ if (lid_style == 3 && show_handle) {
  * includes stow-up parking notches and thumb-pull lever.
  */
 export function generateBenchLatchSCAD({
-  latchW = 21.4,
+  latchW = 16.4,
   pivotToHook = 13.6,
 } = {}) {
   return `// ==========================================
@@ -687,7 +687,7 @@ dimple_r_outer = 4.5;
 dimple_r_inner = 2.5;
 dimple_depth = 2.0;
 
-latch_w = 22;
+latch_w = 17;
 rib_flat_w = 7;
 latch_boss_t = 8.5;
 latch_cut_d = 6.0;
@@ -757,7 +757,7 @@ module bench_shell() {
                     
             // 5c. BOTTOM RIB BLIND HOLE (+Y side)
                 translate([side * (width/2 + hole_offset_x), -latch_offset + (latch_w/2) + 2.5, -height/2 + 8])
-                    rotate([90, 0, 0]) cylinder(h = 6, r = 1.45, center=true);
+                    rotate([90, 0, 0]) cylinder(h = 6, r = 1.35, center=true);
                 }
     }
             // 6. Full-Span Top Cam-Latch Catch Hooks + Anchored Parking Detent Ridges
@@ -911,7 +911,7 @@ module bench_lid() {
             translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 14, 0])
                 rotate([90, 0, 0]) cylinder(h = 20, r = 2.9, center=true);
             translate([side * (width/2 + hole_offset_x), -latch_offset + (latch_w/2) + 2.5, 0])
-                rotate([90, 0, 0]) cylinder(h = 6, r = 1.45, center=true);
+                rotate([90, 0, 0]) cylinder(h = 6, r = 1.35, center=true);
         }
         if (lid_style == 1) {
             for (x = [-width/2 + 15, width/2 - 15]) {
@@ -988,7 +988,7 @@ module carry_handle() {
 }
 
 // --- 4. CAM-LATCH MODULE ---
-module bench_latch(lw = 21.4, p2h = 13.6) {
+module bench_latch(lw = 16.4, p2h = 13.6) {
     difference() {
         linear_extrude(height = lw, center = true) {
             union() {
@@ -1046,7 +1046,7 @@ if (layout_mode == "print_plate") {
 
     // Column 3: All Required Cam-Latches Laid Flat on Their Side
     for (l = [0 : ${totalLatches} - 1]) {
-        translate([-width/2 - 45, l * 32, 21.4 / 2])
+        translate([-width/2 - 45, l * 32, 16.4 / 2])
             color(latch_color) bench_latch();
     }
 
