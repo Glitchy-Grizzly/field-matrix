@@ -30,9 +30,9 @@ dimple_r_inner = 2.5;
 dimple_depth = 2.0;   
 
 latch_w = 22; 
-rib_flat_w = 7;       
+rib_flat_w = 9;       
 latch_boss_t = 8.5;   
-latch_cut_d = 6.0;    
+latch_cut_d = 7.8;    
 hole_offset_x = 4.8;  
 latch_offset = depth/2 - 30; 
 
@@ -72,26 +72,27 @@ module bench_shell() {
         
         // 5. Clean 22mm Channel + Counterbored Top Entry Hole + Hidden Bottom Blind Hole
         for (side = [-1, 1]) {
+            // 5. Full 22mm pocket cutout
             translate([side * (width/2 + latch_boss_t - latch_cut_d/2 + 2.0), -latch_offset, 0])
                 cube([latch_cut_d + 4.0, latch_w, height + 1], center=true);
 
-            // Clean 45-degree chamfer strictly on the -Y pocket ceiling (no gap or M3 hit)
-            // True 45-degree (2.0mm x 2.0mm) self-supporting ceiling bevel
-                translate([side * (width/2 + latch_boss_t), -latch_offset - latch_w/2, 0])
-                    linear_extrude(height = height + 1, center = true)
-                        polygon(points = [
-                            [0.1,        0.1],
-                            [-side * 2.0, 0.1],
-                            [0.1,       -2.0]
-                        ]);
+            // True 45-degree self-supporting ceiling (rises 6.0mm inside the 7.0mm top rib)
+            hull() {
+                translate([side * (width/2 + latch_boss_t - latch_cut_d), -latch_offset - latch_w/2 + 0.1, 0])
+                    cube([0.2, 0.2, height + 1], center=true);
+                translate([side * (width/2 + latch_boss_t + 0.05), -latch_offset - latch_w/2 + 0.1, 0])
+                    cube([0.2, 0.2, height + 1], center=true);
+                translate([side * (width/2 + latch_boss_t + 0.05), -latch_offset - latch_w/2 - latch_cut_d, 0])
+                    cube([0.2, 0.2, height + 1], center=true);
+            }
                 
             // 5a. TOP RIB M3 SHAFT HOLE (-Y side)
-            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 10, -height/2 + 8])
+            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 12, -height/2 + 8])
                 rotate([90, 0, 0])
-                cylinder(h = 22, r = 1.65, center=true, $fn=32);
-                
-            // 5b. TOP RIB SCREW HEAD COUNTERBORE (-Y side)
-            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 14, -height/2 + 8])
+                cylinder(h = 26, r = 1.65, center=true, $fn=32);
+
+            // 5b. TOP RIB SCREW HEAD COUNTERBORE (-Y side — stops 8mm above pocket)
+            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 18, -height/2 + 8])
                 rotate([90, 0, 0])
                 cylinder(h = 20, r = 2.9, center=true, $fn=32);
                 
@@ -102,20 +103,20 @@ module bench_shell() {
         }
     }
     
-    // 6. Full-Span Top Cam-Latch Catch Hooks + Anchored Parking Detent Ridges
-    for (side = [-1, 1]) {
-        translate([side * (width/2 + latch_boss_t - 2.0), -latch_offset, height/2 - 3])
-        hull() {
-            cube([4.0, latch_w + 4, 2], center=true);
-            translate([-side * 2.0, 0, -2.5])
-                cube([0.1, latch_w + 4, 2], center=true);
-        }
-        
-        for (end = [-1, 1]) {
-            translate([side * (width/2 + 3.2), -latch_offset + end * (latch_w/2), -height/2 + 20])
-                rotate([0, 0, 45])
-                cube([1.6, 1.6, 4.0], center=true);
-        }
+            // 6. Full-Span Top Cam-Latch Catch Hooks + Anchored Parking Detent Ridges
+            for (side = [-1, 1]) {
+                translate([side * (width/2 + latch_boss_t - 2.0), -latch_offset - 2.0, height/2 - 3])
+                hull() {
+                    cube([4.0, latch_w + 8, 2], center=true);
+                    translate([-side * 2.0, 0, -2.5])
+                        cube([0.1, latch_w + 8, 2], center=true);
+                }
+            
+            for (end = [-1, 1]) {
+                translate([side * (width/2 + 3.2), -latch_offset + end * (latch_w/2), -height/2 + 20])
+                    rotate([0, 0, 45])
+                    cube([1.6, 1.6, 4.0], center=true);
+                }
     }
 
     // 7. Bottom Stacking Pegs
@@ -142,12 +143,13 @@ module bench_shell() {
                 rotate([0, 45, 0]) cube([2.6, 5.0, 2.6], center=true);
                 rotate([0, 45, 0]) cube([3.2, 1.5, 3.2], center=true);
             }
-                
+            
+            //Rear snap-lock detent pocket (3.6mm) for a crisp drawer click
             translate([rail_x, depth/2 - 15, 0])
-            hull() {
-                rotate([0, 45, 0]) cube([2.6, 6.0, 2.6], center=true);
-                rotate([0, 45, 0]) cube([3.1, 2.0, 3.1], center=true);
-            }
+          hull() {
+              rotate([0, 45, 0]) cube([2.6, 6.0, 2.6], center=true);
+              rotate([0, 45, 0]) cube([3.6, 2.0, 3.6], center=true);
+          }
         }
     }
 }
@@ -210,17 +212,24 @@ module drawer() {
                 rotate([0, 45, 0])
                 cube([3.1, drawer_d - 18, 3.1], center=true); 
                 
-            translate([side * (drawer_w/2), drawer_d/2 - 9, drawer_h/2])
-                rotate([0, 45, 0])
-                cube([2.7, 20, 2.7], center=true);
-                
-            translate([side * (drawer_w/2), drawer_d/2 - 11.8, drawer_h/2])
-            hull() {
-                rotate([0, 45, 0]) cube([3.1, 6.5, 3.1], center=true);
-                rotate([0, 45, 0]) cube([3.5, 2.5, 3.5], center=true);
+            // Narrowed lead-in channel (2.2mm) for a crisp rear snap-lock click
+          translate([side * (drawer_w/2), drawer_d/2 - 9, drawer_h/2])
+              rotate([0, 45, 0])
+              cube([2.2, 20, 2.2], center=true);
+
+          // Rear snap-lock detent pocket (3.6mm)
+          translate([side * (drawer_w/2), drawer_d/2 - 11.8, drawer_h/2])
+          hull() {
+              rotate([0, 45, 0]) cube([3.1, 6.5, 3.1], center=true);
+              rotate([0, 45, 0]) cube([3.6, 2.5, 3.6], center=true);
+          }
+
+          // Rear-corner air-vent channel so trapped air vents when closing
+          translate([side * (drawer_w/2 - 1.2), drawer_d/2 - 1.5, drawer_h/2])
+              cube([2.4, 3.2, drawer_h - 4], center=true);
             }
         }
-    }
+    
     
     inner_w = drawer_w - (d_wall * 2);
     inner_d = drawer_d - 4.8;
@@ -251,21 +260,35 @@ module drawer() {
         // U-Channel Label Slot & Handle (With 45-deg bottom bevel starting at Z = 0!)
         // Bottom of U-track cavity sits at Z = 5.0mm; 45-deg bevel tapers from Z = 0 to Z = 5.0mm
         translate([0, -1.2, -face_h/2]) {
+            track_z = max(13.0, face_h - track_h - 2.0); // Moves label slot up cleanly above the handle
+
+            // A. U-Channel Label Slot (45-deg self-supporting bottom bevel)
             difference() {
-                // Outer U-Track body with 45-degree self-supporting bottom ramp from Z=0
                 hull() {
-                    translate([0, -track_depth/2, 5.0 + track_h/2])
+                    translate([0, -track_depth/2, track_z + track_h/2])
                         cube([track_w, track_depth, track_h], center=true);
-                    translate([0, -0.4, 0.4])
+                    translate([0, -0.4, track_z - track_depth])
                         cube([track_w, 0.8, 0.8], center=true);
                 }
-                // Inner Slide-In Label Slot Cutout (13.6mm tall x 2.6mm deep, open at top)
-                translate([0, -track_depth/2, 5.0 + (track_h / 2) + 1.4])
+                // Inner Slide-In Label Slot Cutout
+                translate([0, -track_depth/2, track_z + (track_h / 2) + 1.4])
                     cube([track_w - 4.0, track_depth - 2.4, track_h], center=true);
                 // Front Viewing Window Cutout
-                translate([0, -track_depth + 0.8, 5.0 + (track_h / 2) + 1.4])
+                translate([0, -track_depth + 0.8, track_z + (track_h / 2) + 1.4])
                     cube([track_w - 8.0, track_depth, track_h], center=true);
             }
+
+            // B. Dedicated 45-Degree Self-Supporting Finger Pull Bar (ADDED outside difference!)
+            // Ramps out 11mm at 45 degrees from Z = 0, with a 3mm upward finger catch lip
+            hull() {
+                translate([0, -0.5, 0.5])
+                    cube([track_w, 1.0, 1.0], center=true);
+                translate([0, -5.5, 9.5])
+                    cube([track_w, 11.0, 2.4], center=true);
+            }
+            // Upward finger catch lip at the front edge
+            translate([0, -9.8, 12.0])
+                cube([track_w, 2.4, 3.0], center=true);
         }
     }
 }
@@ -325,17 +348,18 @@ module bench_lid() {
         }
         
         for (side = [-1, 1]) {
-            translate([side * (width/2 + latch_boss_t - latch_cut_d/2 + 2.0), -latch_offset, 0])
-                cube([latch_cut_d + 4.0, latch_w, lid_h + 1], center=true);
+            // Pocket body below the 45-degree pitched roof
+            translate([side * (width/2 + latch_boss_t - latch_cut_d/2 + 2.0), -latch_offset + 1.5, 0])
+                cube([latch_cut_d + 4.0, latch_w - 3.0, lid_h + 1], center=true);
 
-            // Full-span 45-degree self-supporting ceiling across the 6mm latch pocket
-            translate([side * (width/2 + latch_boss_t - latch_cut_d), -latch_offset - latch_w/2, 0])
-                linear_extrude(height = lid_h + 1, center = true)
-                    polygon(points = [
-                        [-side * 0.1,  0.1],
-                        [ side * (latch_cut_d + 2.0),  0.1],
-                        [ side * (latch_cut_d + 2.0), -latch_cut_d]
-                    ]);
+            // Full-depth 45-degree pitched ceiling (trimmed to -2.0mm so the M3 hole stays complete)
+          translate([side * (width/2 + latch_boss_t - latch_cut_d), -latch_offset - latch_w/2 + 1.5, 0])
+              linear_extrude(height = lid_h + 1, center = true)
+                  polygon(points = [
+                      [-0.2,  1.5],
+                      [ side * (latch_cut_d + 2.0),  1.5],
+                      [ side * (latch_cut_d + 2.0), -2.0]
+                  ]);
                 
             translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 10, 0])
                 rotate([90, 0, 0])
@@ -489,7 +513,7 @@ module bench_latch() {
         linear_extrude(height = latch_w, center = true) {
             union() {
                 hull() {
-                    circle(r = 4.2); 
+                    circle(r = 3.6); 
                     translate([1.2, -5.0]) circle(r = 3.2);
                 }
                 
@@ -708,35 +732,46 @@ module bench_shell() {
             }
         }
         for (side = [-1, 1]) {
+            // 5. Full 22mm pocket cutout
             translate([side * (width/2 + latch_boss_t - latch_cut_d/2 + 2.0), -latch_offset, 0])
                 cube([latch_cut_d + 4.0, latch_w, height + 1], center=true);
-            // Clean 45-degree chamfer strictly on the -Y pocket ceiling (no gap or M3 hit)
-            // True 45-degree (2.0mm x 2.0mm) self-supporting ceiling bevel
-                translate([side * (width/2 + latch_boss_t), -latch_offset - latch_w/2, 0])
-                    linear_extrude(height = height + 1, center = true)
-                        polygon(points = [
-                            [0.1,        0.1],
-                            [-side * 2.0, 0.1],
-                            [0.1,       -2.0]
-                        ]);
-            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 10, -height/2 + 8])
-                rotate([90, 0, 0]) cylinder(h = 22, r = 1.65, center=true);
-            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 14, -height/2 + 8])
-                rotate([90, 0, 0]) cylinder(h = 20, r = 2.9, center=true);
-            translate([side * (width/2 + hole_offset_x), -latch_offset + (latch_w/2) + 2.5, -height/2 + 8])
-                rotate([90, 0, 0]) cylinder(h = 6, r = 1.45, center=true);
-        }
+
+            // True 45-degree self-supporting ceiling (rises 6.0mm inside the 7.0mm top rib)
+            hull() {
+                translate([side * (width/2 + latch_boss_t - latch_cut_d), -latch_offset - latch_w/2 + 0.1, 0])
+                    cube([0.2, 0.2, height + 1], center=true);
+                translate([side * (width/2 + latch_boss_t + 0.05), -latch_offset - latch_w/2 + 0.1, 0])
+                    cube([0.2, 0.2, height + 1], center=true);
+                translate([side * (width/2 + latch_boss_t + 0.05), -latch_offset - latch_w/2 - latch_cut_d, 0])
+                    cube([0.2, 0.2, height + 1], center=true);
+            }
+            // 5a. TOP RIB M3 SHAFT HOLE (-Y side)
+            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 12, -height/2 + 8])
+                rotate([90, 0, 0])
+                cylinder(h = 26, r = 1.65, center=true, $fn=32);
+
+            // 5b. TOP RIB SCREW HEAD COUNTERBORE (-Y side — stops 8mm above pocket)
+            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 18, -height/2 + 8])
+                rotate([90, 0, 0])
+                cylinder(h = 20, r = 2.9, center=true, $fn=32);
+                    
+            // 5c. BOTTOM RIB BLIND HOLE (+Y side)
+                translate([side * (width/2 + hole_offset_x), -latch_offset + (latch_w/2) + 2.5, -height/2 + 8])
+                    rotate([90, 0, 0]) cylinder(h = 6, r = 1.45, center=true);
+                }
     }
-    for (side = [-1, 1]) {
-        translate([side * (width/2 + latch_boss_t - 2.0), -latch_offset, height/2 - 3])
-        hull() {
-            cube([4.0, latch_w + 4, 2], center=true);
-            translate([-side * 2.0, 0, -2.5]) cube([0.1, latch_w + 4, 2], center=true);
-        }
-        for (end = [-1, 1]) {
-            translate([side * (width/2 + 3.2), -latch_offset + end * (latch_w/2), -height/2 + 20])
-                rotate([0, 0, 45]) cube([1.6, 1.6, 4.0], center=true);
-        }
+            // 6. Full-Span Top Cam-Latch Catch Hooks + Anchored Parking Detent Ridges
+            for (side = [-1, 1]) {
+                translate([side * (width/2 + latch_boss_t - 2.0), -latch_offset - 2.0, height/2 - 3])
+                hull() {
+                    cube([4.0, latch_w + 8, 2], center=true);
+                    translate([-side * 2.0, 0, -2.5])
+                        cube([0.1, latch_w + 8, 2], center=true);
+                }
+            for (end = [-1, 1]) {
+                translate([side * (width/2 + 3.2), -latch_offset + end * (latch_w/2), -height/2 + 20])
+                    rotate([0, 0, 45]) cube([1.6, 1.6, 4.0], center=true);
+            }
     }
     for (x = [-width/2 + 15, width/2 - 15]) {
         for (y = [-depth/2 + 15, depth/2 - 15]) {
@@ -753,9 +788,10 @@ module bench_shell() {
                 rotate([0, 45, 0]) cube([2.6, 5.0, 2.6], center=true);
                 rotate([0, 45, 0]) cube([3.2, 1.5, 3.2], center=true);
             }
+            // Rear snap-lock detent pocket (3.6mm) for a crisp drawer click
             translate([rail_x, depth/2 - 15, 0]) hull() {
                 rotate([0, 45, 0]) cube([2.6, 6.0, 2.6], center=true);
-                rotate([0, 45, 0]) cube([3.1, 2.0, 3.1], center=true);
+                rotate([0, 45, 0]) cube([3.6, 2.0, 3.6], center=true);
             }
         }
     }
@@ -768,13 +804,24 @@ module drawer(div_rows = 3, div_cols = 1) {
         translate([0, 0, drawer_h/2 + 2.4]) cube([drawer_w - (d_wall*2), drawer_d - 4.8, drawer_h], center=true);
         for (side = [-1, 1]) {
             translate([side * (drawer_w/2), -9, drawer_h/2]) rotate([0, 45, 0]) cube([3.1, drawer_d - 18, 3.1], center=true);
-            translate([side * (drawer_w/2), drawer_d/2 - 9, drawer_h/2]) rotate([0, 45, 0]) cube([2.7, 20, 2.7], center=true);
-            translate([side * (drawer_w/2), drawer_d/2 - 11.8, drawer_h/2]) hull() {
-                rotate([0, 45, 0]) cube([3.1, 6.5, 3.1], center=true);
-                rotate([0, 45, 0]) cube([3.5, 2.5, 3.5], center=true);
+            // Narrowed lead-in channel (2.2mm) for a crisp rear snap-lock click
+          translate([side * (drawer_w/2), drawer_d/2 - 9, drawer_h/2])
+              rotate([0, 45, 0])
+              cube([2.2, 20, 2.2], center=true);
+
+          // Rear snap-lock detent pocket (3.6mm)
+          translate([side * (drawer_w/2), drawer_d/2 - 11.8, drawer_h/2])
+          hull() {
+              rotate([0, 45, 0]) cube([3.1, 6.5, 3.1], center=true);
+              rotate([0, 45, 0]) cube([3.6, 2.5, 3.6], center=true);
+          }
+
+          // Rear-corner air-vent channel so trapped air vents when closing
+          translate([side * (drawer_w/2 - 1.2), drawer_d/2 - 1.5, drawer_h/2])
+              cube([2.4, 3.2, drawer_h - 4], center=true);
             }
         }
-    }
+
     inner_w = drawer_w - (d_wall * 2);
     inner_d = drawer_d - 4.8;
     div_h = drawer_h - 2.4 - 2.0;
@@ -799,21 +846,35 @@ module drawer(div_rows = 3, div_cols = 1) {
         // U-Channel Label Slot & Handle (With 45-deg bottom bevel starting at Z = 0!)
         // Bottom of U-track cavity sits at Z = 5.0mm; 45-deg bevel tapers from Z = 0 to Z = 5.0mm
         translate([0, -1.2, -face_h/2]) {
+            track_z = max(13.0, face_h - track_h - 2.0); // Moves label slot up cleanly above the handle
+
+            // A. U-Channel Label Slot (45-deg self-supporting bottom bevel)
             difference() {
-                // Outer U-Track body with 45-degree self-supporting bottom ramp from Z=0
                 hull() {
-                    translate([0, -track_depth/2, 5.0 + track_h/2])
+                    translate([0, -track_depth/2, track_z + track_h/2])
                         cube([track_w, track_depth, track_h], center=true);
-                    translate([0, -0.4, 0.4])
+                    translate([0, -0.4, track_z - track_depth])
                         cube([track_w, 0.8, 0.8], center=true);
                 }
-                // Inner Slide-In Label Slot Cutout (13.6mm tall x 2.6mm deep, open at top)
-                translate([0, -track_depth/2, 5.0 + (track_h / 2) + 1.4])
+                // Inner Slide-In Label Slot Cutout
+                translate([0, -track_depth/2, track_z + (track_h / 2) + 1.4])
                     cube([track_w - 4.0, track_depth - 2.4, track_h], center=true);
                 // Front Viewing Window Cutout
-                translate([0, -track_depth + 0.8, 5.0 + (track_h / 2) + 1.4])
+                translate([0, -track_depth + 0.8, track_z + (track_h / 2) + 1.4])
                     cube([track_w - 8.0, track_depth, track_h], center=true);
             }
+
+            // B. Dedicated 45-Degree Self-Supporting Finger Pull Bar (ADDED outside difference!)
+            // Ramps out 11mm at 45 degrees from Z = 0, with a 3mm upward finger catch lip
+            hull() {
+                translate([0, -0.5, 0.5])
+                    cube([track_w, 1.0, 1.0], center=true);
+                translate([0, -5.5, 9.5])
+                    cube([track_w, 11.0, 2.4], center=true);
+            }
+            // Upward finger catch lip at the front edge
+            translate([0, -9.8, 12.0])
+                cube([track_w, 2.4, 3.0], center=true);
         }
     }
 }
@@ -833,16 +894,18 @@ module bench_lid() {
             }
         }
         for (side = [-1, 1]) {
-            translate([side * (width/2 + latch_boss_t - latch_cut_d/2 + 2.0), -latch_offset, 0])
-                cube([latch_cut_d + 4.0, latch_w, lid_h + 1], center=true);
-            // Full-span 45-degree self-supporting ceiling across the 6mm latch pocket
-            translate([side * (width/2 + latch_boss_t - latch_cut_d), -latch_offset - latch_w/2, 0])
-                linear_extrude(height = lid_h + 1, center = true)
-                    polygon(points = [
-                        [-side * 0.1,  0.1],
-                        [ side * (latch_cut_d + 2.0),  0.1],
-                        [ side * (latch_cut_d + 2.0), -latch_cut_d]
-                    ]);
+            // Pocket body below the 45-degree pitched roof
+            translate([side * (width/2 + latch_boss_t - latch_cut_d/2 + 2.0), -latch_offset + 1.5, 0])
+                cube([latch_cut_d + 4.0, latch_w - 3.0, lid_h + 1], center=true);
+
+            // Full-depth 45-degree pitched ceiling (trimmed to -2.0mm so the M3 hole stays complete)
+          translate([side * (width/2 + latch_boss_t - latch_cut_d), -latch_offset - latch_w/2 + 1.5, 0])
+              linear_extrude(height = lid_h + 1, center = true)
+                  polygon(points = [
+                      [-0.2,  1.5],
+                      [ side * (latch_cut_d + 2.0),  1.5],
+                      [ side * (latch_cut_d + 2.0), -2.0]
+                  ]);
             translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 10, 0])
                 rotate([90, 0, 0]) cylinder(h = 22, r = 1.65, center=true);
             translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 14, 0])
@@ -929,7 +992,7 @@ module bench_latch(lw = 21.4, p2h = 13.6) {
     difference() {
         linear_extrude(height = lw, center = true) {
             union() {
-                hull() { circle(r = 4.2); translate([1.2, -5.0]) circle(r = 3.2); }
+                hull() { circle(r = 3.6); translate([1.2, -5.0]) circle(r = 3.2); }
                 hull() { translate([1.2, -5.0]) circle(r = 3.2); translate([1.2, -p2h - 1.5]) circle(r = 3.0); }
                 polygon(points = [
                     [2.0, -p2h + 3.0], [-3.6, -p2h + 0.2], [-3.6, -p2h - 1.8],
