@@ -29,11 +29,11 @@ dimple_r_outer = 4.5;
 dimple_r_inner = 2.5; 
 dimple_depth = 2.0;   
 
-latch_w = 22; 
-rib_flat_w = 9;       
-latch_boss_t = 8.5;   
-latch_cut_d = 7.8;    
-hole_offset_x = 4.8;  
+latch_w = 17;         // Exact gap for 16.0mm latch + M3x30mm self-tapping screw
+ear_t_bot = 6.5;      // Bottom ear thickness (holds 5.0mm self-tapping bite)
+ear_t_top = 10.5;     // Top ear thickness (4.0mm counterbore + 8.0mm seat)
+latch_boss_t = 8.5;   // Outward reach of hinge ears from box wall
+hole_offset_x = 4.8;  // M3 screw centerline (1.4mm open air behind latch pivot)
 latch_offset = depth/2 - 30; 
 
 bay_w = (width - (wall * (num_drawers + 1))) / num_drawers;
@@ -44,13 +44,23 @@ module bench_shell() {
             // 1. Main Outer Block
             cube([width, depth, height], center=true);
             
-            // 2. 100% SYMMETRICAL Support-Free External Latch Bosses
+            // 2. OPTION A: Support-Free External M3x30mm Hinge Ears
             for (side = [-1, 1]) {
+                // Bottom Ear (+Y side, flat face toward latch, 45-deg ramp on +Y underside)
                 hull() {
-                    translate([side * (width/2), -latch_offset, 0])
-                        cube([0.2, latch_w + (rib_flat_w * 2) + (latch_boss_t * 2), height], center=true);
-                    translate([side * (width/2 + latch_boss_t/2), -latch_offset, 0])
-                        cube([latch_boss_t, latch_w + (rib_flat_w * 2), height], center=true);
+                    translate([side * (width/2 + latch_boss_t/2), -latch_offset + latch_w/2 + ear_t_bot/2, -height/2 + 12])
+                        cube([latch_boss_t, ear_t_bot, 22], center=true);
+                    translate([side * (width/2 + 0.1), -latch_offset + latch_w/2 + ear_t_bot + latch_boss_t, -height/2 + 12])
+                        cube([0.2, 0.2, 22], center=true);
+                }
+                // Top Ear (-Y side, flat top face for screw head, 45-deg ramp on +Y underside)
+                hull() {
+                    translate([side * (width/2 + latch_boss_t/2), -latch_offset - latch_w/2 - ear_t_top + 2.75, -height/2 + 8])
+                        cube([latch_boss_t, 5.5, 14], center=true);
+                    translate([side * (width/2 + 0.1), -latch_offset - latch_w/2, -height/2 + 8])
+                        cube([0.2, 0.2, 14], center=true);
+                    translate([side * (width/2 + 0.1), -latch_offset - latch_w/2 - ear_t_top, -height/2 + 8])
+                        cube([0.2, 0.2, 14], center=true);
                 }
             }
         }
@@ -70,53 +80,40 @@ module bench_shell() {
             }
         }
         
-        // 5. Clean 22mm Channel + Counterbored Top Entry Hole + Hidden Bottom Blind Hole
+        // 5. Clean M3x30mm Clearance Bore, Counterbore & Self-Tapping Blind Socket
         for (side = [-1, 1]) {
-            // 5. Full 22mm pocket cutout
-            translate([side * (width/2 + latch_boss_t - latch_cut_d/2 + 2.0), -latch_offset, 0])
-                cube([latch_cut_d + 4.0, latch_w, height + 1], center=true);
+            // 5a. Top Ear Clearance Bore (3.6mm dia so self-tapping threads slide freely)
+            translate([side * (width/2 + hole_offset_x), -latch_offset - latch_w/2 - ear_t_top/2, -height/2 + 8])
+                rotate([90, 0, 0])
+                cylinder(h = ear_t_top + 4, r = 1.8, center=true, $fn=32);
 
-            // True 45-degree self-supporting ceiling (rises 6.0mm inside the 7.0mm top rib)
-            hull() {
-                translate([side * (width/2 + latch_boss_t - latch_cut_d), -latch_offset - latch_w/2 + 0.1, 0])
-                    cube([0.2, 0.2, height + 1], center=true);
-                translate([side * (width/2 + latch_boss_t + 0.05), -latch_offset - latch_w/2 + 0.1, 0])
-                    cube([0.2, 0.2, height + 1], center=true);
-                translate([side * (width/2 + latch_boss_t + 0.05), -latch_offset - latch_w/2 - latch_cut_d, 0])
-                    cube([0.2, 0.2, height + 1], center=true);
-            }
-                
-            // 5a. TOP RIB M3 SHAFT HOLE (-Y side)
-            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 12, -height/2 + 8])
+            // 5b. Top Ear Screw Head Counterbore (4.0mm deep, stops 8.0mm above latch gap)
+            translate([side * (width/2 + hole_offset_x), -latch_offset - latch_w/2 - ear_t_top + 0.5, -height/2 + 8])
                 rotate([90, 0, 0])
-                cylinder(h = 26, r = 1.65, center=true, $fn=32);
+                cylinder(h = 5.0, r = 3.0, center=true, $fn=32);
 
-            // 5b. TOP RIB SCREW HEAD COUNTERBORE (-Y side — stops 8mm above pocket)
-            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 18, -height/2 + 8])
+            // 5c. Bottom Ear Blind Self-Tapping Socket (2.7mm pilot, 5.5mm deep)
+            translate([side * (width/2 + hole_offset_x), -latch_offset + latch_w/2 + 2.75, -height/2 + 8])
                 rotate([90, 0, 0])
-                cylinder(h = 20, r = 2.9, center=true, $fn=32);
-                
-            // 5c. BOTTOM RIB BLIND HOLE (+Y side)
-            translate([side * (width/2 + hole_offset_x), -latch_offset + (latch_w/2) + 2.5, -height/2 + 8])
-                rotate([90, 0, 0])
-                cylinder(h = 6, r = 1.35, center=true, $fn=32);
+                cylinder(h = 5.5, r = 1.35, center=true, $fn=32);
         }
     }
     
-            // 6. Full-Span Top Cam-Latch Catch Hooks + Anchored Parking Detent Ridges
-            for (side = [-1, 1]) {
-                translate([side * (width/2 + latch_boss_t - 2.0), -latch_offset - 2.0, height/2 - 3])
-                hull() {
-                    cube([4.0, latch_w + 8, 2], center=true);
-                    translate([-side * 2.0, 0, -2.5])
-                        cube([0.1, latch_w + 8, 2], center=true);
-                }
-            
-            for (end = [-1, 1]) {
-                translate([side * (width/2 + 1.4), -latch_offset + end * (latch_w/2), -height/2 + 20])
-                    rotate([0, 0, 45])
-                    cube([1.6, 1.6, 4.0], center=true);
-                }
+            // 6. Standalone Support-Free Top Catch Hook + Flat-Rib Parking Detent
+    for (side = [-1, 1]) {
+        // Catch Hook (45-deg self-supporting ramp on +Y underside)
+        hull() {
+            translate([side * (width/2 + 3.25), -latch_offset, height/2 - 3.0])
+                cube([6.5, latch_w, 2.2], center=true);
+            translate([side * (width/2 + 0.1), -latch_offset + latch_w/2 + 6.5, height/2 - 3.0])
+                cube([0.2, 0.2, 2.2], center=true);
+            translate([side * (width/2 + 0.1), -latch_offset, height/2 - 5.5])
+                cube([0.2, latch_w, 1.5], center=true);
+        }
+        // Crisp Parking Detent on the flat face of the Bottom Ear (12mm above pivot)
+        translate([side * (width/2 + hole_offset_x + 1.2), -latch_offset + latch_w/2, -height/2 + 20])
+            rotate([45, 0, 0])
+            cube([1.6, 1.4, 1.4], center=true);
     }
 
     // 7. Bottom Stacking Pegs
@@ -325,53 +322,53 @@ dimple_r_outer = 4.5;
 dimple_r_inner = 2.5; 
 dimple_depth = 2.0; 
 
-latch_w = 22; 
-rib_flat_w = 7;       
-latch_boss_t = 8.5;   
-latch_cut_d = 7.8;
-hole_offset_x = 4.8;  
+latch_w = 17;         // Exact gap for 16.0mm latch + M3x30mm self-tapping screw
+ear_t_bot = 6.5;      // Bottom ear thickness (holds 5.0mm self-tapping bite)
+ear_t_top = 10.5;     // Top ear thickness (4.0mm counterbore + 8.0mm seat)
+latch_boss_t = 8.5;   // Outward reach of hinge ears from box wall
+latch_cut_d = 6.0;    // Depth of the cutout for the latch
+hole_offset_x = 4.8;  // M3 screw centerline (1.4mm open air behind latch pivot)
 latch_offset = depth/2 - 30; 
 
 module bench_lid() {
     difference() {
         union() {
             cube([width, depth, lid_h], center=true);
-            
+
+            // OPTION A: Support-Free External M3x30mm Hinge Ears
             for (side = [-1, 1]) {
+                // Bottom Ear (+Y side)
                 hull() {
-                    translate([side * (width/2), -latch_offset, 0])
-                        cube([0.2, latch_w + (rib_flat_w * 2) + (latch_boss_t * 2), lid_h], center=true);
-                    translate([side * (width/2 + latch_boss_t/2), -latch_offset, 0])
-                        cube([latch_boss_t, latch_w + (rib_flat_w * 2), lid_h], center=true);
+                    translate([side * (width/2 + latch_boss_t/2), -latch_offset + latch_w/2 + ear_t_bot/2, 0])
+                        cube([latch_boss_t, ear_t_bot, lid_h], center=true);
+                    translate([side * (width/2 + 0.1), -latch_offset + latch_w/2 + ear_t_bot + latch_boss_t, 0])
+                        cube([0.2, 0.2, lid_h], center=true);
+                }
+                // Top Ear (-Y side)
+                hull() {
+                    translate([side * (width/2 + latch_boss_t/2), -latch_offset - latch_w/2 - ear_t_top + 2.75, -height/2 + 8])
+                        cube([latch_boss_t, 5.5, 14], center=true);
+                    translate([side * (width/2 + 0.1), -latch_offset - latch_w/2, -lid_h/2 + 8])
+                        cube([0.2, 0.2, 14], center=true);
+                    translate([side * (width/2 + 0.1), -latch_offset - latch_w/2 - ear_t_top, -lid_h/2 + 8])
+                        cube([0.2, 0.2, 14], center=true);
                 }
             }
         }
-        
-        for (side = [-1, 1]) {
-            // Pocket body below the 45-degree pitched roof
-            translate([side * (width/2 + latch_boss_t - latch_cut_d/2 + 2.0), -latch_offset + 1.5, 0])
-                cube([latch_cut_d + 4.0, latch_w - 3.0, lid_h + 1], center=true);
 
-            // Full-depth 45-degree pitched ceiling (trimmed to -2.0mm so the M3 hole stays complete)
-          translate([side * (width/2 + latch_boss_t - latch_cut_d), -latch_offset - latch_w/2 + 1.5, 0])
-              linear_extrude(height = lid_h + 1, center = true)
-                  polygon(points = [
-                      [-0.2,  1.5],
-                      [ side * (latch_cut_d + 2.0),  1.5],
-                      [ side * (latch_cut_d + 2.0), -2.0]
-                  ]);
-                
-            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 10, 0])
+        // Clean M3x30mm Clearance Bore, Counterbore & Self-Tapping Blind Socket
+        for (side = [-1, 1]) {
+            translate([side * (width/2 + hole_offset_x), -latch_offset - latch_w/2 - ear_t_top/2, -lid_h/2 + 8])
                 rotate([90, 0, 0])
-                cylinder(h = 22, r = 1.65, center=true, $fn=32);
-                
-            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 14, 0])
+                cylinder(h = ear_t_top + 4, r = 1.8, center=true, $fn=32);
+
+            translate([side * (width/2 + hole_offset_x), -latch_offset - latch_w/2 - ear_t_top + 0.5, -height/2 + 8])
                 rotate([90, 0, 0])
-                cylinder(h = 20, r = 2.9, center=true, $fn=32);
-                
-            translate([side * (width/2 + hole_offset_x), -latch_offset + (latch_w/2) + 2.5, 0])
+                cylinder(h = 5.0, r = 3.0, center=true, $fn=32);
+
+            translate([side * (width/2 + hole_offset_x), -latch_offset + latch_w/2 + 2.75, -lid_h/2 + 8])
                 rotate([90, 0, 0])
-                cylinder(h = 6, r = 1.35, center=true, $fn=32);
+                cylinder(h = 5.5, r = 1.35, center=true, $fn=32);
         }
         
         if (lid_style == 1) {
@@ -494,7 +491,7 @@ if (lid_style == 3 && show_handle) {
  * includes stow-up parking notches and thumb-pull lever.
  */
 export function generateBenchLatchSCAD({
-  latchW = 16.4,
+  latchW = 16.0,
   pivotToHook = 13.6,
 } = {}) {
   return `// ==========================================
@@ -513,7 +510,7 @@ module bench_latch() {
         linear_extrude(height = latch_w, center = true) {
             union() {
                 hull() {
-                    circle(r = 3.6); 
+                    circle(r = 3.4); 
                     translate([1.2, -5.0]) circle(r = 3.2);
                 }
                 
@@ -532,12 +529,12 @@ module bench_latch() {
                 
                 hull() {
                     translate([1.2, -pivot_to_hook - 1.5]) circle(r = 3.0);
-                    translate([3.8, -pivot_to_hook - 8.5]) circle(r = 2.2);
+                    translate([3.6, -pivot_to_hook - 4.5]) circle(r = 2.0);
                 }
             }
         }
         
-        cylinder(h = latch_w + 4, r = 1.65, center = true);
+        cylinder(h = latch_w + 4, r = 1.8, center = true);
         
         translate([-2.2, -pivot_to_hook + 2.2, 0])
             rotate([0, 0, -38])
@@ -548,10 +545,11 @@ module bench_latch() {
                 cylinder(h = latch_w + 2, r = 0.8, center = true);
         }
         
+        // Deeper V-notch aligned directly with the flat-rib parking detent (X = +0.2, 12mm from pivot)
         for (side = [-1, 1]) {
-            translate([0, -12.0, side * (latch_w / 2)])
-                rotate([0, 0, 45])
-                cube([2.2, 2.2, 3.0], center = true);
+            translate([1.2, -12.0, side * (latch_w / 2)])
+                rotate([45, 0, 0])
+                cube([2.4, 2.0, 2.0], center = true);
         }
     }
 }
@@ -687,11 +685,11 @@ dimple_r_outer = 4.5;
 dimple_r_inner = 2.5;
 dimple_depth = 2.0;
 
-latch_w = 17;
-rib_flat_w = 7;
-latch_boss_t = 8.5;
-latch_cut_d = 6.0;
-hole_offset_x = 4.8;
+latch_w = 17;         // Exact gap for 16.0mm latch + M3x30mm self-tapping screw
+ear_t_bot = 6.5;      // Bottom ear thickness (holds 5.0mm self-tapping bite)
+ear_t_top = 10.5;     // Top ear thickness (4.0mm counterbore + 8.0mm seat)
+latch_boss_t = 8.5;   // Outward reach of hinge ears from box wall
+hole_offset_x = 4.8;  // M3 screw centerline (1.4mm open air behind latch pivot)
 latch_offset = depth/2 - 30;
 
 bay_w = (width - (wall * (num_drawers + 1))) / num_drawers;
@@ -711,12 +709,21 @@ module bench_shell() {
     difference() {
         union() {
             cube([width, depth, height], center=true);
+            // 2. OPTION A: Support-Free External M3x30mm Hinge Ears
             for (side = [-1, 1]) {
                 hull() {
-                    translate([side * (width/2), -latch_offset, 0])
-                        cube([0.2, latch_w + (rib_flat_w * 2) + (latch_boss_t * 2), height], center=true);
-                    translate([side * (width/2 + latch_boss_t/2), -latch_offset, 0])
-                        cube([latch_boss_t, latch_w + (rib_flat_w * 2), height], center=true);
+                    translate([side * (width/2 + latch_boss_t/2), -latch_offset + latch_w/2 + ear_t_bot/2, -height/2 + 12])
+                        cube([latch_boss_t, ear_t_bot, 22], center=true);
+                    translate([side * (width/2 + 0.1), -latch_offset + latch_w/2 + ear_t_bot + latch_boss_t, -height/2 + 12])
+                        cube([0.2, 0.2, 22], center=true);
+                }
+                hull() {
+                    translate([side * (width/2 + latch_boss_t/2), -latch_offset - latch_w/2 - ear_t_top + 2.75, -height/2 + 8])
+                        cube([latch_boss_t, 5.5, 14], center=true);
+                    translate([side * (width/2 + 0.1), -latch_offset - latch_w/2, -height/2 + 8])
+                        cube([0.2, 0.2, 14], center=true);
+                    translate([side * (width/2 + 0.1), -latch_offset - latch_w/2 - ear_t_top, -height/2 + 8])
+                        cube([0.2, 0.2, 14], center=true);
                 }
             }
         }
@@ -731,48 +738,41 @@ module bench_shell() {
                     cylinder(h=dimple_depth, r1=dimple_r_inner, r2=dimple_r_outer);
             }
         }
-        for (side = [-1, 1]) {
-            // 5. Full 22mm pocket cutout
-            translate([side * (width/2 + latch_boss_t - latch_cut_d/2 + 2.0), -latch_offset, 0])
-                cube([latch_cut_d + 4.0, latch_w, height + 1], center=true);
-
-            // True 45-degree self-supporting ceiling (rises 6.0mm inside the 7.0mm top rib)
-            hull() {
-                translate([side * (width/2 + latch_boss_t - latch_cut_d), -latch_offset - latch_w/2 + 0.1, 0])
-                    cube([0.2, 0.2, height + 1], center=true);
-                translate([side * (width/2 + latch_boss_t + 0.05), -latch_offset - latch_w/2 + 0.1, 0])
-                    cube([0.2, 0.2, height + 1], center=true);
-                translate([side * (width/2 + latch_boss_t + 0.05), -latch_offset - latch_w/2 - latch_cut_d, 0])
-                    cube([0.2, 0.2, height + 1], center=true);
-            }
-            // 5a. TOP RIB M3 SHAFT HOLE (-Y side)
-            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 12, -height/2 + 8])
-                rotate([90, 0, 0])
-                cylinder(h = 26, r = 1.65, center=true, $fn=32);
-
-            // 5b. TOP RIB SCREW HEAD COUNTERBORE (-Y side — stops 8mm above pocket)
-            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 18, -height/2 + 8])
-                rotate([90, 0, 0])
-                cylinder(h = 20, r = 2.9, center=true, $fn=32);
-                    
-            // 5c. BOTTOM RIB BLIND HOLE (+Y side)
-                translate([side * (width/2 + hole_offset_x), -latch_offset + (latch_w/2) + 2.5, -height/2 + 8])
-                    rotate([90, 0, 0]) cylinder(h = 6, r = 1.35, center=true);
-                }
-    }
-            // 6. Full-Span Top Cam-Latch Catch Hooks + Anchored Parking Detent Ridges
+            // 5. Clean M3x30mm Clearance Bore, Counterbore & Self-Tapping Blind Socket
             for (side = [-1, 1]) {
-                translate([side * (width/2 + latch_boss_t - 2.0), -latch_offset - 2.0, height/2 - 3])
-                hull() {
-                    cube([4.0, latch_w + 8, 2], center=true);
-                    translate([-side * 2.0, 0, -2.5])
-                        cube([0.1, latch_w + 8, 2], center=true);
-                }
-            for (end = [-1, 1]) {
-                translate([side * (width/2 + 3.2), -latch_offset + end * (latch_w/2), -height/2 + 20])
-                    rotate([0, 0, 45]) cube([1.6, 1.6, 4.0], center=true);
+                // 5a. Top Ear Clearance Bore (3.6mm dia so self-tapping threads slide freely)
+                translate([side * (width/2 + hole_offset_x), -latch_offset - latch_w/2 - ear_t_top/2, -height/2 + 8])
+                    rotate([90, 0, 0])
+                    cylinder(h = ear_t_top + 4, r = 1.8, center=true, $fn=32);
+
+                // 5b. Top Ear Screw Head Counterbore (4.0mm deep, stops 8.0mm above latch gap)
+                translate([side * (width/2 + hole_offset_x), -latch_offset - latch_w/2 - ear_t_top + 0.5, -height/2 + 8])
+                    rotate([90, 0, 0])
+                    cylinder(h = 5.0, r = 3.0, center=true, $fn=32);
+
+                // 5c. Bottom Ear Blind Self-Tapping Socket (2.7mm pilot, 5.5mm deep)
+                translate([side * (width/2 + hole_offset_x), -latch_offset + latch_w/2 + 2.75, -height/2 + 8])
+                    rotate([90, 0, 0])
+                    cylinder(h = 5.5, r = 1.35, center=true, $fn=32);
+            
             }
-    }
+        }
+            // 6. Standalone Support-Free Top Catch Hook + Flat-Rib Parking Detent
+            for (side = [-1, 1]) {
+                // Catch Hook (45-deg self-supporting ramp on +Y underside)
+                hull() {
+                    translate([side * (width/2 + 3.25), -latch_offset, height/2 - 3.0])
+                        cube([6.5, latch_w, 2.2], center=true);
+                    translate([side * (width/2 + 0.1), -latch_offset + latch_w/2 + 6.5, height/2 - 3.0])
+                        cube([0.2, 0.2, 2.2], center=true);
+                    translate([side * (width/2 + 0.1), -latch_offset, height/2 - 5.5])
+                        cube([0.2, latch_w, 1.5], center=true);
+                }
+                // Crisp Parking Detent on the flat face of the Bottom Ear (12mm above pivot)
+                translate([side * (width/2 + hole_offset_x + 1.2), -latch_offset + latch_w/2, -height/2 + 20])
+                    rotate([45, 0, 0])
+                    cube([1.6, 1.4, 1.4], center=true);
+            }
     for (x = [-width/2 + 15, width/2 - 15]) {
         for (y = [-depth/2 + 15, depth/2 - 15]) {
             translate([x, y, -height/2 - (dimple_depth - 0.2)])
@@ -884,34 +884,41 @@ module bench_lid() {
     difference() {
         union() {
             cube([width, depth, lid_h], center=true);
+
+            // OPTION A: Support-Free External M3x30mm Hinge Ears
             for (side = [-1, 1]) {
+                // Bottom Ear (+Y side)
                 hull() {
-                    translate([side * (width/2), -latch_offset, 0])
-                        cube([0.2, latch_w + (rib_flat_w * 2) + (latch_boss_t * 2), lid_h], center=true);
-                    translate([side * (width/2 + latch_boss_t/2), -latch_offset, 0])
-                        cube([latch_boss_t, latch_w + (rib_flat_w * 2), lid_h], center=true);
+                    translate([side * (width/2 + latch_boss_t/2), -latch_offset + latch_w/2 + ear_t_bot/2, 0])
+                        cube([latch_boss_t, ear_t_bot, lid_h], center=true);
+                    translate([side * (width/2 + 0.1), -latch_offset + latch_w/2 + ear_t_bot + latch_boss_t, 0])
+                        cube([0.2, 0.2, lid_h], center=true);
+                }
+                // Top Ear (-Y side)
+                hull() {
+                    translate([side * (width/2 + latch_boss_t/2), -latch_offset - latch_w/2 - ear_t_top + 2.75, -lid_h/2 + 8])
+                        cube([latch_boss_t, 5.5, 14], center=true);
+                    translate([side * (width/2 + 0.1), -latch_offset - latch_w/2, -lid_h/2 + 8])
+                        cube([0.2, 0.2, 14], center=true);
+                    translate([side * (width/2 + 0.1), -latch_offset - latch_w/2 - ear_t_top, -lid_h/2 + 8])
+                        cube([0.2, 0.2, 14], center=true);
                 }
             }
         }
-        for (side = [-1, 1]) {
-            // Pocket body below the 45-degree pitched roof
-            translate([side * (width/2 + latch_boss_t - latch_cut_d/2 + 2.0), -latch_offset + 1.5, 0])
-                cube([latch_cut_d + 4.0, latch_w - 3.0, lid_h + 1], center=true);
 
-            // Full-depth 45-degree pitched ceiling (trimmed to -2.0mm so the M3 hole stays complete)
-          translate([side * (width/2 + latch_boss_t - latch_cut_d), -latch_offset - latch_w/2 + 1.5, 0])
-              linear_extrude(height = lid_h + 1, center = true)
-                  polygon(points = [
-                      [-0.2,  1.5],
-                      [ side * (latch_cut_d + 2.0),  1.5],
-                      [ side * (latch_cut_d + 2.0), -2.0]
-                  ]);
-            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 10, 0])
-                rotate([90, 0, 0]) cylinder(h = 22, r = 1.65, center=true);
-            translate([side * (width/2 + hole_offset_x), -latch_offset - (latch_w/2) - 14, 0])
-                rotate([90, 0, 0]) cylinder(h = 20, r = 2.9, center=true);
-            translate([side * (width/2 + hole_offset_x), -latch_offset + (latch_w/2) + 2.5, 0])
-                rotate([90, 0, 0]) cylinder(h = 6, r = 1.35, center=true);
+        // Clean M3x30mm Clearance Bore, Counterbore & Self-Tapping Blind Socket
+        for (side = [-1, 1]) {
+            translate([side * (width/2 + hole_offset_x), -latch_offset - latch_w/2 - ear_t_top/2, -lid_h/2 + 8])
+                rotate([90, 0, 0])
+                cylinder(h = ear_t_top + 4, r = 1.8, center=true, $fn=32);
+
+            translate([side * (width/2 + hole_offset_x), -latch_offset - latch_w/2 - ear_t_top + 0.5, -height/2 + 8])
+                rotate([90, 0, 0])
+                cylinder(h = 5.0, r = 3.0, center=true, $fn=32);
+
+            translate([side * (width/2 + hole_offset_x), -latch_offset + latch_w/2 + 2.75, -lid_h/2 + 8])
+                rotate([90, 0, 0])
+                cylinder(h = 5.5, r = 1.35, center=true, $fn=32);
         }
         if (lid_style == 1) {
             for (x = [-width/2 + 15, width/2 - 15]) {
@@ -988,26 +995,29 @@ module carry_handle() {
 }
 
 // --- 4. CAM-LATCH MODULE ---
-module bench_latch(lw = 16.4, p2h = 13.6) {
+module bench_latch(lw = 16.0, p2h = 13.6) {
     difference() {
         linear_extrude(height = lw, center = true) {
             union() {
-                hull() { circle(r = 3.6); translate([1.2, -5.0]) circle(r = 3.2); }
+                hull() { circle(r = 3.4); translate([1.2, -5.0]) circle(r = 3.2); }
                 hull() { translate([1.2, -5.0]) circle(r = 3.2); translate([1.2, -p2h - 1.5]) circle(r = 3.0); }
                 polygon(points = [
                     [2.0, -p2h + 3.0], [-3.6, -p2h + 0.2], [-3.6, -p2h - 1.8],
                     [1.5, -p2h - 3.5], [4.2, -p2h + 1.0]
                 ]);
-                hull() { translate([1.2, -p2h - 1.5]) circle(r = 3.0); translate([3.8, -p2h - 8.5]) circle(r = 2.2); }
+                hull() { translate([1.2, -p2h - 1.5]) circle(r = 3.0); translate([3.6, -p2h - 4.5]) circle(r = 2.0); }
             }
         }
-        cylinder(h = lw + 4, r = 1.65, center = true);
+        cylinder(h = lw + 4, r = 1.8, center = true);
         translate([-2.2, -p2h + 2.2, 0]) rotate([0, 0, -38]) cube([4.5, 4.5, lw + 2], center = true);
         for (gy = [-5, -8.5, -12, -15.5]) {
             translate([4.6, gy, 0]) cylinder(h = lw + 2, r = 0.8, center = true);
         }
+        // Deeper V-notch aligned directly with the flat-rib parking detent (X = +0.2, 12mm from pivot)
         for (side = [-1, 1]) {
-            translate([0, -12.0, side * (lw / 2)]) rotate([0, 0, 45]) cube([2.2, 2.2, 3.0], center = true);
+                translate([1.2, -12.0, side * (lw / 2)])
+                    rotate([45, 0, 0])
+                    cube([2.4, 2.0, 2.0], center = true);
         }
     }
 }
@@ -1046,7 +1056,7 @@ if (layout_mode == "print_plate") {
 
     // Column 3: All Required Cam-Latches Laid Flat on Their Side
     for (l = [0 : ${totalLatches} - 1]) {
-        translate([-width/2 - 45, l * 32, 16.4 / 2])
+        translate([-width/2 - 45, l * 32, 16.0 / 2])
             color(latch_color) bench_latch();
     }
 
