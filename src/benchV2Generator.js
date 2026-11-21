@@ -111,9 +111,9 @@ module bench_shell() {
                 cube([0.2, latch_w, 1.5], center=true);
         }
         // Crisp Parking Detent on the flat face of the Bottom Ear (12mm above pivot)
-        translate([side * (width/2 + hole_offset_x + 1.2), -latch_offset + latch_w/2, -height/2 + 20])
-            rotate([45, 0, 0])
-            cube([1.6, 1.4, 1.4], center=true);
+        translate([side * (width/2 + hole_offset_x + 1.2), -latch_offset + latch_w/2 + 0.4, -height/2 + 20])
+          rotate([45, 0, 0])
+          cube([1.6, 1.2, 1.2], center=true);
     }
 
     // 7. Bottom Stacking Pegs
@@ -346,7 +346,7 @@ module bench_lid() {
                 }
                 // Top Ear (-Y side)
                 hull() {
-                    translate([side * (width/2 + latch_boss_t/2), -latch_offset - latch_w/2 - ear_t_top + 2.75, -height/2 + 8])
+                    translate([side * (width/2 + latch_boss_t/2), -latch_offset - latch_w/2 - ear_t_top + 2.75, -lid_h/2 + 8])
                         cube([latch_boss_t, 5.5, 14], center=true);
                     translate([side * (width/2 + 0.1), -latch_offset - latch_w/2, -lid_h/2 + 8])
                         cube([0.2, 0.2, 14], center=true);
@@ -362,7 +362,7 @@ module bench_lid() {
                 rotate([90, 0, 0])
                 cylinder(h = ear_t_top + 4, r = 1.8, center=true, $fn=32);
 
-            translate([side * (width/2 + hole_offset_x), -latch_offset - latch_w/2 - ear_t_top + 0.5, -height/2 + 8])
+            translate([side * (width/2 + hole_offset_x), -latch_offset - latch_w/2 - ear_t_top + 0.5, -lid_h/2 + 8])
                 rotate([90, 0, 0])
                 cylinder(h = 5.0, r = 3.0, center=true, $fn=32);
 
@@ -491,7 +491,7 @@ if (lid_style == 3 && show_handle) {
  * includes stow-up parking notches and thumb-pull lever.
  */
 export function generateBenchLatchSCAD({
-  latchW = 16.0,
+  latchW = 17.2,
   pivotToHook = 13.6,
 } = {}) {
   return `// ==========================================
@@ -507,32 +507,37 @@ $fn = 64;
 
 module bench_latch() {
     difference() {
-        linear_extrude(height = latch_w, center = true) {
-            union() {
-                hull() {
-                    circle(r = 3.4); 
-                    translate([1.2, -5.0]) circle(r = 3.2);
-                }
-                
-                hull() {
-                    translate([1.2, -5.0]) circle(r = 3.2);
-                    translate([1.2, -pivot_to_hook - 1.5]) circle(r = 3.0);
-                }
-                
-                polygon(points = [
-                    [2.0, -pivot_to_hook + 3.0],
-                    [-3.6, -pivot_to_hook + 0.2], 
-                    [-3.6, -pivot_to_hook - 1.8], 
-                    [1.5, -pivot_to_hook - 3.5],  
-                    [4.2, -pivot_to_hook + 1.0]
-                ]);
-                
-                hull() {
-                    translate([1.2, -pivot_to_hook - 1.5]) circle(r = 3.0);
-                    translate([3.6, -pivot_to_hook - 4.5]) circle(r = 2.0);
+        union() {
+            linear_extrude(height = latch_w, center = true) {
+                union() {
+                    hull() {
+                        circle(r = 3.4); 
+                        translate([1.2, -5.0]) circle(r = 3.2);
+                    }
+                    
+                    hull() {
+                        translate([1.2, -5.0]) circle(r = 3.2);
+                        translate([1.2, -pivot_to_hook - 1.5]) circle(r = 3.0);
+                    }
+                    
+                    polygon(points = [
+                        [2.0, -pivot_to_hook + 3.0],
+                        [-3.6, -pivot_to_hook + 0.2], 
+                        [-3.6, -pivot_to_hook - 1.8], 
+                        [1.5, -pivot_to_hook - 3.5],  
+                        [4.2, -pivot_to_hook + 1.0]
+                    ]);
+                    
+                    hull() {
+                        translate([1.2, -pivot_to_hook - 1.5]) circle(r = 3.0);
+                        translate([3.6, -pivot_to_hook - 4.5]) circle(r = 2.0);
+                    }
                 }
             }
-        }
+            // Tapered collar that tucks into the 45-deg ear to hide the screw
+            translate([0, 0, latch_w / 2])
+                cylinder(h = 1.4, r1 = 2.6, r2 = 2.0, $fn = 32);
+        }    
         
         cylinder(h = latch_w + 4, r = 1.8, center = true);
         
@@ -554,7 +559,13 @@ module bench_latch() {
     }
 }
 
+// Left-side latch
 translate([0, 0, latch_w / 2])
+    bench_latch();
+
+// Right-side latch (mirrored in X so collar stays on top for support-free printing)
+translate([22, 0, latch_w / 2])
+    mirror([1, 0, 0])
     bench_latch();
 `;
 }
@@ -769,9 +780,9 @@ module bench_shell() {
                         cube([0.2, latch_w, 1.5], center=true);
                 }
                 // Crisp Parking Detent on the flat face of the Bottom Ear (12mm above pivot)
-                translate([side * (width/2 + hole_offset_x + 1.2), -latch_offset + latch_w/2, -height/2 + 20])
+                translate([side * (width/2 + hole_offset_x + 1.2), -latch_offset + latch_w/2 + 0.4, -height/2 + 20])
                     rotate([45, 0, 0])
-                    cube([1.6, 1.4, 1.4], center=true);
+                    cube([1.6, 1.2, 1.2], center=true);
             }
     for (x = [-width/2 + 15, width/2 - 15]) {
         for (y = [-depth/2 + 15, depth/2 - 15]) {
@@ -912,7 +923,7 @@ module bench_lid() {
                 rotate([90, 0, 0])
                 cylinder(h = ear_t_top + 4, r = 1.8, center=true, $fn=32);
 
-            translate([side * (width/2 + hole_offset_x), -latch_offset - latch_w/2 - ear_t_top + 0.5, -height/2 + 8])
+            translate([side * (width/2 + hole_offset_x), -latch_offset - latch_w/2 - ear_t_top + 0.5, -lid_h/2 + 8])
                 rotate([90, 0, 0])
                 cylinder(h = 5.0, r = 3.0, center=true, $fn=32);
 
@@ -995,20 +1006,25 @@ module carry_handle() {
 }
 
 // --- 4. CAM-LATCH MODULE ---
-module bench_latch(lw = 16.0, p2h = 13.6) {
+module bench_latch(lw = 17.2, p2h = 13.6) {
     difference() {
-        linear_extrude(height = lw, center = true) {
-            union() {
-                hull() { circle(r = 3.4); translate([1.2, -5.0]) circle(r = 3.2); }
-                hull() { translate([1.2, -5.0]) circle(r = 3.2); translate([1.2, -p2h - 1.5]) circle(r = 3.0); }
-                polygon(points = [
-                    [2.0, -p2h + 3.0], [-3.6, -p2h + 0.2], [-3.6, -p2h - 1.8],
-                    [1.5, -p2h - 3.5], [4.2, -p2h + 1.0]
-                ]);
-                hull() { translate([1.2, -p2h - 1.5]) circle(r = 3.0); translate([3.6, -p2h - 4.5]) circle(r = 2.0); }
+        union() {
+            linear_extrude(height = lw, center = true) {
+                union() {
+                    hull() { circle(r = 3.4); translate([1.2, -5.0]) circle(r = 3.2); }
+                    hull() { translate([1.2, -5.0]) circle(r = 3.2); translate([1.2, -p2h - 1.5]) circle(r = 3.0); }
+                    polygon(points = [
+                        [2.0, -p2h + 3.0], [-3.6, -p2h + 0.2], [-3.6, -p2h - 1.8],
+                        [1.5, -p2h - 3.5], [4.2, -p2h + 1.0]
+                    ]);
+                    hull() { translate([1.2, -p2h - 1.5]) circle(r = 3.0); translate([3.6, -p2h - 4.5]) circle(r = 2.0); }
+                }
             }
+            // Tapered collar that tucks into the 45-deg ear to hide the screw
+            translate([0, 0, lw / 2])
+                cylinder(h = 1.4, r1 = 2.6, r2 = 2.0, $fn = 32);
         }
-        cylinder(h = lw + 4, r = 1.8, center = true);
+        cylinder(h = lw + 8, r = 1.8, center = true);
         translate([-2.2, -p2h + 2.2, 0]) rotate([0, 0, -38]) cube([4.5, 4.5, lw + 2], center = true);
         for (gy = [-5, -8.5, -12, -15.5]) {
             translate([4.6, gy, 0]) cylinder(h = lw + 2, r = 0.8, center = true);
@@ -1056,8 +1072,13 @@ if (layout_mode == "print_plate") {
 
     // Column 3: All Required Cam-Latches Laid Flat on Their Side
     for (l = [0 : ${totalLatches} - 1]) {
-        translate([-width/2 - 45, l * 32, 16.0 / 2])
-            color(latch_color) bench_latch();
+        translate([-width/2 - 45, l * 32, 17.2 / 2])
+            color(latch_color)
+            if (l % 2 == 0) {
+                bench_latch();
+            } else {
+                mirror([1, 0, 0]) bench_latch();
+            }
     }
 
     // Column 4: All Custom Slide-In Embossed Labels (2-Color: Shell Base + Drawer Text)
