@@ -24,10 +24,10 @@ height = ${height};  // 35 (Trace), 50 (Trail), 70 (Pursuit), 100 (Frontier)
 num_drawers = ${numDrawers}; 
 
 /* [Hidden] */
-wall = 3.2; 
+wall = 2.4; 
 dimple_r_outer = 4.5; 
 dimple_r_inner = 2.5; 
-dimple_depth = 2.0;   
+dimple_depth = 1.4;   
 
 latch_w = 17;         // Exact gap for 16.0mm latch + M3x30mm self-tapping screw
 ear_t_bot = 6.5;      // Bottom ear thickness (holds 5.0mm self-tapping bite)
@@ -124,31 +124,34 @@ module bench_shell() {
         }
     }
 
-    // 8. Internal V-Rails + Stops
-    for (i = [0 : num_drawers - 1]) {
-        bay_center_x = -width/2 + wall + (bay_w/2) + i * (bay_w + wall);
-        
-        for (side = [-1, 1]) {
-            rail_x = bay_center_x + side * (bay_w/2);
-            
-            translate([rail_x, -wall/2, 0])
-                rotate([0, 45, 0])
-                cube([2.6, depth - wall*2, 2.6], center=true);
-                
-            translate([rail_x, -depth/2 + 14, 0])
-            hull() {
-                rotate([0, 45, 0]) cube([2.6, 5.0, 2.6], center=true);
-                rotate([0, 45, 0]) cube([3.2, 1.5, 3.2], center=true);
-            }
-            
-            //Rear snap-lock detent pocket (3.6mm) for a crisp drawer click
-            translate([rail_x, depth/2 - 15, 0])
-          hull() {
-              rotate([0, 45, 0]) cube([2.6, 6.0, 2.6], center=true);
-              rotate([0, 45, 0]) cube([3.6, 2.0, 3.6], center=true);
-          }
-        }
-    }
+    // 8. Internal V-Rails + Stops (clipped to outer shell so 3.6mm snap bumps never poke through 2.4mm walls)
+ intersection() {
+     cube([width, depth, height], center=true);
+     for (i = [0 : num_drawers - 1]) {
+         bay_center_x = -width/2 + wall + (bay_w/2) + i * (bay_w + wall);
+
+         for (side = [-1, 1]) {
+             rail_x = bay_center_x + side * (bay_w/2);
+
+             translate([rail_x, -wall/2, 0])
+                 rotate([0, 45, 0])
+                 cube([2.6, depth - wall*2, 2.6], center=true);
+
+             translate([rail_x, -depth/2 + 14, 0])
+             hull() {
+                 rotate([0, 45, 0]) cube([2.6, 5.0, 2.6], center=true);
+                 rotate([0, 45, 0]) cube([3.2, 1.5, 3.2], center=true);
+             }
+
+             // Rear snap-lock detent pocket (3.6mm) for a crisp drawer click
+             translate([rail_x, depth/2 - 15, 0])
+             hull() {
+                 rotate([0, 45, 0]) cube([2.6, 6.0, 2.6], center=true);
+                 rotate([0, 45, 0]) cube([3.6, 2.0, 3.6], center=true);
+             }
+         }
+     }
+ }
 }
 
 rotate([-90, 0, 0]) 
@@ -182,7 +185,7 @@ div_cols = ${divCols};
 div_rows = ${divRows};    
 
 /* [Hidden] */
-wall = 3.2;
+wall = 2.4;
 bay_w = (shell_w - (wall * (num_drawers + 1))) / num_drawers;
 face_w = bay_w - 0.4; // Framed cleanly inside each individual bay! 
 
@@ -317,10 +320,10 @@ lid_style = ${lidStyle}; // 1 = Worktop, 2 = Organizer, 3 = Carry Handle
 show_handle = ${showHandle ? "true" : "false"}; 
 
 /* [Hidden] */
-wall = 3.2; 
+wall = 2.4; 
 dimple_r_outer = 4.5;
 dimple_r_inner = 2.5; 
-dimple_depth = 2.0; 
+dimple_depth = 1.4; 
 
 latch_w = 17;         // Exact gap for 16.0mm latch + M3x30mm self-tapping screw
 ear_t_bot = 6.5;      // Bottom ear thickness (holds 5.0mm self-tapping bite)
@@ -583,7 +586,7 @@ export function generateBenchLabelSCAD({
   shellColorHex = "#222222",
   drawerColorHex = "#F6C129",
 } = {}) {
-  const wall = 3.2;
+  const wall = 2.4;
   const bayW = (width - wall * (numDrawers + 1)) / numDrawers;
   const faceW = bayW - 0.4;
   const trackW = Math.min(80, faceW - 12);
@@ -691,10 +694,10 @@ labels_list  = ${scadLabelsArray};
 
 /* [Hidden] */
 $fn = 48;
-wall = 3.2;
+wall = 2.4;
 dimple_r_outer = 4.5;
 dimple_r_inner = 2.5;
-dimple_depth = 2.0;
+dimple_depth = 1.4;
 
 latch_w = 17;         // Exact gap for 16.0mm latch + M3x30mm self-tapping screw
 ear_t_bot = 6.5;      // Bottom ear thickness (holds 5.0mm self-tapping bite)
@@ -790,19 +793,22 @@ module bench_shell() {
                 cylinder(h=dimple_depth - 0.2 + 0.05, r1=dimple_r_inner - 0.2, r2=dimple_r_outer - 0.2);
         }
     }
-    for (i = [0 : num_drawers - 1]) {
-        bay_center_x = -width/2 + wall + (bay_w/2) + i * (bay_w + wall);
-        for (side = [-1, 1]) {
-            rail_x = bay_center_x + side * (bay_w/2);
-            translate([rail_x, -wall/2, 0]) rotate([0, 45, 0]) cube([2.6, depth - wall*2, 2.6], center=true);
-            translate([rail_x, -depth/2 + 14, 0]) hull() {
-                rotate([0, 45, 0]) cube([2.6, 5.0, 2.6], center=true);
-                rotate([0, 45, 0]) cube([3.2, 1.5, 3.2], center=true);
-            }
-            // Rear snap-lock detent pocket (3.6mm) for a crisp drawer click
-            translate([rail_x, depth/2 - 15, 0]) hull() {
-                rotate([0, 45, 0]) cube([2.6, 6.0, 2.6], center=true);
-                rotate([0, 45, 0]) cube([3.6, 2.0, 3.6], center=true);
+    intersection() {
+        cube([width, depth, height], center=true);
+        for (i = [0 : num_drawers - 1]) {
+            bay_center_x = -width/2 + wall + (bay_w/2) + i * (bay_w + wall);
+            for (side = [-1, 1]) {
+                rail_x = bay_center_x + side * (bay_w/2);
+                translate([rail_x, -wall/2, 0]) rotate([0, 45, 0]) cube([2.6, depth - wall*2, 2.6], center=true);
+                translate([rail_x, -depth/2 + 14, 0]) hull() {
+                    rotate([0, 45, 0]) cube([2.6, 5.0, 2.6], center=true);
+                    rotate([0, 45, 0]) cube([3.2, 1.5, 3.2], center=true);
+                }
+                // Rear snap-lock detent pocket (3.6mm) for a crisp drawer click
+                translate([rail_x, depth/2 - 15, 0]) hull() {
+                    rotate([0, 45, 0]) cube([2.6, 6.0, 2.6], center=true);
+                    rotate([0, 45, 0]) cube([3.6, 2.0, 3.6], center=true);
+                }
             }
         }
     }

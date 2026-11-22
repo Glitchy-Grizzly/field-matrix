@@ -27,7 +27,8 @@ import {
   ExternalLink,
   Download,
   Code,
-  Shield
+  Shield,
+  ShoppingCart
 } from 'lucide-react';
 
 import {
@@ -62,6 +63,18 @@ const SQUARE_CHECKOUT_URL = "https://squareup.com/checkout";
 // 2. PRESET DEFINITIONS (BENCH & CARGO)
 // ==========================================
 const BENCH_PRESETS = {
+  Starter: {
+    id: 'Starter',
+    label: 'Starter',
+    summary: '1 Tier • 35mm Entry Kit',
+    tiers: 1,
+    numDrawers: 2,
+    width: 200,
+    depth: 150,
+    height: 35,
+    lidStyle: 1,
+    etsyPrice: 94.04
+  },
   Trace: {
     id: 'Trace',
     label: 'Trace',
@@ -72,7 +85,7 @@ const BENCH_PRESETS = {
     depth: 150,
     height: 35,
     lidStyle: 1,
-    etsyPrice: 54.00
+    etsyPrice: 151.86
   },
   Trail: {
     id: 'Trail',
@@ -84,7 +97,7 @@ const BENCH_PRESETS = {
     depth: 150,
     height: 50,
     lidStyle: 2,
-    etsyPrice: 68.00
+    etsyPrice: 177.85
   },
   Pursuit: {
     id: 'Pursuit',
@@ -96,7 +109,7 @@ const BENCH_PRESETS = {
     depth: 150,
     height: 50,
     lidStyle: 3,
-    etsyPrice: 92.00
+    etsyPrice: 253.58
   },
   Frontier: {
     id: 'Frontier',
@@ -108,7 +121,7 @@ const BENCH_PRESETS = {
     depth: 150,
     height: 70,
     lidStyle: 3,
-    etsyPrice: 118.00
+    etsyPrice: 330.47
   }
 };
 
@@ -133,7 +146,7 @@ const CARGO_PRESETS = {
     height: 20,
     compX: 2,
     compY: 2,
-    etsyPrice: 24.00
+    etsyPrice: 27.00
   },
   Pursuit: {
     id: 'Pursuit',
@@ -144,7 +157,7 @@ const CARGO_PRESETS = {
     height: 25,
     compX: 3,
     compY: 2,
-    etsyPrice: 31.00
+    etsyPrice: 44.00
   },
   Frontier: {
     id: 'Frontier',
@@ -155,7 +168,7 @@ const CARGO_PRESETS = {
     height: 35,
     compX: 4,
     compY: 3,
-    etsyPrice: 39.00
+    etsyPrice: 82.00
   }
 };
 
@@ -622,6 +635,7 @@ export default function App() {
   const [ammoLidColorId, setAmmoLidColorId] = useState('petg-black');
   const [ammoTrayColorId, setAmmoTrayColorId] = useState('petg-dark-beige');
   const [ammoLatchColorId, setAmmoLatchColorId] = useState('petg-orange');
+  const [ammoColorTab, setAmmoColorTab] = useState('base'); // 'base' | 'lid' | 'tray' | 'latch'
 
   const activeAmmoBaseColor = useMemo(
     () => BAMBU_PETG_COLORS.find((c) => c.id === ammoBaseColorId) || BAMBU_PETG_COLORS[12],
@@ -806,8 +820,6 @@ export default function App() {
 
   const triggerHiddenAdmin = useCallback(() => {
     setAdminMode(true);
-    setAdminPinInput('');
-    setAdminPinError(false);
   }, []);
 
   const handleLogoSecretClick = () => {
@@ -833,16 +845,6 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [triggerHiddenAdmin]);
-
-  const handleVerifyPin = (e) => {
-    e.preventDefault();
-    if (adminPinInput.trim() === ADMIN_SECRET_PIN) {
-      setAdminUnlocked(true);
-      setAdminPinError(false);
-    } else {
-      setAdminPinError(true);
-    }
-  };
 
   const [openSections, setOpenSections] = useState({
     config: true,
@@ -885,12 +887,14 @@ export default function App() {
   const [casingColorId, setCasingColorId] = useState('petg-black');
   const [drawerColorId, setDrawerColorId] = useState('petg-dark-beige');
   const [benchLatchColorId, setBenchLatchColorId] = useState('petg-orange');
+  const [benchColorTab, setBenchColorTab] = useState('casing'); // 'casing' | 'drawer' | 'latch'
 
   const [swingOpenAmount, setSwingOpenAmount] = useState(0); // 0 to 1 horizontal slide-out
   const [openDrawersMap, setOpenDrawersMap] = useState({});
   const [explodedView, setExplodedView] = useState(false);
   const [xrayMode, setXrayMode] = useState(false);
   const [showDimensions, setShowDimensions] = useState(true);
+  const [showViewportHint, setShowViewportHint] = useState(true);
 
   // ==========================================
   // PRODUCT 2 STATE: THE CARGO MATRIX
@@ -904,6 +908,7 @@ export default function App() {
   const [cargoBoxColorId, setCargoBoxColorId] = useState('petg-dark-beige');
   const [cargoTextColorId, setCargoTextColorId] = useState('petg-black');
   const [cargoLatchColorId, setCargoLatchColorId] = useState('petg-orange'); // Add this line!
+  const [cargoColorTab, setCargoColorTab] = useState('box'); // 'box' | 'text' | 'latch'
   const [cargoText, setCargoText] = useState('FIELD KIT');
   const [cargoFont, setCargoFont] = useState('Impact');
   const [cargoBorder, setCargoBorder] = useState(true);
@@ -1006,7 +1011,7 @@ export default function App() {
   );
 
   const effectiveBenchLabelWidthMm = useMemo(() => {
-    const bayW = (width - 3.2 * (drawersPerTier + 1)) / drawersPerTier;
+    const bayW = (width - 2.4 * (drawersPerTier + 1)) / drawersPerTier;
     const faceW = bayW - 0.4;
     return Math.min(80, faceW - 12);
   }, [width, drawersPerTier]);
@@ -1091,40 +1096,61 @@ export default function App() {
     const ammoLidSubtitle = showAmmoRoundCount ? `${ammoTotalRounds} RDS` : '';
     
     if (activeTab === 'bench') {
+      // Spreadsheet-synced Bench Matrix V2 pricing engine
+      // Calibrated to 2.4mm shell walls (Trace 2-tier benchmark: 1002.93g / 23h53m)
+      const boxW = typeof width === 'number' ? width : 200;
+      const boxD = typeof depth === 'number' ? depth : 150;
+      const footprintScale = (boxW * boxD) / (200 * 150);
+      const heightScale = 0.45 + 0.55 * (height / 35);
+      const shellBayFactor = 1.0 + 0.08 * (drawersPerTier - 2);
+      const drawerBayFactor = 1.0 + 0.12 * (drawersPerTier - 2);
 
-      // 0. Standalone Replacement / Upgrade Lid Only (0 Tiers)
-      if (tiers === 0) {
-        const lidEtsyPrice = benchLidStyle === 3 ? 26.00 : benchLidStyle === 2 ? 22.00 : 18.00;
-        return isEtsyMode ? lidEtsyPrice : Number((lidEtsyPrice * 0.85).toFixed(2));
-      }
+      // 1. Estimated Filament (g) & Print Time (hrs) — handles Lid-Only (tiers === 0),
+      //    Add-On Tiers (benchLidStyle === 0), and Full Stacks automatically
+      const shellGrams = tiers * 210.0 * footprintScale * heightScale * shellBayFactor;
+      const shellHours = tiers * 4.30 * footprintScale * heightScale * shellBayFactor;
 
-      // 1. Add-On Expansion Tier Mode (No Lid, 1 to 4 Tiers)
-      if (benchLidStyle === 0) {
-        const singleTierBaseEtsy =
-          height >= 100 ? 42.00 : height >= 70 ? 35.00 : height >= 50 ? 29.00 : 24.00;
-        const extraBayUpcharge = (drawersPerTier - 2) * 2.50; // +/- $2.50 for 1-bay vs 2-bay vs 3-bay
-        const addOnEtsyTotal = tiers * (singleTierBaseEtsy + extraBayUpcharge);
-        return isEtsyMode ? addOnEtsyTotal : Number((addOnEtsyTotal * 0.85).toFixed(2));
-      }
+      const lidGramsMap = { 0: 0, 1: 175.0, 2: 180.0, 3: 186.62 };
+      const lidHoursMap = { 0: 0, 1: 3.45,  2: 3.60,  3: 3.75 };
+      const lidGrams = (lidGramsMap[benchLidStyle] || 0) * footprintScale;
+      const lidHours = (lidHoursMap[benchLidStyle] || 0) * footprintScale;
 
-      // 2. Full Stack (Etsy Preset or Custom Direct Stack)
-      const stackBaseEtsy = 4.00; // Covers box, packing & M3 assembly overhead on every stack
-      const tierRateEtsy =
-        height >= 100 ? 37.00 : height >= 70 ? 29.00 : height >= 50 ? 23.50 : 20.00;
-      const lidRateEtsy =
-        benchLidStyle === 3 ? 21.50 : benchLidStyle === 2 ? 17.00 : 10.00;
-      const bayAdjustEtsy = tiers * (drawersPerTier - 2) * 2.50;
+      const handleGrams = benchLidStyle === 3 ? 18.97 : 0;
+      const handleHours = benchLidStyle === 3 ? 0.98 : 0;
 
-      // In Etsy Mode, if on a named preset, use the preset base + any lid/bay adjustments
-      if (isEtsyMode && BENCH_PRESETS[sizePreset]?.etsyPrice) {
-        const preset = BENCH_PRESETS[sizePreset];
-        const presetLidCost = preset.lidStyle === 3 ? 21.50 : preset.lidStyle === 2 ? 17.00 : 10.00;
-        const currentLidCost = benchLidStyle === 3 ? 21.50 : benchLidStyle === 2 ? 17.00 : 10.00;
-        const bayDiff = (drawersPerTier - preset.numDrawers) * tiers * 2.50;
-        return Number((preset.etsyPrice + (currentLidCost - presetLidCost) + bayDiff).toFixed(2));
-      }
+      const drawerGrams = tiers * 170.0 * footprintScale * heightScale * drawerBayFactor;
+      const drawerHours = tiers * (8.733333 / 2) * footprintScale * heightScale * drawerBayFactor;
 
-      // Custom Stack Total (Etsy fallback vs Direct 15% Discount + Divider Wall adjustments)
+      const totalLatches = (tiers + (benchLidStyle > 0 ? 1 : 0)) * 2;
+      const latchGrams = totalLatches * 3.80;
+      const latchHours = totalLatches * 0.22;
+
+      const activeLabelsCount = enableLabelSlot ? totalDrawers : 0;
+      const labelGrams = activeLabelsCount * 3.635;
+      const labelHours = activeLabelsCount * 0.125;
+
+      const totalGrams = shellGrams + lidGrams + handleGrams + drawerGrams + latchGrams + labelGrams;
+      const totalHours = shellHours + lidHours + handleHours + drawerHours + latchHours + labelHours;
+
+      // 2. Unit Cost (COGS) from Product Cost Breakdown spreadsheet rates
+      const filamentCost = (totalGrams / 1000) * 17.99; // Bambu Lab PETG ($17.99/kg)
+      const failureCost = filamentCost * 0.05;          // 5% failure rate
+      const hardwareCost = totalLatches * (1.00 / 6);   // $1.00 per 6 M3x30mm screws
+      const depreciationCost = totalHours * 0.35;       // $0.35/hr machine depreciation
+      const electricityCost = totalHours * 0.014;       // 200W * $0.07/kWh
+      const laborCost = totalHours * 0.50;              // $0.50/hr time & labor
+      const packagingCost = 2.50;                       // 12x9x6 box + bubble wrap + label
+
+      const totalCost =
+        filamentCost +
+        hardwareCost +
+        depreciationCost +
+        electricityCost +
+        failureCost +
+        laborCost +
+        packagingCost;
+
+      // 3. Extra custom divider walls (Direct mode)
       let dividersCost = 0;
       for (let t = 0; t < tiers; t++) {
         for (let b = 0; b < drawersPerTier; b++) {
@@ -1134,38 +1160,52 @@ export default function App() {
         }
       }
 
-      const fullStackEtsyEquiv = stackBaseEtsy + tiers * tierRateEtsy + lidRateEtsy + bayAdjustEtsy;
+      // 4. Spreadsheet Retail Formulas: Online (3x + 2.8%/$0.90) & Etsy (+18%)
+      const online3x = (totalCost * 3 + 0.90) / (1 - 0.028);
+      const etsyPrice = online3x * 1.18;
+
       return isEtsyMode
-        ? Number(fullStackEtsyEquiv.toFixed(2))
-        : Number((fullStackEtsyEquiv * 0.85 + dividersCost).toFixed(2));
-
+        ? Number(etsyPrice.toFixed(2))
+        : Number((online3x + dividersCost).toFixed(2));
+    
     } else if (activeTab === 'ammo') {
-      // 3. AMMO MATRIX TIERED PRICING MATRIX
+      // 3. AMMO MATRIX TIERED PRICING MATRIX (Caliber-aware slider thresholds)
       const cat = currentCalSpec?.category || 'Rimfire';
-      const isBulk = ammoPreset === '250' || ammoTotalRounds >= 150;
-      const isWeekend = ammoPreset === '100' || (ammoTotalRounds >= 75 && ammoTotalRounds < 150);
+      const bulkThreshold = cat === 'Shotgun' ? 60 : 150;
+      const weekendThreshold = cat === 'Shotgun' ? 36 : 75;
 
-      // Define Etsy Retail Price Tables
+      const isBulk =
+        ammoPreset === '250' ||
+        (ammoPreset === 'custom' && ammoTotalRounds >= bulkThreshold);
+      const isWeekend =
+        !isBulk &&
+        (ammoPreset === '100' ||
+          (ammoPreset === 'custom' && ammoTotalRounds >= weekendThreshold));
+
+      // Etsy Retail Price Tables (Synced with Product Cost Breakdown)
       const AMMO_PRICES = {
-        Rimfire: { standard: 46.00, weekend: 58.00, bulk: 74.00 },
-        Pistol:  { standard: 49.00, weekend: 64.00, bulk: 82.00 },
+        Rimfire: { standard: 46.00, weekend: 58.00, bulk: 115.00 },
+        Pistol:  { standard: 49.00, weekend: 61.00, bulk: 82.00 },
         Rifle:   { standard: 54.00, weekend: 72.00, bulk: 94.00 },
         Shotgun: { standard: 58.00, weekend: 78.00, bulk: 99.00 }
       };
 
       const tierMap = AMMO_PRICES[cat] || AMMO_PRICES.Rimfire;
-      const retailPrice = isBulk ? tierMap.bulk : isWeekend ? tierMap.weekend : tierMap.standard;
+      const retailPrice = isBulk
+        ? tierMap.bulk
+        : isWeekend
+        ? tierMap.weekend
+        : tierMap.standard;
 
       if (isEtsyMode) {
         return retailPrice;
       }
 
-      // Direct Mode / In-Person Sale Discount (15% off retail — saves marketplace fees while protecting margins)
-      const directPrice = retailPrice * 0.85;
-      return Number(directPrice.toFixed(2));
+      // Direct Mode Discount (15% off Etsy retail)
+      return Number((retailPrice * 0.85).toFixed(2));
 
     } else {
-      // 4. CARGO MATRIX CALCULATOR (Supports Etsy Presets + Custom Dimensions)
+      // 4. CARGO MATRIX CALCULATOR (Etsy Presets + Custom Dimensions)
       if (isEtsyMode && CARGO_PRESETS[cargoPreset]?.etsyPrice) {
         return CARGO_PRESETS[cargoPreset].etsyPrice;
       }
@@ -1173,7 +1213,11 @@ export default function App() {
       const vol = (cargoWidth * cargoLength * (cargoHeight * 2)) / 50000;
       const compExtra = (cargoCompX * cargoCompY - 1) * 0.25;
       const textExtra = cargoText.trim() !== '' ? 2.0 : 0;
-      return basePrice + vol * 1.4 + compExtra + textExtra;
+      const directPrice = basePrice + vol * 1.4 + compExtra + textExtra;
+
+      return isEtsyMode
+        ? Number((directPrice * 1.18).toFixed(2))
+        : Number(directPrice.toFixed(2));
     }
   };
   const generateAmmoMatrixScad = (exportMode = scadExportMode) => {
@@ -1862,7 +1906,7 @@ if (export_part == "full") {
       spec += `- Stacked Shells     : ${tiers} Tiers x ${height}mm (${totalStackedHeightMm}mm Total Stack Height)\n`;
       spec += `- Bays per Tier      : ${drawersPerTier} Columns (${tiers * drawersPerTier} Total V-Rail Drawers)\n`;
       spec += `- Footprint          : ${width}mm (W) x ${depth}mm (D)\n`;
-      spec += `- Hardware BOM       : ${totalM3Bolts}x M3x20mm SHCS Bolts (${totalLatches} Cam-Latches${benchLidStyle === 3 ? ' + 2 Handle Pivots' : ''})\n\n`;
+      spec += `- Hardware BOM       : ${totalM3Bolts}x M3x30mm Self-Tapping Screws (${totalLatches} Cam-Latches${benchLidStyle === 3 ? ' + 2 Handle Pivots' : ''})\n\n`;
 
       spec += `[ 2. COLORS (BAMBU LAB PETG SWATCHES) ]\n`;
       spec += `- Shells & Top Lid   : ${activeCasingColor.name} (${activeCasingColor.hex})\n`;
@@ -3172,7 +3216,7 @@ Date: ${new Date().toISOString()}
         roughness: 0.4
       });
 
-      const wall = 3.2;
+      const wall = 2.4;
       const bayW = (width - wall * (drawersPerTier + 1)) / drawersPerTier;
       const faceW = bayW - 0.4; // Individual drawer face framed inside each bay!
       const explodeGap = explodedView ? 28 : 0;
@@ -4485,7 +4529,7 @@ Date: ${new Date().toISOString()}
                           ? `${ammoTotalRounds} Rds (${currentCalSpec.short})`
                           : cargoPreset
                       }" option on Etsy and paste your Design Code in the personalization box.`
-                    : `Copy your Design Code and proceed to Square Checkout to complete your custom order.`}
+                    : `Review your custom build below, add more builds to your cart, or proceed to Square Checkout.`}
                 </p>
               </div>
               <button onClick={() => setShowModal(false)} className="text-[#94a3b8] hover:text-white text-sm font-bold px-2">
@@ -4576,15 +4620,182 @@ Date: ${new Date().toISOString()}
             )}
 
             <div className="p-4 overflow-y-auto flex-1 bg-[#0b0f19] m-4 rounded-lg border border-[#1e293b]">
-              <pre className="text-xs font-mono text-[#e2e8f0] whitespace-pre-wrap leading-relaxed">
-                {adminUnlocked && currentProductMeta.hasOpenScadGenerator && modalTab === 'scad'
-                  ? activeTab === 'ammo'
+              {adminUnlocked && currentProductMeta.hasOpenScadGenerator && modalTab === 'scad' ? (
+                <pre className="text-xs font-mono text-[#e2e8f0] whitespace-pre-wrap leading-relaxed">
+                  {activeTab === 'ammo'
                     ? generateAmmoMatrixScad(scadExportMode)
                     : activeTab === 'bench'
                     ? generateBenchV2ScadFromApp(scadExportMode)
-                    : generateScadCode(scadExportMode)
-                  : generateSpecSheet()}
-              </pre>
+                    : generateScadCode(scadExportMode)}
+                </pre>
+              ) : isEtsyMode || adminUnlocked ? (
+                <pre className="text-xs font-mono text-[#e2e8f0] whitespace-pre-wrap leading-relaxed">
+                  {generateSpecSheet()}
+                </pre>
+              ) : (() => {
+                const toIn = (mm) => (mm / 25.4).toFixed(1);
+                const dims =
+                  activeTab === 'bench'
+                    ? { w: width, d: depth, h: totalStackedHeightMm }
+                    : activeTab === 'ammo'
+                    ? { w: ammoShellX, d: ammoShellY, h: ammoShellZ }
+                    : { w: cargoWidth, d: cargoLength, h: cargoHeight * 2 };
+
+                const lidStyleNames = {
+                  0: 'None (Add-On Tier)',
+                  1: 'Stackable Worktop',
+                  2: '4-Bin Organizer Tray',
+                  3: 'Tactical Carry Handle',
+                };
+
+                const colorChips =
+                  activeTab === 'bench'
+                    ? [
+                        { label: 'Shells & Lid', color: activeCasingColor },
+                        ...(tiers > 0 ? [{ label: 'Drawers', color: activeDrawerColor }] : []),
+                        { label: 'Accents', color: activeBenchLatchColor },
+                      ]
+                    : activeTab === 'ammo'
+                    ? [
+                        { label: 'Base Shell', color: activeAmmoBaseColor },
+                        { label: 'Vault Lid', color: activeAmmoLidColor },
+                        { label: 'Ammo Tray', color: activeAmmoTrayColor },
+                        { label: 'Latches & Inlay', color: activeAmmoLatchColor },
+                      ]
+                    : [
+                        { label: 'Body', color: activeCargoBoxColor },
+                        { label: 'Lid Inlay', color: activeCargoTextColor },
+                        { label: 'Latches', color: activeCargoLatchColor },
+                      ];
+
+                return (
+                  <div className="space-y-4 text-xs text-[#e2e8f0]">
+                    {/* Top Summary Banner */}
+                    <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#1e293b]">
+                      <div>
+                        <div className="text-sm font-black text-white uppercase tracking-wide">
+                          {currentProductMeta.name}
+                        </div>
+                        <div className="text-[11px] text-[#94a3b8] mt-0.5">
+                          {activeTab === 'bench'
+                            ? tiers === 0
+                              ? `Standalone Lid • ${lidStyleNames[benchLidStyle]}`
+                              : `${sizePreset} • ${tiers} ${tiers === 1 ? 'Tier' : 'Tiers'} (${tiers * drawersPerTier} Drawers)`
+                            : activeTab === 'ammo'
+                            ? `${currentCalSpec.name} • ${ammoTotalRounds} Rounds (${clampedAmmoCols}×${clampedAmmoRows})`
+                            : `${cargoPreset} Case • ${cargoCompX}×${cargoCompY} Grid (${cargoCompX * cargoCompY} Compartments)`}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-lg font-black text-[#38bdf8]">
+                          ${calculatePrice().toFixed(2)}
+                        </div>
+                        <div className="text-[10px] font-mono text-[#64748b]">
+                          Ref: {designCode}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Dimensions & Specs Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="p-3 rounded-lg bg-[#111827] border border-[#1e293b]">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#38bdf8] mb-1">
+                          Assembled Dimensions
+                        </div>
+                        <div className="font-mono font-bold text-white">
+                          {dims.w} × {dims.d} × {dims.h} mm
+                        </div>
+                        <div className="text-[11px] text-[#94a3b8] mt-0.5">
+                          {toIn(dims.w)}" W × {toIn(dims.d)}" D × {toIn(dims.h)}" H
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-lg bg-[#111827] border border-[#1e293b]">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#38bdf8] mb-1">
+                          Build Details
+                        </div>
+                        {activeTab === 'bench' ? (
+                          <div className="space-y-0.5 text-[11px] text-[#cbd5e1]">
+                            <div>Top Lid: <span className="text-white font-semibold">{lidStyleNames[benchLidStyle]}</span></div>
+                            <div>Labels: <span className="text-white font-semibold">{enableLabelSlot && tiers > 0 ? 'Slide-In Embossed' : 'None'}</span></div>
+                          </div>
+                        ) : activeTab === 'ammo' ? (
+                          <div className="space-y-0.5 text-[11px] text-[#cbd5e1]">
+                            <div>Lid Text: <span className="text-white font-semibold">{ammoLidTitle.trim() || '(None)'}</span></div>
+                            <div>Round Count: <span className="text-white font-semibold">{showAmmoRoundCount ? `${ammoTotalRounds} RDS` : 'Hidden'}</span></div>
+                          </div>
+                        ) : (
+                          <div className="space-y-0.5 text-[11px] text-[#cbd5e1]">
+                            <div>Lid Text: <span className="text-white font-semibold">{cargoText.trim() || '(None)'}</span></div>
+                            <div>Border Inlay: <span className="text-white font-semibold">{cargoBorder ? 'Yes' : 'No'}</span></div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* PETG Color Palette Summary */}
+                    <div className="p-3 rounded-lg bg-[#111827] border border-[#1e293b]">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-[#38bdf8] mb-2">
+                        Selected PETG Colors
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {colorChips.map((chip) => (
+                          <div
+                            key={chip.label}
+                            className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[#0b0f19] border border-[#1e293b]"
+                          >
+                            <span
+                              className="w-3.5 h-3.5 rounded-full border border-white/30 shrink-0"
+                              style={{ backgroundColor: chip.color?.hex }}
+                            />
+                            <div>
+                              <div className="text-[9px] text-[#94a3b8] leading-none">{chip.label}</div>
+                              <div className="text-[11px] font-semibold text-white leading-tight mt-0.5">
+                                {chip.color?.name}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Bench Drawer Labels & Grids Quick-Check */}
+                    {activeTab === 'bench' && tiers > 0 && (
+                      <div className="p-3 rounded-lg bg-[#111827] border border-[#1e293b]">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#38bdf8] mb-2">
+                          Drawer Grids &amp; Labels
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                          {Array.from({ length: tiers }).map((_, tRev) => {
+                            const t = tiers - 1 - tRev;
+                            return Array.from({ length: drawersPerTier }).map((__, b) => {
+                              const key = `tier_${t}_box_${b}`;
+                              const div = getDividerForDrawer(t, b);
+                              const lbl = enableLabelSlot ? (labels[key] || '').trim() : '';
+                              return (
+                                <div
+                                  key={key}
+                                  className="flex items-center justify-between px-2.5 py-1.5 rounded bg-[#0b0f19] border border-[#1e293b] text-[11px]"
+                                >
+                                  <span className="text-[#94a3b8]">
+                                    T{t + 1}·B{b + 1}:{' '}
+                                    <span className="text-white font-semibold">
+                                      {lbl || 'Blank'}
+                                    </span>
+                                  </span>
+                                  <span className="font-mono text-[10px] text-[#38bdf8]">
+                                    {div.h}×{div.v}
+                                  </span>
+                                </div>
+                              );
+                            });
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="px-5 py-3.5 bg-[#0f172a] border-t border-[#1e293b] flex flex-wrap items-center justify-between gap-2">
@@ -4614,7 +4825,7 @@ Date: ${new Date().toISOString()}
                     <Download size={14} /> Download {scadExportMode.toUpperCase()} .SCAD
                   </button>
                 </div>
-              ) : (
+              ) : isEtsyMode || adminUnlocked ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => {
@@ -4640,7 +4851,8 @@ Date: ${new Date().toISOString()}
                     {copied ? 'Copied Full Spec!' : 'Copy Spec Sheet'}
                   </button>
                 </div>
-              )}
+              
+              ) : null}
 
               {isEtsyMode ? (
                 <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
@@ -4788,12 +5000,11 @@ Date: ${new Date().toISOString()}
 
           {/* DYNAMIC PRODUCT CATALOG SELECTOR */}
           {!window.location.pathname.match(/^\/(cargo|ammo|bench)$/) && (
-            <div className="grid grid-cols-2 gap-1.5 bg-[#090d16] p-1 rounded-lg border border-[#1e293b] mt-2.5">
-              {Object.values(PRODUCT_CATALOG).map((prod) => (
+            <div className="grid grid-cols-3 gap-1.5 bg-[#090d16] p-1 rounded-lg border border-[#1e293b] mt-2.5">              {Object.values(PRODUCT_CATALOG).map((prod) => (
                 <button
                   key={prod.id}
                   onClick={() => setActiveTab(prod.id)}
-                  className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all ${
+                  className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[11px] font-semibold whitespace-nowrap transition-all ${
                     activeTab === prod.id
                       ? 'bg-[#1e293b] text-[#38bdf8] border border-[#38bdf8]/40'
                       : 'text-[#94a3b8] hover:text-white'
@@ -4819,12 +5030,12 @@ Date: ${new Date().toISOString()}
                     {BENCH_PRESETS[sizePreset]?.summary || 'Custom Build'}
                   </span>
                 </div>
-                <div className="grid grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-5 gap-1.5">
                   {Object.keys(BENCH_PRESETS).map((presetKey) => (
                     <button
                       key={presetKey}
                       onClick={() => applyBenchPreset(presetKey)}
-                      className={`py-1.5 px-2 rounded-lg border text-xs font-bold transition-all ${
+                      className={`py-1.5 px-1 rounded-lg border text-xs font-bold transition-all ${
                         sizePreset === presetKey
                           ? 'bg-[#3b1526] border-[#f43f5e]/80 text-[#fecdd3] shadow'
                           : 'bg-[#0f172a] border-[#1e293b] text-[#94a3b8] hover:text-white'
@@ -5029,87 +5240,102 @@ Date: ${new Date().toISOString()}
                   </span>
                   {openSections.colors ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
-                {openSections.colors && (
-                  <div className="p-3.5 space-y-3.5">
-                    <div>
-                      <div className="text-xs font-semibold mb-1.5">
-                        1. Shells &amp; Lid:{' '}
-                        <span
-                          className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60"
-                          style={{ color: activeCasingColor.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}
-                        >
-                          {activeCasingColor.name}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-5 gap-1.5">
-                        {BAMBU_PETG_COLORS.map((col) => (
-                          <button
-                            key={`c_${col.id}`}
-                            onClick={() => setCasingColorId(col.id)}
-                            className={`p-1 rounded border flex flex-col items-center gap-1 ${
-                              casingColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
-                            }`}
-                          >
-                            <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
-                            <span className="text-[9px] truncate w-full text-center">{col.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    {tiers > 0 && (
-                      <div>
-                        <div className="text-xs font-semibold mb-1.5">
-                          2. V-Rail Drawers:{' '}
-                          <span
-                            className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60"
-                            style={{ color: activeDrawerColor.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}
-                          >
-                            {activeDrawerColor.name}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-5 gap-1.5">
-                          {BAMBU_PETG_COLORS.map((col) => (
+                {openSections.colors && (() => {
+                  const colorTabs = [
+                    {
+                      id: 'casing',
+                      label: 'Shells & Lid',
+                      activeColor: activeCasingColor,
+                      selectedId: casingColorId,
+                      onSelect: setCasingColorId,
+                    },
+                    ...(tiers > 0
+                      ? [
+                          {
+                            id: 'drawer',
+                            label: 'Drawers',
+                            activeColor: activeDrawerColor,
+                            selectedId: drawerColorId,
+                            onSelect: setDrawerColorId,
+                          },
+                        ]
+                      : []),
+                    {
+                      id: 'latch',
+                      label: 'Accents',
+                      activeColor: activeBenchLatchColor,
+                      selectedId: benchLatchColorId,
+                      onSelect: setBenchLatchColorId,
+                    },
+                  ];
+
+                  const activeTabObj =
+                    colorTabs.find((t) => t.id === benchColorTab) || colorTabs[0];
+
+                  return (
+                    <div className="p-3.5 space-y-3">
+                      {/* Part Selector Tabs (each shows a live color dot) */}
+                      <div
+                        className={`grid gap-1.5 ${
+                          colorTabs.length === 3 ? 'grid-cols-3' : 'grid-cols-2'
+                        }`}
+                      >
+                        {colorTabs.map((tab) => {
+                          const isActive = activeTabObj.id === tab.id;
+                          return (
                             <button
-                              key={`d_${col.id}`}
-                              onClick={() => setDrawerColorId(col.id)}
-                              className={`p-1 rounded border flex flex-col items-center gap-1 ${
-                                drawerColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
+                              key={tab.id}
+                              type="button"
+                              onClick={() => setBenchColorTab(tab.id)}
+                              className={`px-2 py-1.5 rounded-lg border text-left transition-all ${
+                                isActive
+                                  ? 'bg-[#3b1526] border-[#f43f5e] text-white shadow'
+                                  : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8] hover:text-white'
                               }`}
                             >
-                              <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
-                              <span className="text-[9px] truncate w-full text-center">{col.name}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full border border-white/30 shrink-0"
+                                  style={{ backgroundColor: tab.activeColor.hex }}
+                                />
+                                <span className="text-[10px] font-bold truncate">
+                                  {tab.label}
+                                </span>
+                              </div>
+                              <div className="text-[9px] text-[#cbd5e1] truncate mt-0.5 pl-4">
+                                {tab.activeColor.name}
+                              </div>
                             </button>
-                          ))}
-                        </div>
+                          );
+                        })}
                       </div>
-                    )}
-                    <div>
-                      <div className="text-xs font-semibold mb-1.5">
-                        3. Cam-Latches &amp; Handle{' '}
-                        <span
-                          className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60"
-                          style={{ color: activeBenchLatchColor.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}
-                        >
-                          {activeBenchLatchColor.name}
-                        </span>
-                      </div>
+
+                      {/* Shared 13-Color PETG Swatch Grid */}
                       <div className="grid grid-cols-5 gap-1.5">
                         {BAMBU_PETG_COLORS.map((col) => (
                           <button
-                            key={`bl_${col.id}`}
-                            onClick={() => setBenchLatchColorId(col.id)}
-                            className={`p-1 rounded border flex flex-col items-center gap-1 ${
-                              benchLatchColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
+                            key={`${activeTabObj.id}_${col.id}`}
+                            type="button"
+                            onClick={() => activeTabObj.onSelect(col.id)}
+                            className={`p-1 rounded border flex flex-col items-center gap-1 transition-colors ${
+                              activeTabObj.selectedId === col.id
+                                ? 'border-[#f43f5e] bg-[#3b1526]/60'
+                                : 'border-[#1e293b] bg-[#151e31] hover:border-slate-600'
                             }`}
                           >
-                            <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
-                            <span className="text-[9px] truncate w-full text-center">{col.name}</span>
+                            <span
+                              className="w-full h-3.5 rounded-sm"
+                              style={{ backgroundColor: col.hex }}
+                            />
+                            <span className="text-[9px] truncate w-full text-center">
+                              {col.name}
+                            </span>
                           </button>
                         ))}
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* SLIDE-IN U-TRACK LABELS & FUSED INTERNAL GRIDS */}
@@ -5301,7 +5527,10 @@ Date: ${new Date().toISOString()}
                         max={maxSafeCols}
                         step={2}
                         value={clampedAmmoCols}
-                        onChange={(e) => setAmmoCols(Math.max(2, Math.round(Number(e.target.value) / 2) * 2))}
+                        onChange={(e) => {
+                          setAmmoPreset('custom');
+                          setAmmoCols(Math.max(2, Math.round(Number(e.target.value) / 2) * 2));
+                        }}
                         style={{
                           background: `linear-gradient(to right, #f59e0b 0%, #f59e0b ${((clampedAmmoCols - 2) / Math.max(1, maxSafeCols - 2)) * 100}%, #1e293b ${((clampedAmmoCols - 2) / Math.max(1, maxSafeCols - 2)) * 100}%, #1e293b 100%)`
                         }}
@@ -5309,13 +5538,16 @@ Date: ${new Date().toISOString()}
                       />
                       <input
                         type="range"
-                        min={2}
+                        min={3}
                         max={maxSafeRows}
                         step={1}
                         value={clampedAmmoRows}
-                        onChange={(e) => setAmmoRows(Number(e.target.value))}
+                        onChange={(e) => {
+                          setAmmoPreset('custom');
+                          setAmmoRows(Number(e.target.value));
+                        }}
                         style={{
-                          background: `linear-gradient(to right, #f59e0b 0%, #f59e0b ${((clampedAmmoRows - 2) / Math.max(1, maxSafeRows - 2)) * 100}%, #1e293b ${((clampedAmmoRows - 2) / Math.max(1, maxSafeRows - 2)) * 100}%, #1e293b 100%)`
+                          background: `linear-gradient(to right, #f59e0b 0%, #f59e0b ${((clampedAmmoRows - 3) / Math.max(1, maxSafeRows - 3)) * 100}%, #1e293b ${((clampedAmmoRows - 3) / Math.max(1, maxSafeRows - 3)) * 100}%, #1e293b 100%)`
                         }}
                         className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-amber-500"
                       />
@@ -5328,86 +5560,102 @@ Date: ${new Date().toISOString()}
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">3. Colors & Text</span>
                   </div>
-                  
-                  <div>
-                    <div className="text-xs font-semibold mb-1.5">
-                      1. Base Shell Body: <span className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60" style={{ color: activeAmmoBaseColor?.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}>{activeAmmoBaseColor?.name}</span>
-                    </div>
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {BAMBU_PETG_COLORS.map((col) => (
-                        <button
-                          key={`ab_${col.id}`}
-                          onClick={() => setAmmoBaseColorId(col.id)}
-                          className={`p-1 rounded border flex flex-col items-center gap-1 ${
-                            ammoBaseColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
-                          }`}
-                        >
-                          <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
-                          <span className="text-[9px] truncate w-full text-center">{col.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
 
-                  <div>
-                    <div className="text-xs font-semibold mb-1.5">
-                      2. Vault Lid: <span className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60" style={{ color: activeAmmoLidColor?.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}>{activeAmmoLidColor?.name}</span>
-                    </div>
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {BAMBU_PETG_COLORS.map((col) => (
-                        <button
-                          key={`al_${col.id}`}
-                          onClick={() => setAmmoLidColorId(col.id)}
-                          className={`p-1 rounded border flex flex-col items-center gap-1 ${
-                            ammoLidColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
-                          }`}
-                        >
-                          <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
-                          <span className="text-[9px] truncate w-full text-center">{col.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  {(() => {
+                    const ammoColorTabs = [
+                      {
+                        id: 'base',
+                        label: 'Base Shell',
+                        activeColor: activeAmmoBaseColor,
+                        selectedId: ammoBaseColorId,
+                        onSelect: setAmmoBaseColorId,
+                      },
+                      {
+                        id: 'lid',
+                        label: 'Vault Lid',
+                        activeColor: activeAmmoLidColor,
+                        selectedId: ammoLidColorId,
+                        onSelect: setAmmoLidColorId,
+                      },
+                      {
+                        id: 'tray',
+                        label: 'Ammo Tray',
+                        activeColor: activeAmmoTrayColor,
+                        selectedId: ammoTrayColorId,
+                        onSelect: setAmmoTrayColorId,
+                      },
+                      {
+                        id: 'latch',
+                        label: 'Latches & Inlay',
+                        activeColor: activeAmmoLatchColor,
+                        selectedId: ammoLatchColorId,
+                        onSelect: setAmmoLatchColorId,
+                      },
+                    ];
 
-                  <div>
-                    <div className="text-xs font-semibold mb-1.5">
-                      3. Ammo Tray: <span className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60" style={{ color: activeAmmoTrayColor?.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}>{activeAmmoTrayColor?.name}</span>
-                    </div>
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {BAMBU_PETG_COLORS.map((col) => (
-                        <button
-                          key={`at_${col.id}`}
-                          onClick={() => setAmmoTrayColorId(col.id)}
-                          className={`p-1 rounded border flex flex-col items-center gap-1 ${
-                            ammoTrayColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
-                          }`}
-                        >
-                          <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
-                          <span className="text-[9px] truncate w-full text-center">{col.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                    const activeAmmoTabObj =
+                      ammoColorTabs.find((t) => t.id === ammoColorTab) || ammoColorTabs[0];
 
-                  <div>
-                    <div className="text-xs font-semibold mb-1.5">
-                      4. Latches &amp; Accents: <span className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60" style={{ color: activeAmmoLatchColor?.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}>{activeAmmoLatchColor?.name}</span>
-                    </div>
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {BAMBU_PETG_COLORS.map((col) => (
-                        <button
-                          key={`aa_${col.id}`}
-                          onClick={() => setAmmoLatchColorId(col.id)}
-                          className={`p-1 rounded border flex flex-col items-center gap-1 ${
-                            ammoLatchColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
-                          }`}
-                        >
-                          <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
-                          <span className="text-[9px] truncate w-full text-center">{col.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                    return (
+                      <div className="space-y-3">
+                        {/* 2x2 Part Selector Tabs */}
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {ammoColorTabs.map((tab) => {
+                            const isActive = activeAmmoTabObj.id === tab.id;
+                            return (
+                              <button
+                                key={tab.id}
+                                type="button"
+                                onClick={() => setAmmoColorTab(tab.id)}
+                                className={`px-2 py-1.5 rounded-lg border text-left transition-all ${
+                                  isActive
+                                    ? 'bg-[#3b1526] border-[#f43f5e] text-white shadow'
+                                    : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full border border-white/30 shrink-0"
+                                    style={{ backgroundColor: tab.activeColor?.hex }}
+                                  />
+                                  <span className="text-[10px] font-bold truncate">
+                                    {tab.label}
+                                  </span>
+                                </div>
+                                <div className="text-[9px] text-[#cbd5e1] truncate mt-0.5 pl-4">
+                                  {tab.activeColor?.name}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Shared 13-Color PETG Swatch Grid */}
+                        <div className="grid grid-cols-5 gap-1.5">
+                          {BAMBU_PETG_COLORS.map((col) => (
+                            <button
+                              key={`ammo_${activeAmmoTabObj.id}_${col.id}`}
+                              type="button"
+                              onClick={() => activeAmmoTabObj.onSelect(col.id)}
+                              className={`p-1 rounded border flex flex-col items-center gap-1 transition-colors ${
+                                activeAmmoTabObj.selectedId === col.id
+                                  ? 'border-[#f43f5e] bg-[#3b1526]/60'
+                                  : 'border-[#1e293b] bg-[#151e31] hover:border-slate-600'
+                              }`}
+                            >
+                              <span
+                                className="w-full h-3.5 rounded-sm"
+                                style={{ backgroundColor: col.hex }}
+                              />
+                              <span className="text-[9px] truncate w-full text-center">
+                                {col.name}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Custom Lid Text & Font Selector */}
                   <div className="space-y-2">
@@ -5509,10 +5757,10 @@ Date: ${new Date().toISOString()}
                   </span>
                   <button
                     type="button"
-                    onClick={() => setFoldAngle(foldAngle > 90 ? 25 : 180)}
+                    onClick={() => setFoldAngle(foldAngle > 45 ? 0 : 110)}
                     className="px-2 py-0.5 rounded bg-[#3b1526] border border-[#f43f5e]/50 text-[10px] font-bold text-[#fecdd3]"
                   >
-                    {foldAngle > 90 ? 'Open Box (25°)' : 'Close Lid (180°)'}
+                    {foldAngle > 45 ? 'Close Lid (0°)' : 'Open Box (110°)'}
                   </button>
                 </div>
 
@@ -5684,65 +5932,94 @@ Date: ${new Date().toISOString()}
                   </span>
                 </div>
 
-                <div>
-                  <div className="text-xs font-semibold mb-1.5">
-                    1. Box Body &amp; Hinges: <span className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60" style={{ color: activeCargoBoxColor?.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}>{activeCargoBoxColor?.name}</span>
-                  </div>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {BAMBU_PETG_COLORS.map((col) => (
-                      <button
-                        key={`cb_${col.id}`}
-                        onClick={() => setCargoBoxColorId(col.id)}
-                        className={`p-1 rounded border flex flex-col items-center gap-1 ${
-                          cargoBoxColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
-                        }`}
-                      >
-                        <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
-                        <span className="text-[9px] truncate w-full text-center">{col.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                {(() => {
+                  const cargoColorTabs = [
+                    {
+                      id: 'box',
+                      label: 'Body',
+                      activeColor: activeCargoBoxColor,
+                      selectedId: cargoBoxColorId,
+                      onSelect: setCargoBoxColorId,
+                    },
+                    {
+                      id: 'text',
+                      label: 'Lid Inlay',
+                      activeColor: activeCargoTextColor,
+                      selectedId: cargoTextColorId,
+                      onSelect: setCargoTextColorId,
+                    },
+                    {
+                      id: 'latch',
+                      label: 'Latches',
+                      activeColor: activeCargoLatchColor,
+                      selectedId: cargoLatchColorId,
+                      onSelect: setCargoLatchColorId,
+                    },
+                  ];
 
-                <div>
-                  <div className="text-xs font-semibold mb-1.5">
-                    2. Lid Text &amp; Frame Inlay: <span className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60" style={{ color: activeCargoTextColor?.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}>{activeCargoTextColor?.name}</span>
-                  </div>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {BAMBU_PETG_COLORS.map((col) => (
-                      <button
-                        key={`ct_${col.id}`}
-                        onClick={() => setCargoTextColorId(col.id)}
-                        className={`p-1 rounded border flex flex-col items-center gap-1 ${
-                          cargoTextColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
-                        }`}
-                      >
-                        <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
-                        <span className="text-[9px] truncate w-full text-center">{col.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                  const activeCargoTabObj =
+                    cargoColorTabs.find((t) => t.id === cargoColorTab) || cargoColorTabs[0];
 
-                <div>
-                  <div className="text-xs font-semibold mb-1.5">
-                    3. Cam Latches: <span className="font-bold px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60" style={{ color: activeCargoLatchColor?.hex, textShadow: '0 0 6px rgba(255,255,255,0.22)' }}>{activeCargoLatchColor?.name}</span>
-                  </div>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {BAMBU_PETG_COLORS.map((col) => (
-                      <button
-                        key={`cl_${col.id}`}
-                        onClick={() => setCargoLatchColorId(col.id)}
-                        className={`p-1 rounded border flex flex-col items-center gap-1 ${
-                          cargoLatchColorId === col.id ? 'border-[#f43f5e] bg-[#3b1526]/60' : 'border-[#1e293b] bg-[#151e31]'
-                        }`}
-                      >
-                        <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
-                        <span className="text-[9px] truncate w-full text-center">{col.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                  return (
+                    <div className="space-y-3">
+                      {/* 3-Column Part Selector Tabs */}
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {cargoColorTabs.map((tab) => {
+                          const isActive = activeCargoTabObj.id === tab.id;
+                          return (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => setCargoColorTab(tab.id)}
+                              className={`px-2 py-1.5 rounded-lg border text-left transition-all ${
+                                isActive
+                                  ? 'bg-[#3b1526] border-[#f43f5e] text-white shadow'
+                                  : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                              }`}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full border border-white/30 shrink-0"
+                                  style={{ backgroundColor: tab.activeColor?.hex }}
+                                />
+                                <span className="text-[10px] font-bold truncate">
+                                  {tab.label}
+                                </span>
+                              </div>
+                              <div className="text-[9px] text-[#cbd5e1] truncate mt-0.5 pl-4">
+                                {tab.activeColor?.name}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Shared 13-Color PETG Swatch Grid */}
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {BAMBU_PETG_COLORS.map((col) => (
+                          <button
+                            key={`cargo_${activeCargoTabObj.id}_${col.id}`}
+                            type="button"
+                            onClick={() => activeCargoTabObj.onSelect(col.id)}
+                            className={`p-1 rounded border flex flex-col items-center gap-1 transition-colors ${
+                              activeCargoTabObj.selectedId === col.id
+                                ? 'border-[#f43f5e] bg-[#3b1526]/60'
+                                : 'border-[#1e293b] bg-[#151e31] hover:border-slate-600'
+                            }`}
+                          >
+                            <span
+                              className="w-full h-3.5 rounded-sm"
+                              style={{ backgroundColor: col.hex }}
+                            />
+                            <span className="text-[9px] truncate w-full text-center">
+                              {col.name}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           ) : null}
@@ -5778,6 +6055,25 @@ Date: ${new Date().toISOString()}
             )}
           </div>
 
+          {!isEtsyMode && cart.length > 0 && (
+         <button
+           type="button"
+           onClick={() => {
+             setModalTab('spec');
+             setShowModal(true);
+           }}
+           className="w-full py-1.5 px-3 rounded-lg bg-emerald-950/70 hover:bg-emerald-900/70 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-between transition-colors"
+         >
+           <span className="flex items-center gap-1.5">
+             <ShoppingCart size={14} />
+             View Cart ({cart.reduce((s, i) => s + i.quantity, 0)}{' '}
+             {cart.reduce((s, i) => s + i.quantity, 0) === 1 ? 'item' : 'items'})
+           </span>
+           <span className="font-mono text-white">
+             ${cart.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2)}
+           </span>
+         </button>
+       )}
           <button
             onClick={handleOpenSpecModal}
             className="w-full py-2.5 px-4 rounded-lg font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 bg-[#f43f5e] hover:bg-[#fb7185] text-white shadow-lg"
@@ -5791,7 +6087,7 @@ Date: ${new Date().toISOString()}
                     ? `${ammoTotalRounds} Rds ${currentCalSpec.short}`
                     : cargoPreset
                 })`
-              : `Review Spec & Checkout ($${calculatePrice().toFixed(2)})`}
+              : `Review Order & Checkout ($${calculatePrice().toFixed(2)})`}
           </button>
         </div>
       </aside>
@@ -5998,7 +6294,59 @@ Date: ${new Date().toISOString()}
           </div>
         </header>
 
-        <div ref={mountRef} className="flex-1 w-full min-h-0 relative overflow-hidden cursor-grab active:cursor-grabbing touch-none" />
+        <div className="flex-1 w-full min-h-0 relative overflow-hidden">
+          {/* Three.js Canvas Mount */}
+          <div
+            ref={mountRef}
+            className="w-full h-full cursor-grab active:cursor-grabbing touch-none"
+          />
+
+          {/* Top-Left Assembled Dimensions HUD (mm + inches) */}
+          {(() => {
+            const d =
+              activeTab === 'bench'
+                ? { w: width, l: depth, h: totalStackedHeightMm }
+                : activeTab === 'ammo'
+                ? { w: ammoShellX, l: ammoShellY, h: ammoShellZ }
+                : { w: cargoWidth, l: cargoLength, h: cargoHeight * 2 };
+            const toIn = (mm) => (mm / 25.4).toFixed(1);
+
+            return (
+              <div className="pointer-events-none absolute top-3 left-3 z-10 px-3 py-2 rounded-lg bg-[#0f172a]/85 backdrop-blur-sm border border-[#1e293b] shadow-lg">
+                <div className="text-[9px] font-bold uppercase tracking-wider text-[#38bdf8]">
+                  Assembled Size
+                </div>
+                <div className="text-xs font-mono font-bold text-white leading-snug">
+                  {d.w} × {d.l} × {d.h} mm
+                </div>
+                <div className="text-[10px] font-mono text-[#94a3b8]">
+                  {toIn(d.w)}" W × {toIn(d.l)}" D × {toIn(d.h)}" H
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Bottom-Center Dismissible 3D Controls Hint */}
+          {showViewportHint && (
+            <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 z-10 max-w-[92%]">
+              <div className="pointer-events-auto flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-[#0f172a]/85 backdrop-blur-sm border border-[#38bdf8]/30 text-[11px] text-[#cbd5e1] shadow-lg whitespace-nowrap">
+                <span>
+                  {activeTab === 'bench'
+                    ? 'Drag to rotate • Scroll to zoom • Click any drawer to open'
+                    : 'Drag to rotate • Scroll to zoom • Right-drag to pan'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowViewportHint(false)}
+                  className="text-[#94a3b8] hover:text-white font-bold leading-none pl-1"
+                  title="Dismiss hint"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
