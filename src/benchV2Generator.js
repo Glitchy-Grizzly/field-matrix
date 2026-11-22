@@ -79,6 +79,14 @@ module bench_shell() {
                     cylinder(h=dimple_depth, r1=dimple_r_inner, r2=dimple_r_outer, $fn=64);
             }
         }
+
+        // 4b. Recessed Bottom Silicone Foot Pockets (10.6mm dia x 1.2mm deep, inboard of stacking pegs)
+        for (x = [-width/2 + 32, width/2 - 32]) {
+            for (y = [-depth/2 + 28, depth/2 - 28]) {
+                translate([x, y, -height/2 - 0.05])
+                    cylinder(h = 1.25, d = 10.6, $fn = 48);
+            }
+        }
         
         // 5. Clean M3x30mm Clearance Bore, Counterbore & Self-Tapping Blind Socket
         for (side = [-1, 1]) {
@@ -124,6 +132,14 @@ module bench_shell() {
         }
     }
 
+    // 7b. Recessed Bottom Silicone Foot Pockets (10.6mm dia x 1.2mm deep, inboard of stacking pegs)
+        for (x = [-width/2 + 32, width/2 - 32]) {
+            for (y = [-depth/2 + 28, depth/2 - 28]) {
+                translate([x, y, -height/2 - 0.05])
+                    cylinder(h = 1.25, d = 10.6, $fn = 48);
+            }
+        }
+
     // 8. Internal V-Rails + Stops (clipped to outer shell so 3.6mm snap bumps never poke through 2.4mm walls)
  intersection() {
      cube([width, depth, height], center=true);
@@ -140,14 +156,14 @@ module bench_shell() {
              translate([rail_x, -depth/2 + 14, 0])
              hull() {
                  rotate([0, 45, 0]) cube([2.6, 5.0, 2.6], center=true);
-                 rotate([0, 45, 0]) cube([3.2, 1.5, 3.2], center=true);
+                 rotate([0, 45, 0]) cube([3.0, 1.5, 3.0], center=true);
              }
 
              // Rear snap-lock detent pocket (3.6mm) for a crisp drawer click
              translate([rail_x, depth/2 - 15, 0])
              hull() {
                  rotate([0, 45, 0]) cube([2.6, 6.0, 2.6], center=true);
-                 rotate([0, 45, 0]) cube([3.6, 2.0, 3.6], center=true);
+                 rotate([0, 45, 0]) cube([3.1, 2.0, 3.1], center=true);
              }
          }
      }
@@ -212,16 +228,16 @@ module drawer() {
                 rotate([0, 45, 0])
                 cube([3.1, drawer_d - 18, 3.1], center=true); 
                 
-            // Narrowed lead-in channel (2.2mm) for a crisp rear snap-lock click
-          translate([side * (drawer_w/2), drawer_d/2 - 9, drawer_h/2])
+            // Tuned lead-in channel (2.35mm) for a light, one-hand rear click
+            translate([side * (drawer_w/2), drawer_d/2 - 9, drawer_h/2])
               rotate([0, 45, 0])
-              cube([2.2, 20, 2.2], center=true);
+              cube([2.35, 20, 2.35], center=true);
 
-          // Rear snap-lock detent pocket (3.6mm)
-          translate([side * (drawer_w/2), drawer_d/2 - 11.8, drawer_h/2])
-          hull() {
+            // Rear snap-lock detent pocket (3.2mm)
+            translate([side * (drawer_w/2), drawer_d/2 - 11.8, drawer_h/2])
+            hull() {
               rotate([0, 45, 0]) cube([3.1, 6.5, 3.1], center=true);
-              rotate([0, 45, 0]) cube([3.6, 2.5, 3.6], center=true);
+              rotate([0, 45, 0]) cube([3.2, 2.5, 3.2], center=true);
           }
 
           // Rear-corner air-vent channel so trapped air vents when closing
@@ -802,12 +818,12 @@ module bench_shell() {
                 translate([rail_x, -wall/2, 0]) rotate([0, 45, 0]) cube([2.6, depth - wall*2, 2.6], center=true);
                 translate([rail_x, -depth/2 + 14, 0]) hull() {
                     rotate([0, 45, 0]) cube([2.6, 5.0, 2.6], center=true);
-                    rotate([0, 45, 0]) cube([3.2, 1.5, 3.2], center=true);
+                    rotate([0, 45, 0]) cube([3.0, 1.5, 3.0], center=true);
                 }
                 // Rear snap-lock detent pocket (3.6mm) for a crisp drawer click
                 translate([rail_x, depth/2 - 15, 0]) hull() {
                     rotate([0, 45, 0]) cube([2.6, 6.0, 2.6], center=true);
-                    rotate([0, 45, 0]) cube([3.6, 2.0, 3.6], center=true);
+                    rotate([0, 45, 0]) cube([3.1, 2.0, 3.1], center=true);
                 }
             }
         }
@@ -820,17 +836,16 @@ module drawer(div_rows = 3, div_cols = 1) {
         translate([0, 0, drawer_h/2]) cube([drawer_w, drawer_d, drawer_h], center=true);
         translate([0, 0, drawer_h/2 + 2.4]) cube([drawer_w - (d_wall*2), drawer_d - 4.8, drawer_h], center=true);
         for (side = [-1, 1]) {
-            translate([side * (drawer_w/2), -9, drawer_h/2]) rotate([0, 45, 0]) cube([3.1, drawer_d - 18, 3.1], center=true);
-            // Narrowed lead-in channel (2.2mm) for a crisp rear snap-lock click
-          translate([side * (drawer_w/2), drawer_d/2 - 9, drawer_h/2])
+            // Tuned lead-in channel (2.35mm) for a light, one-hand rear click
+            translate([side * (drawer_w/2), drawer_d/2 - 9, drawer_h/2])
               rotate([0, 45, 0])
-              cube([2.2, 20, 2.2], center=true);
+              cube([2.35, 20, 2.35], center=true);
 
-          // Rear snap-lock detent pocket (3.6mm)
-          translate([side * (drawer_w/2), drawer_d/2 - 11.8, drawer_h/2])
-          hull() {
+            // Rear snap-lock detent pocket (3.2mm)
+            translate([side * (drawer_w/2), drawer_d/2 - 11.8, drawer_h/2])
+            hull() {
               rotate([0, 45, 0]) cube([3.1, 6.5, 3.1], center=true);
-              rotate([0, 45, 0]) cube([3.6, 2.5, 3.6], center=true);
+              rotate([0, 45, 0]) cube([3.2, 2.5, 3.2], center=true);
           }
 
           // Rear-corner air-vent channel so trapped air vents when closing
