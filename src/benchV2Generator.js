@@ -1,5 +1,5 @@
 // ==========================================================
-// THE BENCH MATRIX V2 - PRODUCTION OPENSCAD GENERATOR ENGINE
+// THE BENCH MATRIX V2.1 - PRODUCTION OPENSCAD GENERATOR ENGINE
 // ==========================================================
 
 /**
@@ -8,12 +8,12 @@
  * blind self-threading bottom sockets, full-span catch hooks, and parking detents.
  */
 export function generateBenchShellSCAD({
-  width = 200,
-  depth = 150,
-  height = 50,
-  numDrawers = 2,
+    width = 200,
+    depth = 150,
+    height = 50,
+    numDrawers = 2,
 } = {}) {
-  return `// ==========================================
+    return `// ==========================================
 // THE BENCH MATRIX V2 - SHELL (${width}x${depth}x${height}mm | ${numDrawers}-Bay)
 // ==========================================
 
@@ -172,14 +172,14 @@ rotate([-90, 0, 0])
  * permanent internal divider grid, and flush faceplate with slide-in U-track.
  */
 export function generateBenchDrawerSCAD({
-  width = 200,
-  depth = 150,
-  height = 50,
-  numDrawers = 2,
-  divCols = 1,
-  divRows = 3,
+    width = 200,
+    depth = 150,
+    height = 50,
+    numDrawers = 2,
+    divCols = 1,
+    divRows = 3,
 } = {}) {
-  return `// ==========================================
+    return `// ==========================================
 // THE BENCH MATRIX V2 - DRAWER (1/${numDrawers} Width | ${divCols}x${divRows} Grid)
 // ==========================================
 
@@ -310,13 +310,13 @@ drawer();
  * Supports Style 1 (Stackable Worktop), Style 2 (4-Bin Organizer), Style 3 (Folding Carry Handle).
  */
 export function generateBenchLidSCAD({
-  width = 200,
-  depth = 150,
-  lidH = 18,
-  lidStyle = 3,
-  showHandle = true,
+    width = 200,
+    depth = 150,
+    lidH = 18,
+    lidStyle = 3,
+    showHandle = true,
 } = {}) {
-  return `// ==========================================
+    return `// ==========================================
 // THE BENCH MATRIX V2 - TOP LID (Style ${lidStyle})
 // ==========================================
 
@@ -502,10 +502,10 @@ if (lid_style == 3 && show_handle) {
  * includes stow-up parking notches and thumb-pull lever.
  */
 export function generateBenchLatchSCAD({
-  latchW = 17.2,
-  pivotToHook = 13.6,
+    latchW = 17.2,
+    pivotToHook = 13.6,
 } = {}) {
-  return `// ==========================================
+    return `// ==========================================
 // THE BENCH MATRIX V2 - HEAVY-DUTY CAM LATCH
 // ==========================================
 
@@ -587,26 +587,26 @@ translate([22, 0, latch_w / 2])
  * with base = Shell color and embossed text = Drawer color.
  */
 export function generateBenchLabelSCAD({
-  labelsList = ["FASTENERS"],
-  width = 200,
-  numDrawers = 2,
-  fontSize = 6.5,
-  shellColorHex = "#222222",
-  drawerColorHex = "#F6C129",
+    labelsList = ["FASTENERS"],
+    width = 200,
+    numDrawers = 2,
+    fontSize = 6.5,
+    shellColorHex = "#222222",
+    drawerColorHex = "#F6C129",
 } = {}) {
-  const wall = 2.4;
-  const bayW = (width - wall * (numDrawers + 1)) / numDrawers;
-  const faceW = bayW - 0.4;
-  const trackW = Math.min(80, faceW - 12);
-  const plateW = Number((trackW - 4.6).toFixed(1));
+    const wall = 2.4;
+    const bayW = (width - wall * (numDrawers + 1)) / numDrawers;
+    const faceW = bayW - 0.4;
+    const trackW = Math.min(80, faceW - 12);
+    const plateW = Number((trackW - 4.6).toFixed(1));
 
-  const validLabels = (labelsList || [])
-    .map((s) => String(s || "").trim())
-    .filter(Boolean);
-  const finalLabels = validLabels.length > 0 ? validLabels : ["SAMPLE LABEL"];
-  const scadArrayStr = `[${finalLabels.map((l) => `"${l.replace(/"/g, '\\"')}"`).join(", ")}]`;
+    const validLabels = (labelsList || [])
+        .map((s) => String(s || "").trim())
+        .filter(Boolean);
+    const finalLabels = validLabels.length > 0 ? validLabels : ["SAMPLE LABEL"];
+    const scadArrayStr = `[${finalLabels.map((l) => `"${l.replace(/"/g, '\\"')}"`).join(", ")}]`;
 
-  return `// ==========================================
+    return `// ==========================================
 // THE BENCH MATRIX V2 - SLIDE-IN EMBOSSED LABELS (${finalLabels.length} PLATES)
 // Base Color (Shell) : ${shellColorHex}
 // Text Color (Drawer): ${drawerColorHex}
@@ -644,39 +644,39 @@ for (i = [0 : len(labels) - 1]) {
  * cam-latches, and embossed labels with user-selected hex colors preserved.
  */
 export function generateBenchFullAssemblySCAD({
-  width = 200,
-  depth = 150,
-  height = 50,
-  tiers = 2,
-  numDrawers = 2,
-  lidStyle = 2,
-  drawerConfigs = [], // Array of { rows, cols } for every drawer across all tiers
-  labelsList = [],
-  shellColorHex = "#222222",
-  drawerColorHex = "#9E8569",
-  latchColorHex = "#F36B21",
+    width = 200,
+    depth = 150,
+    height = 50,
+    tiers = 2,
+    numDrawers = 2,
+    lidStyle = 2,
+    drawerConfigs = [], // Array of { rows, cols } for every drawer across all tiers
+    labelsList = [],
+    shellColorHex = "#222222",
+    drawerColorHex = "#9E8569",
+    latchColorHex = "#F36B21",
 } = {}) {
-  const totalDrawers = tiers * numDrawers;
-  const totalLatches = (tiers + (lidStyle > 0 ? 1 : 0)) * 2;
+    const totalDrawers = tiers * numDrawers;
+    const totalLatches = (tiers + (lidStyle > 0 ? 1 : 0)) * 2;
 
-  // Format per-drawer [rows, cols] array for OpenSCAD
-  const paddedConfigs = [];
-  for (let i = 0; i < Math.max(1, totalDrawers); i++) {
-    const cfg = drawerConfigs[i] || { rows: 3, cols: 1 };
-    paddedConfigs.push(`[${cfg.rows || 3}, ${cfg.cols || 1}]`);
-  }
-  const scadDrawerGridArray = `[${paddedConfigs.join(", ")}]`;
+    // Format per-drawer [rows, cols] array for OpenSCAD
+    const paddedConfigs = [];
+    for (let i = 0; i < Math.max(1, totalDrawers); i++) {
+        const cfg = drawerConfigs[i] || { rows: 3, cols: 1 };
+        paddedConfigs.push(`[${cfg.rows || 3}, ${cfg.cols || 1}]`);
+    }
+    const scadDrawerGridArray = `[${paddedConfigs.join(", ")}]`;
 
-  // Format non-empty labels for OpenSCAD
-  const validLabels = (labelsList || [])
-    .map((s) => String(s || "").trim())
-    .filter(Boolean);
-  const scadLabelsArray =
-    validLabels.length > 0
-      ? `[${validLabels.map((l) => `"${l.replace(/"/g, '\\"')}"`).join(", ")}]`
-      : `[]`;
+    // Format non-empty labels for OpenSCAD
+    const validLabels = (labelsList || [])
+        .map((s) => String(s || "").trim())
+        .filter(Boolean);
+    const scadLabelsArray =
+        validLabels.length > 0
+            ? `[${validLabels.map((l) => `"${l.replace(/"/g, '\\"')}"`).join(", ")}]`
+            : `[]`;
 
-  return `// ============================================================================
+    return `// ============================================================================
 // THE BENCH MATRIX V2 - COMPLETE MULTI-COLOR PRODUCTION ASSEMBLY
 // Shells & Lid Color : ${shellColorHex}
 // Drawers Color      : ${drawerColorHex}
