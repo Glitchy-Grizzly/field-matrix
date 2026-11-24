@@ -88,7 +88,7 @@ module bench_shell() {
             }
         }
 
-        // 4c. Exterior Rear Magnet Pockets on Back Wall (+Y = depth/2, 8.2mm dia x 1.8mm deep -> 0.6mm skin)
+        // 4c. Exterior Rear Magnet Pockets on Back Wall (+Y = depth/2, 8.2mm dia x 0.75mm deep -> 0.45mm skin)
         for (i = [0 : num_drawers - 1]) {
             bay_center_x = -width/2 + wall + (bay_w/2) + i * (bay_w + wall);
             translate([bay_center_x, depth/2 + 0.05, 0])
@@ -153,9 +153,13 @@ module bench_shell() {
                         cube([2.6, depth - wall*2, 2.6], center=true);
                 }
 
-                // Light 0.4mm front ceiling lip (gentle slowdown near full extension, removable with a tug)
-                translate([bay_center_x, -depth/2 + 8, height/2 - wall - 0.2])
-                    cube([max(12, bay_w - 10), 2.5, 0.4], center=true);
+                // 0.35mm ramped front ceiling stop lip (45-deg self-supporting ramp on +Y side for back-wall printing)
+                hull() {
+                    translate([bay_center_x, -depth/2 + 8, height/2 - wall - 0.175])
+                        cube([max(12, bay_w - 14), 2.2, 0.35], center=true);
+                    translate([bay_center_x, -depth/2 + 8 + 1.45, height/2 - wall - 0.05])
+                        cube([max(12, bay_w - 14), 0.1, 0.1], center=true);
+                }
             }
         }
     }
@@ -198,7 +202,7 @@ face_w = bay_w - 0.4; // Framed cleanly inside each individual bay!
 
 drawer_w = bay_w - 0.8;
 drawer_d = shell_d - (wall * 2) - 0.4;
-drawer_h = shell_h - (wall * 2) - 0.8;
+drawer_h = shell_h - (wall * 2) - 1.2;
 d_wall = 3.6; 
 inner_wall = 1.6; 
 
@@ -224,7 +228,7 @@ module drawer() {
                 cube([2.4, 3.2, drawer_h - 4], center=true);
         }
 
-            // Exterior Rear 8x2mm Magnet Pocket (8.2mm dia x 2.0mm deep -> 0.4mm skin)
+        // Exterior Rear 8x2mm Magnet Pocket (8.2mm dia x 1.85mm deep -> 0.55mm skin)
         translate([0, drawer_d/2 + 0.05, drawer_h/2])
             rotate([90, 0, 0])
             cylinder(h = 1.85, d = 8.2, $fn = 48);
@@ -253,7 +257,7 @@ module drawer() {
     
     // 3. Flush-Bottom Front Faceplate, Flush Top Label & Sleek Tactical Lower Pull
     // Zero overhangs / zero supports — flush label at top, low-profile chamfered pull at bottom!
-    face_h = drawer_h + 0.4;
+    face_h = drawer_h;
     translate([0, -drawer_d/2 - 1.2, face_h/2]) {
         // Main Front Faceplate (Bottom sits flush at Z = 0 on the print bed)
         cube([face_w, 2.4, face_h], center=true);
@@ -301,6 +305,17 @@ module drawer() {
             }
         }
     }
+
+    // 4. Mated Rear-Top Pull-Out Catch Tab (0.4mm ramped tab on rear wall, engages 0.35mm shell ceiling lip)
+    catch_w = min(18, max(10, drawer_w - 20));
+    hull() {
+        translate([0, drawer_d/2 - 1.2, drawer_h - 0.1])
+            cube([catch_w, 2.4, 0.2], center=true);
+        translate([0, drawer_d/2 - 1.2, drawer_h + 0.35])
+            cube([catch_w - 0.8, 1.4, 0.1], center=true);
+    }
+}
+
 drawer();
 `;
 }
@@ -718,7 +733,7 @@ bay_w = (width - (wall * (num_drawers + 1))) / num_drawers;
 face_w = bay_w - 0.4;
 drawer_w = bay_w - 0.8;
 drawer_d = depth - (wall * 2) - 0.4;
-drawer_h = height - (wall * 2) - 0.8;
+drawer_h = height - (wall * 2) - 1.2;
 d_wall = 3.6;
 inner_wall = 1.6;
 track_w = min(80, face_w - 12);
@@ -785,7 +800,7 @@ module bench_shell() {
                     cylinder(h = 5.5, r = 1.35, center=true, $fn=32);
             }
 
-            // 4c. Exterior Rear Magnet Pockets on Back Wall (+Y = depth/2, 8.2mm dia x 1.8mm deep -> 0.6mm skin)
+            // 4c. Exterior Rear Magnet Pockets on Back Wall (+Y = depth/2, 8.2mm dia x 0.75mm deep -> 0.45mm skin)
             for (i = [0 : num_drawers - 1]) {
                 bay_center_x = -width/2 + wall + (bay_w/2) + i * (bay_w + wall);
                 translate([bay_center_x, depth/2 + 0.05, 0])
@@ -827,9 +842,13 @@ module bench_shell() {
                       cube([2.6, depth - wall*2, 2.6], center=true);
               }
 
-              // Light 0.4mm front ceiling lip (gentle slowdown near full extension, removable with a tug)
-              translate([bay_center_x, -depth/2 + 8, height/2 - wall - 0.2])
-                  cube([max(12, bay_w - 10), 2.5, 0.4], center=true);
+              // 0.35mm ramped front ceiling stop lip (45-deg self-supporting ramp on +Y side for back-wall printing)
+              hull() {
+                  translate([bay_center_x, -depth/2 + 8, height/2 - wall - 0.175])
+                      cube([max(12, bay_w - 14), 2.2, 0.35], center=true);
+                  translate([bay_center_x, -depth/2 + 8 + 1.45, height/2 - wall - 0.05])
+                      cube([max(12, bay_w - 14), 0.1, 0.1], center=true);
+              }
           }
         }
     }
@@ -851,7 +870,7 @@ module drawer(div_rows = 3, div_cols = 1) {
                 cube([2.4, 3.2, drawer_h - 4], center=true);
         }
 
-        // Exterior Rear 8x2mm Magnet Pocket (8.2mm dia x 2.0mm deep -> 0.4mm skin)
+        // Exterior Rear 8x2mm Magnet Pocket (8.2mm dia x 1.85mm deep -> 0.55mm skin)
         translate([0, drawer_d/2 + 0.05, drawer_h/2])
             rotate([90, 0, 0])
             cylinder(h = 1.85, d = 8.2, $fn = 48);
@@ -874,7 +893,7 @@ module drawer(div_rows = 3, div_cols = 1) {
     }
 
     // 3. Flush-Bottom Front Faceplate, Flush Top Label & Sleek Tactical Lower Pull
-    face_h = drawer_h + 0.4;
+    face_h = drawer_h;
     translate([0, -drawer_d/2 - 1.2, face_h/2]) {
         cube([face_w, 2.4, face_h], center=true);
 
@@ -915,6 +934,15 @@ module drawer(div_rows = 3, div_cols = 1) {
                 }
             }
         }
+    }
+
+    // 4. Mated Rear-Top Pull-Out Catch Tab (0.4mm ramped tab on rear wall, engages 0.35mm shell ceiling lip)
+    catch_w = min(18, max(10, drawer_w - 20));
+    hull() {
+        translate([0, drawer_d/2 - 1.2, drawer_h - 0.1])
+            cube([catch_w, 2.4, 0.2], center=true);
+        translate([0, drawer_d/2 - 1.2, drawer_h + 0.35])
+            cube([catch_w - 0.8, 1.4, 0.1], center=true);
     }
 }
 

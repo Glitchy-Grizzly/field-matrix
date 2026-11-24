@@ -616,8 +616,12 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [designCode, setDesignCode] = useState('');
+  const isLocalDevHost =
+    import.meta.env.DEV &&
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   const [adminMode, setAdminMode] = useState(false);
-  const [adminUnlocked, setAdminUnlocked] = useState(false);
+  const [adminUnlocked, setAdminUnlocked] = useState(isLocalDevHost);
 
   // <-- PASTE THE USEEFFECT RIGHT HERE -->
   useEffect(() => {
@@ -1248,8 +1252,8 @@ export default function App() {
       return Number((retailPrice * 0.85).toFixed(2));
 
     } else if (activeTab === 'orbital') {
-      // 4. ORBITAL MATRIX PRICING (Direct Custom Only — Synced to Product Cost Breakdown)
-      const baseDirect = 91.92;
+      // 4. ORBITAL MATRIX PRICING (Direct Custom Only — Synced to Product Cost Breakdown + $1.00 Silicone Feet)
+      const baseDirect = orbitalSize === 100 ? 36.80 : 69.23;
       const depthAdd = orbitalDepth === 56 ? 17.23 : orbitalDepth === 42 ? 8.61 : 0;
       const divAdd = orbitalDividers > 1 ? 3.0 : 0;
       const textAdd = orbitalLidText.trim() !== '' ? 3.0 : 0;
@@ -4755,6 +4759,19 @@ Date: ${new Date().toISOString()}
                   </svg>
                   Sign in with Google (Admin)
                 </button>
+                {isLocalDevHost && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdminUnlocked(true);
+                      setStatusBanner({ type: 'success', text: 'Local Dev Admin Unlocked (localhost)' });
+                    }}
+                    className="w-full py-2.5 rounded-lg bg-amber-500/20 border border-amber-400/60 text-amber-200 font-bold text-xs flex items-center justify-center gap-2 hover:bg-amber-500/30 transition-all cursor-pointer"
+                  >
+                    <Unlock size={14} />
+                    Dev Admin Bypass (Localhost Only)
+                  </button>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
