@@ -932,7 +932,7 @@ export default function App() {
   // ==========================================
   const [orbitalSize, setOrbitalSize] = useState(180); // 100 (Small) | 180 (Large Custom)
   const [orbitalDepth, setOrbitalDepth] = useState(28); // 28 | 42 | 56 mm usable bin depth
-  const [orbitalDividers, setOrbitalDividers] = useState(1); // 1 (Open) | 2 (Split) | 4 (Quad)
+  const [orbitalDividers, setOrbitalDividers] = useState(1); // 1 (Open) | 2 (Split)
   const [orbitalLidText, setOrbitalLidText] = useState('');
   const [orbitalLidFont, setOrbitalLidFont] = useState('Impact');
   const [orbitalPlateColorId, setOrbitalPlateColorId] = useState('petg-black');
@@ -1975,7 +1975,7 @@ if (export_part == "full") {
       }
     
     } else if (activeTab === 'orbital') {
-      const divLabel = orbitalDividers === 1 ? 'Open (1-Bin)' : orbitalDividers === 2 ? 'Split (2-Bin)' : 'Quad (4-Bin)';
+      const divLabel = orbitalDividers >= 2 ? 'Split (2-Bin)' : 'Open (1-Bin)';
       spec += `[ 1. ORBITAL MATRIX V2.2 SPECIFICATIONS ]\n`;
       spec += `- Size Tier         : ${orbitalSize === 100 ? 'Small (100x100mm Ready-to-Ship)' : 'Large (180x180mm Custom)'}\n`;
       spec += `- Assembled Size    : ${orbitalSize} x ${orbitalSize} x ${orbitalTotalHeightMm} mm\n`;
@@ -3052,7 +3052,7 @@ Date: ${new Date().toISOString()}
           setActiveTab('orbital');
           setOrbitalSize(Number(cfg.orbitalSize ?? 180));
           setOrbitalDepth(Number(cfg.orbitalDepth ?? 28));
-          setOrbitalDividers(Number(cfg.orbitalDividers ?? 1));
+          setOrbitalDividers(Number(cfg.orbitalDividers ?? 1) >= 2 ? 2 : 1);
           setOrbitalLidText(cfg.orbitalLidText ?? '');
           if (cfg.orbitalLidFont) setOrbitalLidFont(cfg.orbitalLidFont);
           if (cfg.orbitalPlateColorId) setOrbitalPlateColorId(cfg.orbitalPlateColorId);

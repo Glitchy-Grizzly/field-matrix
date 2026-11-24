@@ -6,25 +6,26 @@
 // ==========================================================
 
 export function generateOrbitalSCAD({
-  boxSize = 180,          // 100 (Small Ready-to-Ship) | 180 (Large Custom)
-  binInnerDepth = 28.0,   // 28 (Standard) | 42 (Deep) | 56 (Tall)
-  trayDividers = 1,       // 1 (Open) | 2 (Split) | 4 (Quad)
-  lidText = '',           // Optional flush multi-color top lid text
-  lidFont = 'Impact',
-  plateColorHex = '#222222',
-  trayColorHex = '#2C4C3B',
-  accentColorHex = '#F36B21',
-  exportPart = 'print_plate', // 'print_plate' | 'assembly' | 'top_lid' | 'inlay_only' | 'bottom_base' | 'tray' | 'knob' | 'c_clip' | 'bottom_cap'
-  designCode = 'ORBITAL-CUSTOM',
+    boxSize = 180,          // 100 (Small Ready-to-Ship) | 180 (Large Custom)
+    binInnerDepth = 28.0,   // 28 (Standard) | 42 (Deep) | 56 (Tall)
+    trayDividers = 1,       // 1 (Open) | 2 (Split)
+    lidText = '',           // Optional flush multi-color top lid text
+    lidFont = 'Impact',
+    plateColorHex = '#222222',
+    trayColorHex = '#2C4C3B',
+    accentColorHex = '#F36B21',
+    exportPart = 'print_plate', // 'print_plate' | 'assembly' | 'top_lid' | 'inlay_only' | 'bottom_base' | 'tray' | 'knob' | 'c_clip' | 'bottom_cap'
+    designCode = 'ORBITAL-CUSTOM',
 } = {}) {
-  const knobD = boxSize >= 150 ? 34 : 26;
-  const cleanText = String(lidText || '').trim().replace(/"/g, '\\"');
+    const knobD = boxSize >= 150 ? 34 : 26;
+    const safeDividers = trayDividers >= 2 ? 2 : 1;
+    const cleanText = String(lidText || '').trim().replace(/"/g, '\\"');
 
-  return `/* ============================================================
+    return `/* ============================================================
    ORBITAL MATRIX V2.2 - Parametric Field Matrix Edition
    Design Code : ${designCode}
    Footprint   : ${boxSize} x ${boxSize} mm | Bin Depth: ${binInnerDepth} mm
-   Dividers    : ${trayDividers === 1 ? 'Open (1-Bin)' : trayDividers === 2 ? 'Split (2-Bin)' : 'Quad (4-Bin)'}
+   Dividers    : ${safeDividers === 1 ? 'Open (1-Bin)' : 'Split (2-Bin)'}
    Export Mode : ${exportPart.toUpperCase()}
    ============================================================ */
 
@@ -36,7 +37,7 @@ explode = 0; // [0:1:25]
 /* [Core Dimensions (mm)] */
 box_size = ${boxSize};
 bin_inner_depth = ${Number(binInnerDepth).toFixed(1)};
-tray_dividers = ${trayDividers}; // 1 = Open, 2 = Split, 4 = Quad
+tray_dividers = ${safeDividers}; // [1:Open (1-Bin), 2:Split (2-Bin)]
 plate_thick_top = 6.0;
 plate_thick_bot = 8.0;
 corner_chamfer = 5.0;
@@ -267,7 +268,7 @@ module top_lid() {
 }
 
 // ============================================================
-// 3. SINGLE TRAY (With Optional 2-Bin or 4-Bin Fused Dividers)
+// 3. SINGLE TRAY (With Optional 2-Bin Split Fused Divider)
 // ============================================================
 module tray_cavity_2d() {
     c_cut = shaft_d / 2 + 1.2;
@@ -320,25 +321,17 @@ module single_tray() {
             }
         }
 
-        // Optional Internal Fused Dividers (Clipped cleanly to cavity)
-        if (tray_dividers > 1) {
+        // Optional Internal Fused Divider (Split 2-Bin, embedded 0.4mm into walls & 0.5mm into floor for clean CGAL manifoldness)
+        if (tray_dividers >= 2) {
             div_t = 1.6;
             div_h = bin_inner_depth - 1.5;
             mid_xy = offset_xy + tray_xy / 2;
-            translate([0, 0, tray_floor])
-            linear_extrude(div_h)
+            translate([0, 0, tray_floor - 0.5])
+            linear_extrude(div_h + 0.5)
             intersection() {
-                tray_cavity_2d();
-                union() {
-                    if (tray_dividers >= 2) {
-                        translate([0, mid_xy - div_t/2])
-                            square([half, div_t]);
-                    }
-                    if (tray_dividers >= 4) {
-                        translate([mid_xy - div_t/2, 0])
-                            square([div_t, half]);
-                    }
-                }
+                offset(r = 0.4) tray_cavity_2d();
+                translate([0, mid_xy - div_t/2])
+                    square([half, div_t]);
             }
         }
     }
