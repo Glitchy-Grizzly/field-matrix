@@ -87,6 +87,14 @@ module bench_shell() {
                     cylinder(h = 1.25, d = 10.6, $fn = 48);
             }
         }
+
+        // 4c. Exterior Rear Magnet Pockets on Back Wall (+Y = depth/2, 8.2mm dia x 1.8mm deep -> 0.6mm skin)
+        for (i = [0 : num_drawers - 1]) {
+            bay_center_x = -width/2 + wall + (bay_w/2) + i * (bay_w + wall);
+            translate([bay_center_x, depth/2 + 0.05, 0])
+                rotate([90, 0, 0])
+                cylinder(h = 0.75, d = 8.2, $fn = 48);
+        }
         
         // 5. Clean M3x30mm Clearance Bore, Counterbore & Self-Tapping Blind Socket
         for (side = [-1, 1]) {
@@ -132,32 +140,22 @@ module bench_shell() {
         }
     }
 
-    // 8. Internal V-Rails + Stops (clipped to outer shell so 3.6mm snap bumps never poke through 2.4mm walls)
+    // 8. Straight V-Rails (Bump-Free Glide) + Top Ceiling Front Pull-Out Stops
     intersection() {
-     cube([width, depth, height], center=true);
-     union() {
-        for (i = [0 : num_drawers - 1]) {
-            bay_center_x = -width/2 + wall + (bay_w/2) + i * (bay_w + wall);
-            for (side = [-1, 1]) {
-                rail_x = bay_center_x + side * (bay_w/2);
-                translate([rail_x, -wall/2, 0])
-                    rotate([0, 45, 0])
-                    cube([2.6, depth - wall*2, 2.6], center=true);
-
-                // Front pull-out stop bump (3.30mm) — stops drawer before falling out
-                translate([rail_x, -depth/2 + 14, 0])
-                hull() {
-                    rotate([0, 45, 0]) cube([2.6, 5.0, 2.6], center=true);
-                    rotate([0, 45, 0]) cube([3.30, 2.0, 3.30], center=true);
+        cube([width, depth, height], center=true);
+        union() {
+            for (i = [0 : num_drawers - 1]) {
+                bay_center_x = -width/2 + wall + (bay_w/2) + i * (bay_w + wall);
+                for (side = [-1, 1]) {
+                    rail_x = bay_center_x + side * (bay_w/2);
+                    translate([rail_x, -wall/2, 0])
+                        rotate([0, 45, 0])
+                        cube([2.6, depth - wall*2, 2.6], center=true);
                 }
 
-                // Rear snap-lock detent bump (3.25mm) — crisp, one-hand removable click
-                translate([rail_x, depth/2 - 15, 0])
-                hull() {
-                    rotate([0, 45, 0]) cube([2.6, 6.0, 2.6], center=true);
-                    rotate([0, 45, 0]) cube([3.25, 2.2, 3.25], center=true);
-                    }
-                }  
+                // Light 0.4mm front ceiling lip (gentle slowdown near full extension, removable with a tug)
+                translate([bay_center_x, -depth/2 + 8, height/2 - wall - 0.2])
+                    cube([max(12, bay_w - 10), 2.5, 0.4], center=true);
             }
         }
     }
@@ -216,28 +214,21 @@ module drawer() {
         translate([0, 0, drawer_h/2 + 2.4])
             cube([drawer_w - (d_wall*2), drawer_d - 4.8, drawer_h], center=true);
             
-        for (side = [-1, 1]) {
-            translate([side * (drawer_w/2), -9, drawer_h/2])
+            for (side = [-1, 1]) {
+            translate([side * (drawer_w/2), 0, drawer_h/2])
                 rotate([0, 45, 0])
-                cube([3.1, drawer_d - 18, 3.1], center=true); 
-                
-            // Tuned lead-in channel (2.25mm) for tactile front stop & rear click
-            translate([side * (drawer_w/2), drawer_d/2 - 9, drawer_h/2])
-                rotate([0, 45, 0])
-                cube([2.25, 20, 2.25], center=true);
+                cube([3.1, drawer_d - 4, 3.1], center=true);
 
-            // Rear snap-lock detent pocket (3.40mm)
-            translate([side * (drawer_w/2), drawer_d/2 - 11.8, drawer_h/2])
-            hull() {
-                rotate([0, 45, 0]) cube([3.1, 6.5, 3.1], center=true);
-                rotate([0, 45, 0]) cube([3.40, 2.5, 3.40], center=true);
-            }
-
-          // Rear-corner air-vent channel so trapped air vents when closing
-          translate([side * (drawer_w/2 - 1.2), drawer_d/2 - 1.5, drawer_h/2])
-              cube([2.4, 3.2, drawer_h - 4], center=true);
-            }
+            // Rear-corner air-vent channel so trapped air vents when closing
+            translate([side * (drawer_w/2 - 1.2), drawer_d/2 - 1.5, drawer_h/2])
+                cube([2.4, 3.2, drawer_h - 4], center=true);
         }
+
+            // Exterior Rear 8x2mm Magnet Pocket (8.2mm dia x 2.0mm deep -> 0.4mm skin)
+        translate([0, drawer_d/2 + 0.05, drawer_h/2])
+            rotate([90, 0, 0])
+            cylinder(h = 1.85, d = 8.2, $fn = 48);
+    }
     
     
     inner_w = drawer_w - (d_wall * 2);
@@ -289,28 +280,27 @@ module drawer() {
                     cube([track_w - 8.0, 3.0, lbl_h], center=true);
             }
 
-            // B. Sleek Tactical Low-Profile Pull Bar (Z = 0..6.5mm, 45-deg beveled wings)
-            pull_w = min(track_w, face_w - 14);
-            pull_d = 13.5;
+            // B. Slim Ergonomic Finger Pull (8.5mm deep, 45-deg chamfered lip)
+            pull_w = min(track_w * 0.78, max(24, face_w - 22));
+            pull_d = 8.5;
             union() {
-                // Chamfered base deck (Z = 0..3.6mm, tapers inward at 45 deg on left/right ends)
+                // Slim tapered base (Z = 0..2.8mm)
                 hull() {
-                    translate([0, -0.5, 1.8])
-                        cube([pull_w, 1.0, 3.6], center=true);
-                    translate([0, -pull_d + 1.5, 1.8])
-                        cube([pull_w - 10.0, 3.0, 3.6], center=true);
+                    translate([0, -0.4, 1.4])
+                        cube([pull_w, 0.8, 2.8], center=true);
+                    translate([0, -pull_d + 1.2, 1.4])
+                        cube([pull_w - 6.0, 2.4, 2.8], center=true);
                 }
-                // Raised front fingertip catch ridge (Z = 3.6..6.6mm, 2.8mm thick)
+                // Compact fingertip catch lip (Z = 2.8..5.4mm)
                 hull() {
-                    translate([0, -pull_d + 1.4, 5.1])
-                        cube([pull_w - 10.0, 2.8, 3.0], center=true);
-                    translate([0, -pull_d + 2.2, 3.8])
-                        cube([pull_w - 6.0, 1.6, 0.8], center=true);
+                    translate([0, -pull_d + 1.2, 4.1])
+                        cube([pull_w - 6.0, 2.4, 2.6], center=true);
+                    translate([0, -pull_d + 1.8, 3.1])
+                        cube([pull_w - 4.0, 1.2, 0.7], center=true);
                 }
             }
         }
     }
-}
 drawer();
 `;
 }
@@ -793,7 +783,14 @@ module bench_shell() {
                 translate([side * (width/2 + hole_offset_x), -latch_offset + latch_w/2 + 2.75, -height/2 + 8])
                     rotate([90, 0, 0])
                     cylinder(h = 5.5, r = 1.35, center=true, $fn=32);
-            
+            }
+
+            // 4c. Exterior Rear Magnet Pockets on Back Wall (+Y = depth/2, 8.2mm dia x 1.8mm deep -> 0.6mm skin)
+            for (i = [0 : num_drawers - 1]) {
+                bay_center_x = -width/2 + wall + (bay_w/2) + i * (bay_w + wall);
+                translate([bay_center_x, depth/2 + 0.05, 0])
+                    rotate([90, 0, 0])
+                    cylinder(h = 0.75, d = 8.2, $fn = 48);
             }
         }
             // 6. Standalone Support-Free Top Catch Hook + Flat-Rib Parking Detent
@@ -819,60 +816,46 @@ module bench_shell() {
         }
     }
     intersection() {
-            cube([width, depth, height], center=true);
-            union() {
-                for (i = [0 : num_drawers - 1]) {
-                    bay_center_x = -width/2 + wall + (bay_w/2) + i * (bay_w + wall);
-                    for (side = [-1, 1]) {
-                        rail_x = bay_center_x + side * (bay_w/2);
-                        translate([rail_x, -wall/2, 0]) rotate([0, 45, 0]) cube([2.6, depth - wall*2, 2.6], center=true);
-                        
-                        // Front pull-out stop bump (3.30mm) — stops drawer before falling out
-                        translate([rail_x, -depth/2 + 14, 0])
-                        hull() {
-                            rotate([0, 45, 0]) cube([2.6, 5.0, 2.6], center=true);
-                            rotate([0, 45, 0]) cube([3.30, 2.0, 3.30], center=true);
-                        }
+        cube([width, depth, height], center=true);
+        union() {
+            for (i = [0 : num_drawers - 1]) {
+                bay_center_x = -width/2 + wall + (bay_w/2) + i * (bay_w + wall);
+                for (side = [-1, 1]) {
+                  rail_x = bay_center_x + side * (bay_w/2);
+                  translate([rail_x, -wall/2, 0])
+                      rotate([0, 45, 0])
+                      cube([2.6, depth - wall*2, 2.6], center=true);
+              }
 
-                        // Rear snap-lock detent bump (3.25mm) — crisp, one-hand removable click
-                        translate([rail_x, depth/2 - 15, 0])
-                        hull() {
-                            rotate([0, 45, 0]) cube([2.6, 6.0, 2.6], center=true);
-                            rotate([0, 45, 0]) cube([3.25, 2.2, 3.25], center=true);
-                        }
-                    }
-                }
-            }
+              // Light 0.4mm front ceiling lip (gentle slowdown near full extension, removable with a tug)
+              translate([bay_center_x, -depth/2 + 8, height/2 - wall - 0.2])
+                  cube([max(12, bay_w - 10), 2.5, 0.4], center=true);
+          }
         }
     }
+}
 
 // --- 2. DRAWER MODULE ---
 module drawer(div_rows = 3, div_cols = 1) {
     difference() {
         translate([0, 0, drawer_h/2]) cube([drawer_w, drawer_d, drawer_h], center=true);
         translate([0, 0, drawer_h/2 + 2.4]) cube([drawer_w - (d_wall*2), drawer_d - 4.8, drawer_h], center=true);
+
         for (side = [-1, 1]) {
-            translate([side * (drawer_w/2), -9, drawer_h/2])
+            translate([side * (drawer_w/2), 0, drawer_h/2])
                 rotate([0, 45, 0])
-                cube([3.1, drawer_d - 18, 3.1], center=true);
+                cube([3.1, drawer_d - 4, 3.1], center=true);
 
-            // Tuned lead-in channel (2.25mm) for tactile front stop & rear click
-            translate([side * (drawer_w/2), drawer_d/2 - 9, drawer_h/2])
-                rotate([0, 45, 0])
-                cube([2.25, 20, 2.25], center=true);
-
-            // Rear snap-lock detent pocket (3.40mm)
-            translate([side * (drawer_w/2), drawer_d/2 - 11.8, drawer_h/2])
-            hull() {
-                rotate([0, 45, 0]) cube([3.1, 6.5, 3.1], center=true);
-                rotate([0, 45, 0]) cube([3.40, 2.5, 3.40], center=true);
-            }
-
-          // Rear-corner air-vent channel so trapped air vents when closing
-          translate([side * (drawer_w/2 - 1.2), drawer_d/2 - 1.5, drawer_h/2])
-              cube([2.4, 3.2, drawer_h - 4], center=true);
-            }
+            // Rear-corner air-vent channel so trapped air vents when closing
+            translate([side * (drawer_w/2 - 1.2), drawer_d/2 - 1.5, drawer_h/2])
+                cube([2.4, 3.2, drawer_h - 4], center=true);
         }
+
+        // Exterior Rear 8x2mm Magnet Pocket (8.2mm dia x 2.0mm deep -> 0.4mm skin)
+        translate([0, drawer_d/2 + 0.05, drawer_h/2])
+            rotate([90, 0, 0])
+            cylinder(h = 1.85, d = 8.2, $fn = 48);
+    }
 
     inner_w = drawer_w - (d_wall * 2);
     inner_d = drawer_d - 4.8;
@@ -891,51 +874,44 @@ module drawer(div_rows = 3, div_cols = 1) {
     }
 
     // 3. Flush-Bottom Front Faceplate, Flush Top Label & Sleek Tactical Lower Pull
-    // Zero overhangs / zero supports — flush label at top, low-profile chamfered pull at bottom!
     face_h = drawer_h + 0.4;
     translate([0, -drawer_d/2 - 1.2, face_h/2]) {
-        // Main Front Faceplate (Bottom sits flush at Z = 0 on the print bed)
         cube([face_w, 2.4, face_h], center=true);
 
-        // Local origin at front face of faceplate, Z = 0
         translate([0, -1.2, -face_h/2]) {
-            // A. Flush Upper Label U-Channel (4.6mm thin, sits cleanly against faceplate)
             lbl_h = 15.0;
             lbl_d = 4.6;
-            lbl_z = face_h - lbl_h; // Flush with top of faceplate (leaves ~14.8mm below on 35mm Trace)
+            lbl_z = face_h - lbl_h;
             difference() {
                 hull() {
                     translate([0, -lbl_d/2, lbl_z + lbl_h/2])
                         cube([track_w, lbl_d, lbl_h], center=true);
-                    // Crisp 2.5mm 45-deg self-supporting bottom chamfer (stays well above finger pull)
                     translate([0, -0.4, lbl_z - 2.5])
                         cube([track_w, 0.8, 0.8], center=true);
                 }
-                // Inner Slide-In Label Slot (2.4mm deep for 2.0mm plate, open top)
                 translate([0, -lbl_d/2 - 0.1, lbl_z + lbl_h/2 + 1.4])
                     cube([track_w - 4.0, 2.4, lbl_h], center=true);
-                // Front Viewing Window
                 translate([0, -lbl_d, lbl_z + lbl_h/2 + 1.4])
                     cube([track_w - 8.0, 3.0, lbl_h], center=true);
             }
 
-            // B. Sleek Tactical Low-Profile Pull Bar (Z = 0..6.5mm, 45-deg beveled wings)
-            pull_w = min(track_w, face_w - 14);
-            pull_d = 13.5;
+            // B. Slim Ergonomic Finger Pull (8.5mm deep, 45-deg chamfered lip)
+            pull_w = min(track_w * 0.78, max(24, face_w - 22));
+            pull_d = 8.5;
             union() {
-                // Chamfered base deck (Z = 0..3.6mm, tapers inward at 45 deg on left/right ends)
+                // Slim tapered base (Z = 0..2.8mm)
                 hull() {
-                    translate([0, -0.5, 1.8])
-                        cube([pull_w, 1.0, 3.6], center=true);
-                    translate([0, -pull_d + 1.5, 1.8])
-                        cube([pull_w - 10.0, 3.0, 3.6], center=true);
+                    translate([0, -0.4, 1.4])
+                        cube([pull_w, 0.8, 2.8], center=true);
+                    translate([0, -pull_d + 1.2, 1.4])
+                        cube([pull_w - 6.0, 2.4, 2.8], center=true);
                 }
-                // Raised front fingertip catch ridge (Z = 3.6..6.6mm, 2.8mm thick)
+                // Compact fingertip catch lip (Z = 2.8..5.4mm)
                 hull() {
-                    translate([0, -pull_d + 1.4, 5.1])
-                        cube([pull_w - 10.0, 2.8, 3.0], center=true);
-                    translate([0, -pull_d + 2.2, 3.8])
-                        cube([pull_w - 6.0, 1.6, 0.8], center=true);
+                    translate([0, -pull_d + 1.2, 4.1])
+                        cube([pull_w - 6.0, 2.4, 2.6], center=true);
+                    translate([0, -pull_d + 1.8, 3.1])
+                        cube([pull_w - 4.0, 1.2, 0.7], center=true);
                 }
             }
         }

@@ -28,7 +28,8 @@ import {
   Download,
   Code,
   Shield,
-  ShoppingCart
+  ShoppingCart,
+  Disc
 } from 'lucide-react';
 
 import {
@@ -39,6 +40,8 @@ import {
   generateBenchLabelSCAD,
   generateBenchFullAssemblySCAD,
 } from './benchV2Generator';
+
+import { generateOrbitalSCAD } from './orbitalGenerator';
 
 // ==========================================
 // 1. FIREBASE, APP CHECK & CHECKOUT CONFIGURATION
@@ -202,7 +205,17 @@ const PRODUCT_CATALOG = {
     etsyUrl: 'https://www.etsy.com/shop/GlitchyGrizzly',
     squareUrl: SQUARE_CHECKOUT_URL,
     hasOpenScadGenerator: true
+  },
+  orbital: {
+    id: 'orbital',
+    codePrefix: 'ORBITAL-',
+    name: 'The Orbital Matrix',
+    subtitle: '4-Tray Swing-Out Storage Box',
+    etsyUrl: 'https://www.etsy.com/shop/GlitchyGrizzly',
+    squareUrl: SQUARE_CHECKOUT_URL,
+    hasOpenScadGenerator: true
   }
+
 };
 
 let db = null;
@@ -914,13 +927,43 @@ export default function App() {
   const [cargoBorder, setCargoBorder] = useState(true);
   const [foldAngle, setFoldAngle] = useState(35);
 
+  // ==========================================
+  // PRODUCT 4 STATE: THE ORBITAL MATRIX (V2.2)
+  // ==========================================
+  const [orbitalSize, setOrbitalSize] = useState(180); // 100 (Small) | 180 (Large Custom)
+  const [orbitalDepth, setOrbitalDepth] = useState(28); // 28 | 42 | 56 mm usable bin depth
+  const [orbitalDividers, setOrbitalDividers] = useState(1); // 1 (Open) | 2 (Split) | 4 (Quad)
+  const [orbitalLidText, setOrbitalLidText] = useState('');
+  const [orbitalLidFont, setOrbitalLidFont] = useState('Impact');
+  const [orbitalPlateColorId, setOrbitalPlateColorId] = useState('petg-black');
+  const [orbitalTrayColorId, setOrbitalTrayColorId] = useState('petg-pine-green');
+  const [orbitalAccentColorId, setOrbitalAccentColorId] = useState('petg-orange');
+  const [orbitalColorTab, setOrbitalColorTab] = useState('plate'); // 'plate' | 'tray' | 'accent'
+  const [orbitalOpenAngle, setOrbitalOpenAngle] = useState(0); // 0..17 deg kinematic twist
+
+  const activeOrbitalPlateColor = useMemo(
+    () => BAMBU_PETG_COLORS.find((c) => c.id === orbitalPlateColorId) || BAMBU_PETG_COLORS[8],
+    [orbitalPlateColorId]
+  );
+  const activeOrbitalTrayColor = useMemo(
+    () => BAMBU_PETG_COLORS.find((c) => c.id === orbitalTrayColorId) || BAMBU_PETG_COLORS[12],
+    [orbitalTrayColorId]
+  );
+  const activeOrbitalAccentColor = useMemo(
+    () => BAMBU_PETG_COLORS.find((c) => c.id === orbitalAccentColorId) || BAMBU_PETG_COLORS[0],
+    [orbitalAccentColorId]
+  );
+  // Top (6) + Bot (8) + Clearances (0.7) + Floor (6.3) + Bin Depth = Depth + 21.0 mm
+  const orbitalTotalHeightMm = Number((orbitalDepth + 21.0).toFixed(1));
+
   // ---> PASTE HELPER & AUTO-UPDATING DESIGN CODE HOOK HERE <---
   const getActiveTierTag = useCallback(() => {
     if (activeTab === 'bench') return (sizePreset || 'CUSTOM').toUpperCase();
     if (activeTab === 'cargo') return (cargoPreset || 'CUSTOM').toUpperCase();
     if (activeTab === 'ammo') return `${ammoTotalRounds}RD`;
+    if (activeTab === 'orbital') return orbitalSize === 100 ? 'SMALL' : `L${orbitalDepth}`;
     return 'CUSTOM';
-  }, [activeTab, sizePreset, cargoPreset, ammoTotalRounds]);
+  }, [activeTab, sizePreset, cargoPreset, ammoTotalRounds, orbitalSize, orbitalDepth]);
 
   useEffect(() => {
     setDesignCode((prev) => {
@@ -1204,6 +1247,14 @@ export default function App() {
       // Direct Mode Discount (15% off Etsy retail)
       return Number((retailPrice * 0.85).toFixed(2));
 
+    } else if (activeTab === 'orbital') {
+      // 4. ORBITAL MATRIX PRICING (Direct Custom Only — Synced to Product Cost Breakdown)
+      const baseDirect = 91.92;
+      const depthAdd = orbitalDepth === 56 ? 17.23 : orbitalDepth === 42 ? 8.61 : 0;
+      const divAdd = orbitalDividers > 1 ? 3.0 : 0;
+      const textAdd = orbitalLidText.trim() !== '' ? 3.0 : 0;
+      return Number((baseDirect + depthAdd + divAdd + textAdd).toFixed(2));
+    
     } else {
       // 4. CARGO MATRIX CALCULATOR (Etsy Presets + Custom Dimensions)
       if (isEtsyMode && CARGO_PRESETS[cargoPreset]?.etsyPrice) {
@@ -1922,6 +1973,21 @@ if (export_part == "full") {
           spec += `  Bay ${b + 1}: Grid [${div.h} Rows x ${div.v} Cols] | Label: "${lbl}"\n`;
         }
       }
+    
+    } else if (activeTab === 'orbital') {
+      const divLabel = orbitalDividers === 1 ? 'Open (1-Bin)' : orbitalDividers === 2 ? 'Split (2-Bin)' : 'Quad (4-Bin)';
+      spec += `[ 1. ORBITAL MATRIX V2.2 SPECIFICATIONS ]\n`;
+      spec += `- Size Tier         : ${orbitalSize === 100 ? 'Small (100x100mm Ready-to-Ship)' : 'Large (180x180mm Custom)'}\n`;
+      spec += `- Assembled Size    : ${orbitalSize} x ${orbitalSize} x ${orbitalTotalHeightMm} mm\n`;
+      spec += `- Usable Bin Depth  : ${orbitalDepth} mm per tray (4 swing-out trays)\n`;
+      spec += `- Internal Dividers : ${divLabel}\n`;
+      spec += `- Silicone Pads     : 4x 10x3mm Pads (10.4x1.0mm dimples)\n\n`;
+      spec += `[ 2. COLORS (BAMBU LAB PETG) & LID INLAY ]\n`;
+      spec += `- Top & Base Plates : ${activeOrbitalPlateColor.name} (${activeOrbitalPlateColor.hex})\n`;
+      spec += `- Swing-Out Trays   : ${activeOrbitalTrayColor.name} (${activeOrbitalTrayColor.hex})\n`;
+      spec += `- Knurled Knob/Clip : ${activeOrbitalAccentColor.name} (${activeOrbitalAccentColor.hex})\n`;
+      spec += `- Custom Lid Text   : "${orbitalLidText.trim() || '(None)'}" (${orbitalLidFont})\n`;
+
     } else {
       spec += `[ 1. CARGO MATRIX DIMENSIONS & GRID ]\n`;
       spec += `- Preset Size        : ${cargoPreset}\n`;
@@ -2437,12 +2503,36 @@ if (export_part == "full") {
     return `${cleanCode}_${sizePreset.toUpperCase()}_${tiers}T_${width}x${depth}x${height}mm_${drawersPerTier}Bay_Lid${benchLidStyle}_${colors}_${mode.toUpperCase()}.scad`;
   };
   
+  const getOrbitalScadFilename = (mode = scadExportMode) => {
+    const cleanCode = designCode || 'ORBITAL-V2';
+    const tier = orbitalSize === 100 ? 'SMALL-100mm' : `LARGE-180mm-${orbitalDepth}mmD`;
+    return `${cleanCode}_${tier}_${orbitalDividers}Bin_${mode.toUpperCase()}.scad`;
+  };
+
+  const generateOrbitalScadFromApp = (mode = scadExportMode) => {
+    const mappedPart = mode === 'full' ? 'print_plate' : mode;
+    return generateOrbitalSCAD({
+      boxSize: orbitalSize,
+      binInnerDepth: orbitalDepth,
+      trayDividers: orbitalDividers,
+      lidText: orbitalLidText,
+      lidFont: orbitalLidFont,
+      plateColorHex: activeOrbitalPlateColor.hex,
+      trayColorHex: activeOrbitalTrayColor.hex,
+      accentColorHex: activeOrbitalAccentColor.hex,
+      exportPart: mappedPart,
+      designCode: designCode || 'ORBITAL-V2',
+    });
+  };
+
   const handleDownloadScad = () => {
     const scadContent =
       activeTab === 'ammo'
         ? generateAmmoMatrixScad(scadExportMode)
         : activeTab === 'bench'
         ? generateBenchV2ScadFromApp(scadExportMode)
+        : activeTab === 'orbital'
+        ? generateOrbitalScadFromApp(scadExportMode)
         : generateScadCode(scadExportMode);
 
     const filename =
@@ -2450,6 +2540,8 @@ if (export_part == "full") {
         ? getAmmoScadFilename(scadExportMode)
         : activeTab === 'bench'
         ? getBenchScadFilename(scadExportMode)
+        : activeTab === 'orbital'
+        ? getOrbitalScadFilename(scadExportMode)
         : getCargoScadFilename(scadExportMode);
 
     if (!scadContent) return;
@@ -2628,7 +2720,42 @@ Date: ${new Date().toISOString()}
         enableAmmoLidBorder,
         showAmmoRoundCount
       };
-  } else {
+  
+  } else if (activeTab === 'orbital') {
+    const orbitalConfig = {
+      orbitalSize,
+      orbitalDepth,
+      orbitalDividers,
+      orbitalLidText,
+      orbitalLidFont,
+      orbitalPlateColorId,
+      orbitalTrayColorId,
+      orbitalAccentColorId,
+      plateColorHex: activeOrbitalPlateColor.hex,
+      trayColorHex: activeOrbitalTrayColor.hex,
+      accentColorHex: activeOrbitalAccentColor.hex,
+    };
+
+    return {
+      ...basePayload,
+      presetSelected: orbitalSize === 100 ? 'Small-100mm' : `Large-180mm-${orbitalDepth}mm`,
+      dimensionsSummary: `${orbitalSize}x${orbitalSize}x${orbitalTotalHeightMm}mm (${orbitalDepth}mm depth, ${orbitalDividers}-Bin)`,
+      colorsSummary: `Plates: ${activeOrbitalPlateColor.name} / Trays: ${activeOrbitalTrayColor.name} / Knob: ${activeOrbitalAccentColor.name}`,
+      configuration: orbitalConfig,
+      productionOutput: {
+        scadFilename: getOrbitalScadFilename('print_plate'),
+        scadCode: generateOrbitalScadFromApp('print_plate'),
+        specSheet: generateSpecSheet()
+      },
+      width: Number(orbitalSize),
+      length: Number(orbitalSize),
+      height: Number(orbitalTotalHeightMm),
+      scadCode: generateOrbitalScadFromApp('print_plate'),
+      scadFilename: getOrbitalScadFilename('print_plate'),
+      ...orbitalConfig
+    };    
+
+   } else {
     const cargoConfig = {
       cargoPreset,
       cargoWidth: Number(cargoWidth),
@@ -2921,6 +3048,16 @@ Date: ${new Date().toISOString()}
           if (loadedLidFont) setAmmoLidFont(loadedLidFont);
           if (loadedShowCount !== undefined) setShowAmmoRoundCount(Boolean(loadedShowCount));
           if (loadedLidBorder !== undefined) setEnableAmmoLidBorder(Boolean(loadedLidBorder));
+        } else if (data.productLine === 'orbital' || cfg.orbitalSize) {
+          setActiveTab('orbital');
+          setOrbitalSize(Number(cfg.orbitalSize ?? 180));
+          setOrbitalDepth(Number(cfg.orbitalDepth ?? 28));
+          setOrbitalDividers(Number(cfg.orbitalDividers ?? 1));
+          setOrbitalLidText(cfg.orbitalLidText ?? '');
+          if (cfg.orbitalLidFont) setOrbitalLidFont(cfg.orbitalLidFont);
+          if (cfg.orbitalPlateColorId) setOrbitalPlateColorId(cfg.orbitalPlateColorId);
+          if (cfg.orbitalTrayColorId) setOrbitalTrayColorId(cfg.orbitalTrayColorId);
+          if (cfg.orbitalAccentColorId) setOrbitalAccentColorId(cfg.orbitalAccentColorId);
         } else {
           setActiveTab('cargo');
           if (cfg.cargoPreset ?? data.cargoPreset) setCargoPreset(cfg.cargoPreset ?? data.cargoPreset);
@@ -2978,12 +3115,16 @@ Date: ${new Date().toISOString()}
       const maxSpan = Math.max(ammoShellX, ammoShellY, ammoShellZ);
       controlsState.current.targetY = ammoShellZ * 0.5;
       controlsState.current.radius = Math.max(220, maxSpan * 1.85 + 60);
+    } else if (activeTab === 'orbital') {
+      const maxSpan = Math.max(orbitalSize * 1.35, orbitalTotalHeightMm);
+      controlsState.current.targetY = orbitalTotalHeightMm * 0.5;
+      controlsState.current.radius = Math.max(210, maxSpan * 1.75 + 50);
     } else {
       const maxSpan = Math.max(cargoWidth, cargoLength * 2.1, cargoHeight * 2);
       controlsState.current.targetY = cargoHeight * 0.8;
       controlsState.current.radius = Math.max(220, maxSpan * 1.65 + 60);
     }
-  }, [activeTab, tiers, singleTierHeightMm, width, depth, cargoWidth, cargoLength, cargoHeight, ammoShellX, ammoShellY, ammoShellZ]);
+  }, [activeTab, tiers, singleTierHeightMm, width, depth, cargoWidth, cargoLength, cargoHeight, ammoShellX, ammoShellY, ammoShellZ, orbitalSize, orbitalTotalHeightMm]);
 
   useEffect(() => {
     fitCameraToModel();
@@ -3438,6 +3579,7 @@ Date: ${new Date().toISOString()}
         hSprite.position.set(width / 2 + 42, totalStackedHeightMm / 2, depth / 2);
         group.add(hSprite);
       }
+    
     } else if (activeTab === 'ammo') {
       // ==========================================
       // THE AMMOMATRIX (TACTICAL UPGRADE V3)
@@ -4256,8 +4398,181 @@ Date: ${new Date().toISOString()}
         hSprite.position.set(-cargoWidth / 2 - 36, totalZ / 2, 0);
         group.add(hSprite);
       }
-    }
+    } else if (activeTab === 'orbital') {
+      // ==========================================
+      // THE ORBITAL MATRIX V2.2 (KINEMATIC 3D PREVIEW)
+      // ==========================================
+      const plateMat = new THREE.MeshStandardMaterial({ color: activeOrbitalPlateColor.hex, roughness: 0.55 });
+      const trayMat = new THREE.MeshStandardMaterial({ color: activeOrbitalTrayColor.hex, roughness: 0.5 });
+      const accentMat = new THREE.MeshStandardMaterial({ color: activeOrbitalAccentColor.hex, roughness: 0.35 });
 
+      const size = orbitalSize;
+      const half = size / 2;
+      const chamf = 5.0;
+      const plateBotH = 8.0;
+      const plateTopH = 6.0;
+      const zClear = 0.35;
+      const trayFloor = 6.3;
+      const trayH = orbitalDepth + trayFloor;
+      const trayGap = 0.4;
+      const trayXY = half - trayGap / 2;
+      const trayWall = 2.6;
+      const knobD = size >= 150 ? 34 : 26;
+      const knobH = 12;
+
+      const zTrayBot = plateBotH + zClear;
+      const zLidBot = zTrayBot + trayH + zClear;
+
+      const makeChamferShape = (w, h, c) => {
+        const s = new THREE.Shape();
+        s.moveTo(-w / 2 + c, -h / 2);
+        s.lineTo(w / 2 - c, -h / 2);
+        s.lineTo(w / 2, -h / 2 + c);
+        s.lineTo(w / 2, h / 2 - c);
+        s.lineTo(w / 2 - c, h / 2);
+        s.lineTo(-w / 2 + c, h / 2);
+        s.lineTo(-w / 2, h / 2 - c);
+        s.lineTo(-w / 2, -h / 2 + c);
+        s.closePath();
+        return s;
+      };
+
+      const orbitalGroup = new THREE.Group();
+
+      // 1. Bottom Base Plate
+      const botGeo = new THREE.ExtrudeGeometry(makeChamferShape(size, size, chamf), {
+        depth: plateBotH,
+        bevelEnabled: true,
+        bevelThickness: 0.8,
+        bevelSize: 0.8,
+        bevelSegments: 1,
+      });
+      botGeo.rotateX(-Math.PI / 2);
+      const botMesh = new THREE.Mesh(botGeo, plateMat);
+      botMesh.position.y = 0.8;
+      orbitalGroup.add(botMesh);
+
+      // 2. Kinematic 4-Tray Swing-Out Math (Exact V2.2 OpenSCAD equations)
+      const pinMargin = 7.0;
+      const pivX = pinMargin;
+      const pivY = half - pinMargin;
+      const basePinX = half - pinMargin;
+      const basePinY = half - pinMargin;
+      const L0 = basePinX - pivX;
+      const openRad = THREE.MathUtils.degToRad(orbitalOpenAngle);
+
+      const pxRot = pivX * Math.cos(openRad) - pivY * Math.sin(openRad);
+      const pyRot = pivX * Math.sin(openRad) + pivY * Math.cos(openRad);
+      const vx = basePinX - pxRot;
+      const vy = basePinY - pyRot;
+      const dist = Math.sqrt(vx * vx + vy * vy);
+      const phi = Math.atan2(vy, vx);
+      const dySlot = -Math.sqrt(Math.max(0, dist * dist - L0 * L0));
+      const alpha = Math.atan2(dySlot, L0);
+      const trayRot = phi - alpha;
+
+      const buildSingleTray = () => {
+        const tGroup = new THREE.Group();
+        const cx = trayGap / 2 + trayXY / 2;
+        const cz = trayGap / 2 + trayXY / 2;
+
+        // Solid tray floor
+        const floorMesh = new THREE.Mesh(new THREE.BoxGeometry(trayXY, trayFloor, trayXY), trayMat);
+        floorMesh.position.set(cx, trayFloor / 2, cz);
+        tGroup.add(floorMesh);
+
+        // 4 Outer Walls
+        const wallH = orbitalDepth;
+        const wallY = trayFloor + wallH / 2;
+        const wN = new THREE.Mesh(new THREE.BoxGeometry(trayXY, wallH, trayWall), trayMat);
+        wN.position.set(cx, wallY, trayGap / 2 + trayWall / 2);
+        const wS = wN.clone();
+        wS.position.set(cx, wallY, trayGap / 2 + trayXY - trayWall / 2);
+        const wW = new THREE.Mesh(new THREE.BoxGeometry(trayWall, wallH, trayXY - trayWall * 2), trayMat);
+        wW.position.set(trayGap / 2 + trayWall / 2, wallY, cz);
+        const wE = wW.clone();
+        wE.position.set(trayGap / 2 + trayXY - trayWall / 2, wallY, cz);
+        tGroup.add(wN, wS, wW, wE);
+
+        // Optional Internal Fused Divider (Split 2-Bin along Z/Y axis)
+        if (orbitalDividers >= 2) {
+          const d1 = new THREE.Mesh(new THREE.BoxGeometry(trayXY - trayWall * 2, wallH - 1.5, 1.6), trayMat);
+          d1.position.set(cx, trayFloor + (wallH - 1.5) / 2, cz);
+          tGroup.add(d1);
+        }
+
+        return tGroup;
+      };
+
+      [0, 90, 180, 270].forEach((deg) => {
+        const quadGroup = new THREE.Group();
+        quadGroup.rotation.y = THREE.MathUtils.degToRad(deg);
+
+        const pivotGroup = new THREE.Group();
+        pivotGroup.position.set(pxRot, zTrayBot, -pyRot);
+        pivotGroup.rotation.y = trayRot;
+
+        const trayMesh = buildSingleTray();
+        trayMesh.position.set(-pivX, 0, pivY);
+        pivotGroup.add(trayMesh);
+
+        quadGroup.add(pivotGroup);
+        orbitalGroup.add(quadGroup);
+      });
+
+      // 3. Top Lid + Recessed Tactical Frame + Optional Text + 8-Flute Knurled Knob
+      const lidGroup = new THREE.Group();
+      lidGroup.position.y = zLidBot;
+      lidGroup.rotation.y = openRad;
+
+      const topGeo = new THREE.ExtrudeGeometry(makeChamferShape(size, size, chamf), {
+        depth: plateTopH,
+        bevelEnabled: true,
+        bevelThickness: 0.8,
+        bevelSize: 0.8,
+        bevelSegments: 1,
+      });
+      topGeo.rotateX(-Math.PI / 2);
+      const topMesh = new THREE.Mesh(topGeo, plateMat);
+      topMesh.position.y = 0.8;
+      lidGroup.add(topMesh);
+
+      // 8-Flute Knurled Knob
+      const knobBody = new THREE.Mesh(new THREE.CylinderGeometry(knobD / 2 - 1.2, knobD / 2, knobH, 32), accentMat);
+      knobBody.position.y = plateTopH + knobH / 2 + 0.8;
+      lidGroup.add(knobBody);
+      for (let f = 0; f < 8; f++) {
+        const ang = (f * Math.PI * 2) / 8;
+        const flute = new THREE.Mesh(new THREE.BoxGeometry(2.2, knobH - 1.5, 2.2), plateMat);
+        flute.position.set(Math.cos(ang) * (knobD / 2), plateTopH + knobH / 2 + 0.8, Math.sin(ang) * (knobD / 2));
+        flute.rotation.y = -ang;
+        lidGroup.add(flute);
+      }
+
+      // Optional Flush Lid Text Inlay
+      if (orbitalLidText.trim() !== '') {
+        const txtTex = createCargoLidTexture(orbitalLidText, activeOrbitalAccentColor.hex, orbitalLidFont, false);
+        const txtPlane = new THREE.Mesh(
+          new THREE.PlaneGeometry(size - 28, (size - knobD) * 0.42),
+          new THREE.MeshStandardMaterial({ map: txtTex, transparent: true, polygonOffset: true, polygonOffsetFactor: -1 })
+        );
+        txtPlane.rotation.x = -Math.PI / 2;
+        txtPlane.position.set(0, plateTopH + 1.65, knobD / 2 + (half - knobD / 2) * 0.48);
+        lidGroup.add(txtPlane);
+      }
+
+      orbitalGroup.add(lidGroup);
+      group.add(orbitalGroup);
+
+      if (showDimensions) {
+        const wSprite = createDimensionSprite(`${size} × ${size} mm`);
+        wSprite.position.set(0, 8, half + 24);
+        group.add(wSprite);
+        const hSprite = createDimensionSprite(`${orbitalTotalHeightMm} mm H`);
+        hSprite.position.set(half + 32, orbitalTotalHeightMm / 2, 0);
+        group.add(hSprite);
+      }
+    }
   }, [
     activeTab,
     tiers,
@@ -4318,7 +4633,17 @@ Date: ${new Date().toISOString()}
     ammoLidTitle,
     ammoLidFont,
     showAmmoRoundCount,
-    currentCalSpec
+    currentCalSpec,
+    orbitalSize,
+    orbitalDepth,
+    orbitalDividers,
+    orbitalLidText,
+    orbitalLidFont,
+    activeOrbitalPlateColor,
+    activeOrbitalTrayColor,
+    activeOrbitalAccentColor,
+    orbitalOpenAngle,
+    orbitalTotalHeightMm
   ]);
 
   useEffect(() => {
@@ -4614,6 +4939,7 @@ Date: ${new Date().toISOString()}
                     ? getAmmoScadFilename(scadExportMode)
                     : activeTab === 'bench'
                     ? getBenchScadFilename(scadExportMode)
+                    : activeTab === 'orbital' ? getOrbitalScadFilename(scadExportMode)
                     : getCargoScadFilename(scadExportMode)}
                 </span>
               </div>
@@ -4626,6 +4952,8 @@ Date: ${new Date().toISOString()}
                     ? generateAmmoMatrixScad(scadExportMode)
                     : activeTab === 'bench'
                     ? generateBenchV2ScadFromApp(scadExportMode)
+                    : activeTab === 'orbital'
+                    ? generateOrbitalScadFromApp(scadExportMode)
                     : generateScadCode(scadExportMode)}
                 </pre>
               ) : isEtsyMode || adminUnlocked ? (
@@ -4639,6 +4967,7 @@ Date: ${new Date().toISOString()}
                     ? { w: width, d: depth, h: totalStackedHeightMm }
                     : activeTab === 'ammo'
                     ? { w: ammoShellX, d: ammoShellY, h: ammoShellZ }
+                    : activeTab === 'orbital' ? { w: orbitalSize, d: orbitalSize, h: orbitalTotalHeightMm }
                     : { w: cargoWidth, d: cargoLength, h: cargoHeight * 2 };
 
                 const lidStyleNames = {
@@ -4661,6 +4990,12 @@ Date: ${new Date().toISOString()}
                         { label: 'Vault Lid', color: activeAmmoLidColor },
                         { label: 'Ammo Tray', color: activeAmmoTrayColor },
                         { label: 'Latches & Inlay', color: activeAmmoLatchColor },
+                      ]
+                    : activeTab === 'orbital'
+                    ? [
+                        { label: 'Plates', color: activeOrbitalPlateColor },
+                        { label: '4 Trays', color: activeOrbitalTrayColor },
+                        { label: 'Knob & Inlay', color: activeOrbitalAccentColor },
                       ]
                     : [
                         { label: 'Body', color: activeCargoBoxColor },
@@ -4808,6 +5143,8 @@ Date: ${new Date().toISOString()}
                           ? generateAmmoMatrixScad(scadExportMode)
                           : activeTab === 'bench'
                           ? generateBenchV2ScadFromApp(scadExportMode)
+                          : activeTab === 'orbital'
+                          ? generateOrbitalScadFromApp(scadExportMode)
                           : generateScadCode(scadExportMode)
                       );
                       setScadCopied(true);
@@ -4999,18 +5336,30 @@ Date: ${new Date().toISOString()}
           </div>
 
           {/* DYNAMIC PRODUCT CATALOG SELECTOR */}
-          {!window.location.pathname.match(/^\/(cargo|ammo|bench)$/) && (
-            <div className="grid grid-cols-3 gap-1.5 bg-[#090d16] p-1 rounded-lg border border-[#1e293b] mt-2.5">              {Object.values(PRODUCT_CATALOG).map((prod) => (
+          {!window.location.pathname.match(/^\/(cargo|ammo|bench|orbital)$/) && (
+            <div className="grid grid-cols-2 gap-1.5 bg-[#090d16] p-1 rounded-lg border border-[#1e293b] mt-2.5">
+              {Object.values(PRODUCT_CATALOG)
+                .filter((prod) => !(isEtsyMode && prod.id === 'orbital'))
+                .map((prod) => (
                 <button
                   key={prod.id}
                   onClick={() => setActiveTab(prod.id)}
-                  className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[11px] font-semibold whitespace-nowrap transition-all ${
+                  className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-[11px] font-semibold whitespace-nowrap transition-all ${
                     activeTab === prod.id
                       ? 'bg-[#1e293b] text-[#38bdf8] border border-[#38bdf8]/40'
                       : 'text-[#94a3b8] hover:text-white'
                   }`}
                 >
-                  {prod.id === 'bench' ? <Sliders size={13} /> : prod.id === 'ammo' ? <Shield size={13} className="text-amber-400" /> : <Box size={13} />} {prod.name}
+                  {prod.id === 'bench' ? (
+                    <Sliders size={13} />
+                  ) : prod.id === 'ammo' ? (
+                    <Shield size={13} className="text-amber-400" />
+                  ) : prod.id === 'orbital' ? (
+                    <Disc size={13} className="text-emerald-400" />
+                  ) : (
+                    <Box size={13} />
+                  )}{' '}
+                  {prod.name.replace('The ', '')}
                 </button>
               ))}
             </div>
@@ -6022,6 +6371,150 @@ Date: ${new Date().toISOString()}
                 })()}
               </div>
             </div>
+          ) : activeTab === 'orbital' ? (
+            /* ==========================================
+               THE ORBITAL MATRIX SIDEBAR CONTROLS
+            ========================================== */
+            <div className="space-y-3.5">
+              <>
+                  {/* 1. LARGE 180MM BIN DEPTH & INTERNAL DIVIDERS */}
+                  <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3">
+                    <div>
+                      <div className="text-xs font-semibold mb-1.5 text-[#38bdf8]">
+                        1. Usable Bin Depth (Per Tray)
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[
+                          { val: 28, label: '28mm Std' },
+                          { val: 42, label: '42mm Deep' },
+                          { val: 56, label: '56mm Tall' },
+                        ].map((d) => (
+                          <button
+                            key={d.val}
+                            type="button"
+                            onClick={() => setOrbitalDepth(d.val)}
+                            className={`py-1.5 px-2 rounded border text-[11px] font-bold transition-all ${
+                              orbitalDepth === d.val
+                                ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]'
+                                : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                            }`}
+                          >
+                            {d.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-semibold mb-1.5 text-[#38bdf8]">
+                        2. Internal Tray Dividers (All 4 Trays)
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {[
+                          { val: 1, label: 'Open (1-Bin)' },
+                          { val: 2, label: 'Split (2-Bin)' },
+                        ].map((div) => (
+                          <button
+                            key={div.val}
+                            type="button"
+                            onClick={() => setOrbitalDividers(div.val)}
+                            className={`py-1.5 px-2 rounded border text-[11px] font-bold transition-all ${
+                              orbitalDividers === div.val
+                                ? 'bg-[#38bdf8]/20 border-[#38bdf8] text-[#38bdf8]'
+                                : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                            }`}
+                          >
+                            {div.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. 3-ZONE PETG COLOR PICKER */}
+                  <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3">
+                    <div className="text-[11px] font-bold uppercase tracking-widest text-[#38bdf8] flex items-center gap-1.5">
+                      <Palette size={13} /> 3. PETG Colorway
+                    </div>
+                    {(() => {
+                      const tabs = [
+                        { id: 'plate', label: 'Plates', activeColor: activeOrbitalPlateColor, selectedId: orbitalPlateColorId, onSelect: setOrbitalPlateColorId },
+                        { id: 'tray', label: '4 Trays', activeColor: activeOrbitalTrayColor, selectedId: orbitalTrayColorId, onSelect: setOrbitalTrayColorId },
+                        { id: 'accent', label: 'Knob & Inlay', activeColor: activeOrbitalAccentColor, selectedId: orbitalAccentColorId, onSelect: setOrbitalAccentColorId },
+                      ];
+                      const activeObj = tabs.find((t) => t.id === orbitalColorTab) || tabs[0];
+                      return (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {tabs.map((tab) => (
+                              <button
+                                key={tab.id}
+                                type="button"
+                                onClick={() => setOrbitalColorTab(tab.id)}
+                                className={`px-2 py-1.5 rounded-lg border text-left transition-all ${
+                                  activeObj.id === tab.id
+                                    ? 'bg-[#3b1526] border-[#f43f5e] text-white shadow'
+                                    : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-2.5 h-2.5 rounded-full border border-white/30 shrink-0" style={{ backgroundColor: tab.activeColor.hex }} />
+                                  <span className="text-[10px] font-bold truncate">{tab.label}</span>
+                                </div>
+                                <div className="text-[9px] text-[#cbd5e1] truncate mt-0.5 pl-4">{tab.activeColor.name}</div>
+                              </button>
+                            ))}
+                          </div>
+                          <div className="grid grid-cols-5 gap-1.5">
+                            {BAMBU_PETG_COLORS.map((col) => (
+                              <button
+                                key={`orb_${activeObj.id}_${col.id}`}
+                                type="button"
+                                onClick={() => activeObj.onSelect(col.id)}
+                                className={`p-1 rounded border flex flex-col items-center gap-1 transition-colors ${
+                                  activeObj.selectedId === col.id
+                                    ? 'border-[#f43f5e] bg-[#3b1526]/60'
+                                    : 'border-[#1e293b] bg-[#151e31] hover:border-slate-600'
+                                }`}
+                              >
+                                <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
+                                <span className="text-[9px] truncate w-full text-center">{col.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* 4. OPTIONAL FLUSH LID TEXT */}
+                  <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-[#38bdf8]">
+                      <span className="flex items-center gap-1.5"><Tag size={13} /> Optional Lid Text (+$3)</span>
+                      <span className="font-mono text-[10px] text-[#94a3b8]">{orbitalLidText.length}/16</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        maxLength={16}
+                        value={orbitalLidText}
+                        onChange={(e) => setOrbitalLidText(e.target.value.toUpperCase().slice(0, 16))}
+                        placeholder="BLANK (NO TEXT)"
+                        className="flex-1 bg-[#0b0f19] border border-[#1e293b] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                      />
+                      <select
+                        value={orbitalLidFont}
+                        onChange={(e) => setOrbitalLidFont(e.target.value)}
+                        className="w-24 bg-[#0b0f19] border border-[#1e293b] rounded-lg px-2 py-1.5 text-xs text-white"
+                      >
+                        <option value="Impact">Impact</option>
+                        <option value="Arial Black">Arial</option>
+                        <option value="Inter">Inter</option>
+                      </select>
+                    </div>
+                  </div>
+              </>
+            </div>
           ) : null}
         </div>
 
@@ -6035,6 +6528,8 @@ Date: ${new Date().toISOString()}
                   : `${tiers} Tiers • ${tiers * drawersPerTier} Drawers${benchLidStyle === 0 ? ' (No Lid)' : ''}`
                 : activeTab === 'ammo'
                   ? `${ammoShellX}×${ammoShellY}×${ammoShellZ}mm • ${ammoTotalRounds} Rds (${currentCalSpec.short})`
+                  : activeTab === 'orbital'
+                  ? `${orbitalSize}×${orbitalSize}×${orbitalTotalHeightMm}mm • 4 Trays (${orbitalDepth}mm)`
                   : `${cargoWidth}×${cargoLength}×${cargoHeight * 2}mm • ${cargoCompX * cargoCompY} Cells`}
             </span>
             {isEtsyMode ? (
@@ -6165,6 +6660,21 @@ Date: ${new Date().toISOString()}
                     className="w-24 box-studio-slider"
                   />
                 </div>
+              ) : activeTab === 'orbital' ? (
+                <div className="flex items-center gap-2 bg-[#151e31] px-2.5 py-1 rounded-lg border border-emerald-500/40 shrink-0">
+                  <span className="text-[11px] font-semibold tabular-nums min-w-[118px] text-emerald-300">
+                    Twist Knob ({Math.round((orbitalOpenAngle / 17) * 100)}%):
+                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="17"
+                    step="0.5"
+                    value={orbitalOpenAngle}
+                    onChange={(e) => setOrbitalOpenAngle(parseFloat(e.target.value))}
+                    className="w-24 box-studio-slider"
+                  />
+                </div>
               ) : (
                 <div className="flex items-center gap-2 bg-[#151e31] px-2.5 py-1 rounded-lg border border-[#1e293b] shrink-0">
                   <span className="text-[11px] font-semibold tabular-nums min-w-[98px]">
@@ -6226,6 +6736,7 @@ Date: ${new Date().toISOString()}
             <button
               onClick={() => {
                 setSwingOpenAmount(0);
+                setOrbitalOpenAngle(0);
                 setOpenDrawersMap({});
                 setFoldAngle(35);
                 setAmmoHingeAngle(0);
@@ -6308,6 +6819,8 @@ Date: ${new Date().toISOString()}
                 ? { w: width, l: depth, h: totalStackedHeightMm }
                 : activeTab === 'ammo'
                 ? { w: ammoShellX, l: ammoShellY, h: ammoShellZ }
+                : activeTab === 'orbital'
+                ? { w: orbitalSize, l: orbitalSize, h: orbitalTotalHeightMm }
                 : { w: cargoWidth, l: cargoLength, h: cargoHeight * 2 };
             const toIn = (mm) => (mm / 25.4).toFixed(1);
 
