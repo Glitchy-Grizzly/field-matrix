@@ -366,8 +366,14 @@ module knurled_knob() {
                 translate([knob_d / 2 + 1.0, 0, -1])
                     cylinder(d = 5.5, h = knob_h + 2);
             }
-            translate([0, 0, knob_h - 0.8])
-                cylinder(d1 = knob_d * 0.45, d2 = knob_d * 0.52, h = 1.0);
+            // Crisp 45-deg V-groove accent ring (0.7mm deep, 1.4mm wide) so both outer & center faces sit 100% flat on PEI bed (zero bridging)
+            ring_r = knob_d * 0.26;
+            rotate_extrude($fn = 64)
+                polygon([
+                    [ring_r - 0.7, knob_h + 0.05],
+                    [ring_r + 0.7, knob_h + 0.05],
+                    [ring_r,       knob_h - 0.65]
+                ]);
         }
         translate([0, 0, -stem_len])
             cylinder(r = hex_r, h = stem_len + 0.5, $fn = 6);

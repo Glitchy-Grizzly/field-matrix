@@ -349,8 +349,8 @@ function InfoPopover({ title, text, formula }) {
           setOpen((prev) => !prev);
         }}
         className={`w-4 h-4 rounded-full inline-flex items-center justify-center cursor-pointer transition-colors ${open
-            ? 'bg-[#38bdf8] text-[#0b0f19]'
-            : 'bg-[#1e293b] text-[#94a3b8] hover:bg-[#334155] hover:text-white'
+          ? 'bg-[#38bdf8] text-[#0b0f19]'
+          : 'bg-[#1e293b] text-[#94a3b8] hover:bg-[#334155] hover:text-white'
           }`}
       >
         <HelpCircle size={11} />
@@ -595,20 +595,46 @@ function createDrawerContourPoints(hw, hd, cornerR, notchR, openSide, handlePos,
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('bench');
+  const [lockedProductSlug, setLockedProductSlug] = useState(null); // 'bench' | 'cargo' | 'ammo' | 'orbital' | null
+  const [lockedAmmoCategory, setLockedAmmoCategory] = useState(null); // 'Rimfire' | 'Pistol' | 'Rifle' | 'Shotgun' | null
   const [isSuccessPage, setIsSuccessPage] = useState(false);
   useEffect(() => {
-    const path = window.location.pathname.toLowerCase();
+    const path = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
+    const params = new URLSearchParams(window.location.search);
 
-    if (path === '/success') {
+    if (path === 'success') {
       setIsSuccessPage(true);
       return;
     }
 
-    // Check if the path matches a product slug (e.g. /cargo, /ammo, /bench)
-    const slug = path.replace('/', '');
-    if (slug && PRODUCT_CATALOG[slug]) {
-      setActiveTab(slug);
+    // Check if the path matches a product slug (e.g. /cargo, /ammo, /bench, /orbital)
+    if (path && PRODUCT_CATALOG[path]) {
+      setActiveTab(path);
+      setLockedProductSlug(path);
       setIsEtsyMode(true); // Automatically lock to Etsy purchase funnel
+    }
+
+    // Parse optional ?cal= parameter for Ammo Matrix category locking (e.g. /ammo?cal=22lr, 9mm, 308win, 12ga or category name)
+    const calParam = (params.get('cal') || params.get('category') || '').toLowerCase().trim();
+    if (calParam) {
+      const categoryDefaults = {
+        rimfire: { category: 'Rimfire', calId: '22lr' },
+        pistol: { category: 'Pistol', calId: '9mm' },
+        rifle: { category: 'Rifle', calId: '308win' },
+        shotgun: { category: 'Shotgun', calId: '12ga' },
+      };
+      if (AMMO_CALIBERS[calParam]) {
+        const spec = AMMO_CALIBERS[calParam];
+        setLockedAmmoCategory(spec.category);
+        setAmmoCaliber(spec.id);
+        setAmmoLidTitle(spec.short);
+      } else if (categoryDefaults[calParam]) {
+        const def = categoryDefaults[calParam];
+        const spec = AMMO_CALIBERS[def.calId];
+        setLockedAmmoCategory(def.category);
+        setAmmoCaliber(spec.id);
+        setAmmoLidTitle(spec.short);
+      }
     }
   }, []);
   const [showModal, setShowModal] = useState(false);
@@ -697,14 +723,22 @@ export default function App() {
     const mRows = Math.min(20, Math.max(3, Math.floor((254.5 - 19.2) / calSpec.pitch)));
 
     if (calSpec.category === 'Shotgun') {
-      // 20GA & 12GA: 3 distinct balanced tiers up to full 10x10 (100 shells) plate max
+      // 20GA & 12GA: Right-sized real-world tiers (24 / 48 / 64 shells); sliders still allow custom up to plate max
       return [
         { id: '50', cols: Math.min(6, mCols), rows: Math.min(4, mRows), label: 'Standard Retail Box' },
         { id: '100', cols: Math.min(8, mCols), rows: Math.min(6, mRows), label: 'Weekend Range Pack' },
-        { id: '250', cols: mCols, rows: mRows, label: 'Half-Brick Bulk Case' },
+        { id: '250', cols: Math.min(8, mCols), rows: Math.min(8, mRows), label: 'Bulk Range Case' },
       ];
     }
-    // Rimfire, Pistol & Rifle: Standard (10x5), Weekend (min(10, mCols-2) x min(10, mRows-2)), Bulk (Max Safe Plate)
+    if (calSpec.category === 'Rifle') {
+      // Rifle: Right-sized real-world tiers (20 / 50 / 100 rounds); sliders still allow custom up to plate max
+      return [
+        { id: '50', cols: Math.min(4, mCols), rows: Math.min(5, mRows), label: 'Standard Retail Box' },
+        { id: '100', cols: Math.min(10, mCols), rows: Math.min(5, mRows), label: 'Weekend Range Pack' },
+        { id: '250', cols: Math.min(10, mCols), rows: Math.min(10, mRows), label: 'Bulk Range Case' },
+      ];
+    }
+    // Rimfire & Pistol: Standard (10x5), Weekend (min(10, mCols-2) x min(10, mRows-2)), Bulk (Max Safe Plate)
     const bulkCols = mCols;
     const bulkRows = Math.min(12, mRows);
     const wkndCols = Math.min(10, Math.max(4, bulkCols - 2));
@@ -761,12 +795,47 @@ export default function App() {
     }
   }, [ammoMaxLidChars, ammoLidTitle]);
 
-  // Estimated PETG Mass (grams) & Print Time (hours)
-  const ammoEstimatedGrams = Math.round(
-    ((ammoShellX * ammoShellY * 3.2 + (ammoShellX + ammoShellY) * 2 * ammoShellZ * 2.8) * 0.00127) +
-    ((ammoTrayX * ammoTrayY * ammoTrayZ * 0.38) * 0.00127)
-  );
-  const ammoEstimatedHours = Number((ammoEstimatedGrams / 28).toFixed(1));
+  // Shared Ammo Matrix Mass, Print Time & COGS Pricing Metrics (Synced with Bench Matrix Rates)
+  const ammoCostMetrics = useMemo(() => {
+    const shellGrams =
+      (ammoShellX * ammoShellY * 3.2 + (ammoShellX + ammoShellY) * 2 * ammoShellZ * 2.8) * 0.00127;
+    const trayGrams = ammoTrayX * ammoTrayY * ammoTrayZ * 0.38 * 0.00127;
+    const tpuPadGrams = ammoTrayX * ammoTrayY * 5.5 * 0.22 * 0.00121;
+    const totalGrams = Math.round(shellGrams + trayGrams + tpuPadGrams);
+    const totalHours = Number((totalGrams / 28).toFixed(1));
+
+    const filamentCost = (totalGrams / 1000) * 17.99; // Bambu Lab PETG/TPU avg ($17.99/kg)
+    const failureCost = filamentCost * 0.05;          // 5% failure allowance
+    const magnetUnitCost = activeMagnetDia >= 8 ? 0.12 : activeMagnetDia >= 6 ? 0.10 : 0.08;
+    const hardwareCost = 0.80 + ammoTotalMagnets * magnetUnitCost; // 4x M3x20 SHCS + 4x M3 Nuts + magnets
+    const depreciationCost = totalHours * 0.35;       // $0.35/hr machine depreciation
+    const electricityCost = totalHours * 0.014;       // 200W * $0.07/kWh
+    const laborCost = totalHours * 0.50;              // $0.50/hr time & labor
+    const packagingCost = 2.50;                       // Box + bubble wrap + label
+
+    const totalCost =
+      filamentCost +
+      failureCost +
+      hardwareCost +
+      depreciationCost +
+      electricityCost +
+      laborCost +
+      packagingCost;
+
+    const online3x = (totalCost * 3 + 0.90) / (1 - 0.028);
+    const etsyPrice = online3x * 1.18;
+
+    return {
+      totalGrams,
+      totalHours,
+      totalCost: Number(totalCost.toFixed(2)),
+      directPrice: Number(online3x.toFixed(2)),
+      etsyPrice: Number(etsyPrice.toFixed(2)),
+    };
+  }, [ammoShellX, ammoShellY, ammoShellZ, ammoTrayX, ammoTrayY, ammoTrayZ, activeMagnetDia, ammoTotalMagnets]);
+
+  const ammoEstimatedGrams = ammoCostMetrics.totalGrams;
+  const ammoEstimatedHours = ammoCostMetrics.totalHours;
 
   // Switch caliber helper
   const handleSelectAmmoCaliber = (calId) => {
@@ -811,6 +880,10 @@ export default function App() {
 
   const toggleChannelMode = (etsyActive) => {
     setIsEtsyMode(etsyActive);
+    if (!etsyActive) {
+      setLockedProductSlug(null);
+      setLockedAmmoCategory(null);
+    }
     try {
       sessionStorage.setItem('fm_channel', etsyActive ? 'etsy' : 'direct');
     } catch (e) { }
@@ -971,10 +1044,10 @@ export default function App() {
   const getActiveTierTag = useCallback(() => {
     if (activeTab === 'bench') return (sizePreset || 'CUSTOM').toUpperCase();
     if (activeTab === 'cargo') return (cargoPreset || 'CUSTOM').toUpperCase();
-    if (activeTab === 'ammo') return `${ammoTotalRounds}RD`;
+    if (activeTab === 'ammo') return `${(currentCalSpec?.category || 'AMMO').toUpperCase()}-${ammoTotalRounds}RD`;
     if (activeTab === 'orbital') return orbitalTierName.toUpperCase();
     return 'CUSTOM';
-  }, [activeTab, sizePreset, cargoPreset, ammoTotalRounds, orbitalTierName]);
+  }, [activeTab, sizePreset, cargoPreset, currentCalSpec, ammoTotalRounds, orbitalTierName]);
 
   useEffect(() => {
     setDesignCode((prev) => {
@@ -1025,10 +1098,12 @@ export default function App() {
       const cKey = CARGO_PRESETS[cargoPreset] ? cargoPreset : 'Trail';
       applyCargoPreset(cKey);
 
-      // Force Ammo Matrix onto 22lr (or current allowed Etsy caliber) & snap cols/rows to preset
-      const targetCal = AMMO_CALIBERS['22lr'];
-      if (ammoCaliber !== '22lr') {
-        setAmmoCaliber('22lr');
+      // Respect lockedAmmoCategory (from /ammo?cal=... or Admin Etsy Simulator) & snap cols/rows to preset
+      const catDefaultId = { Rimfire: '22lr', Pistol: '9mm', Rifle: '308win', Shotgun: '12ga' };
+      let targetCal = AMMO_CALIBERS[ammoCaliber] || AMMO_CALIBERS['22lr'];
+      if (lockedAmmoCategory && targetCal.category !== lockedAmmoCategory) {
+        targetCal = AMMO_CALIBERS[catDefaultId[lockedAmmoCategory] || '22lr'];
+        setAmmoCaliber(targetCal.id);
         setAmmoLidTitle(targetCal.short);
       }
       const presets = getCaliberPresets(targetCal);
@@ -1036,7 +1111,7 @@ export default function App() {
       setAmmoCols(activeP.cols);
       setAmmoRows(activeP.rows);
     }
-  }, [isEtsyMode, sizePreset, cargoPreset, ammoPreset, ammoCaliber, applyBenchPreset, applyCargoPreset]);
+  }, [isEtsyMode, lockedAmmoCategory, sizePreset, cargoPreset, ammoPreset, ammoCaliber, applyBenchPreset, applyCargoPreset]);
 
   const activeCargoBoxColor = useMemo(
     () => BAMBU_PETG_COLORS.find((c) => c.id === cargoBoxColorId) || BAMBU_PETG_COLORS[7],
@@ -1223,10 +1298,16 @@ export default function App() {
         : Number((online3x + dividersCost).toFixed(2));
 
     } else if (activeTab === 'ammo') {
-      // 3. AMMO MATRIX TIERED PRICING MATRIX (Caliber-aware slider thresholds)
+      // 3. AMMO MATRIX PRICING
+      // Direct Mode: Live per-caliber dynamic COGS pricing (3x formula)
+      if (!isEtsyMode) {
+        return ammoCostMetrics.directPrice;
+      }
+
+      // Etsy Mode: Flat Category x Tier listing prices synced 1-to-1 with Etsy variations
       const cat = currentCalSpec?.category || 'Rimfire';
-      const bulkThreshold = cat === 'Shotgun' ? 60 : 150;
-      const weekendThreshold = cat === 'Shotgun' ? 36 : 75;
+      const bulkThreshold = cat === 'Shotgun' ? 56 : cat === 'Rifle' ? 75 : 150;
+      const weekendThreshold = cat === 'Shotgun' ? 36 : cat === 'Rifle' ? 35 : 75;
 
       const isBulk =
         ammoPreset === '250' ||
@@ -1236,35 +1317,26 @@ export default function App() {
         (ammoPreset === '100' ||
           (ammoPreset === 'custom' && ammoTotalRounds >= weekendThreshold));
 
-      // Etsy Retail Price Tables (Synced with Product Cost Breakdown)
-      const AMMO_PRICES = {
-        Rimfire: { standard: 46.00, weekend: 58.00, bulk: 115.00 },
-        Pistol: { standard: 49.00, weekend: 61.00, bulk: 82.00 },
-        Rifle: { standard: 54.00, weekend: 72.00, bulk: 94.00 },
-        Shotgun: { standard: 58.00, weekend: 78.00, bulk: 99.00 }
+      const AMMO_ETSY_PRICES = {
+        Rimfire: { standard: 40.00, weekend: 53.00, bulk: 96.00 },
+        Pistol: { standard: 73.00, weekend: 109.00, bulk: 167.00 },
+        Rifle: { standard: 66.00, weekend: 109.00, bulk: 168.00 },
+        Shotgun: { standard: 116.00, weekend: 183.00, bulk: 225.00 },
       };
 
-      const tierMap = AMMO_PRICES[cat] || AMMO_PRICES.Rimfire;
-      const retailPrice = isBulk
-        ? tierMap.bulk
-        : isWeekend
-          ? tierMap.weekend
-          : tierMap.standard;
-
-      if (isEtsyMode) {
-        return retailPrice;
-      }
-
-      // Direct Mode Discount (15% off Etsy retail)
-      return Number((retailPrice * 0.85).toFixed(2));
+      const tierMap = AMMO_ETSY_PRICES[cat] || AMMO_ETSY_PRICES.Rimfire;
+      return isBulk ? tierMap.bulk : isWeekend ? tierMap.weekend : tierMap.standard;
 
     } else if (activeTab === 'orbital') {
-      // 4. ORBITAL MATRIX PRICING (Direct Custom Only — Synced to Product Cost Breakdown + $1.00 Silicone Feet)
+      // 4. ORBITAL MATRIX PRICING (Synced to Product Cost Breakdown + $1.00 Silicone Feet)
       const baseDirect = orbitalSize === 100 ? 36.80 : 69.23;
       const depthAdd = orbitalSize === 100 ? 0 : orbitalDepth === 56 ? 17.23 : orbitalDepth === 42 ? 8.61 : 0;
       const divAdd = orbitalSize > 100 && orbitalDividers > 1 ? 3.0 : 0;
       const textAdd = orbitalLidText.trim() !== '' ? 3.0 : 0;
-      return Number((baseDirect + depthAdd + divAdd + textAdd).toFixed(2));
+      const directPrice = baseDirect + depthAdd + divAdd + textAdd;
+      return isEtsyMode
+        ? Number((directPrice * 1.18).toFixed(2))
+        : Number(directPrice.toFixed(2));
 
     } else {
       // 4. CARGO MATRIX CALCULATOR (Etsy Presets + Custom Dimensions)
@@ -4487,7 +4559,7 @@ Date: ${new Date().toISOString()}
       const buildSingleTray = () => {
         const tGroup = new THREE.Group();
         const cx = trayGap / 2 + trayXY / 2;
-        const cz = trayGap / 2 + trayXY / 2;
+        const cz = -(trayGap / 2 + trayXY / 2); // OpenSCAD +Y maps to Three.js -Z
 
         // Solid tray floor
         const floorMesh = new THREE.Mesh(new THREE.BoxGeometry(trayXY, trayFloor, trayXY), trayMat);
@@ -4498,16 +4570,16 @@ Date: ${new Date().toISOString()}
         const wallH = orbitalDepth;
         const wallY = trayFloor + wallH / 2;
         const wN = new THREE.Mesh(new THREE.BoxGeometry(trayXY, wallH, trayWall), trayMat);
-        wN.position.set(cx, wallY, trayGap / 2 + trayWall / 2);
+        wN.position.set(cx, wallY, -(trayGap / 2 + trayWall / 2));
         const wS = wN.clone();
-        wS.position.set(cx, wallY, trayGap / 2 + trayXY - trayWall / 2);
+        wS.position.set(cx, wallY, -(trayGap / 2 + trayXY - trayWall / 2));
         const wW = new THREE.Mesh(new THREE.BoxGeometry(trayWall, wallH, trayXY - trayWall * 2), trayMat);
         wW.position.set(trayGap / 2 + trayWall / 2, wallY, cz);
         const wE = wW.clone();
         wE.position.set(trayGap / 2 + trayXY - trayWall / 2, wallY, cz);
         tGroup.add(wN, wS, wW, wE);
 
-        // Optional Internal Fused Divider (Split 2-Bin along Z/Y axis)
+        // Optional Internal Fused Divider (Split 2-Bin along X axis, matching OpenSCAD)
         if (orbitalDividers >= 2) {
           const d1 = new THREE.Mesh(new THREE.BoxGeometry(trayXY - trayWall * 2, wallH - 1.5, 1.6), trayMat);
           d1.position.set(cx, trayFloor + (wallH - 1.5) / 2, cz);
@@ -4550,17 +4622,58 @@ Date: ${new Date().toISOString()}
       topMesh.position.y = 0.8;
       lidGroup.add(topMesh);
 
-      // 8-Flute Knurled Knob
-      const knobBody = new THREE.Mesh(new THREE.CylinderGeometry(knobD / 2 - 1.2, knobD / 2, knobH, 32), accentMat);
-      knobBody.position.y = plateTopH + knobH / 2 + 0.8;
-      lidGroup.add(knobBody);
-      for (let f = 0; f < 8; f++) {
-        const ang = (f * Math.PI * 2) / 8;
-        const flute = new THREE.Mesh(new THREE.BoxGeometry(2.2, knobH - 1.5, 2.2), plateMat);
-        flute.position.set(Math.cos(ang) * (knobD / 2), plateTopH + knobH / 2 + 0.8, Math.sin(ang) * (knobD / 2));
-        flute.rotation.y = -ang;
-        lidGroup.add(flute);
+      // 8-Flute Scalloped Knurled Knob (exact 2D ray-circle scalloped profile matching OpenSCAD)
+      const knobR = knobD / 2;
+      const fluteCenterR = knobR + 1.0;
+      const fluteR = 2.75;
+      const knobShape = new THREE.Shape();
+      const knobSegs = 128;
+      for (let i = 0; i <= knobSegs; i++) {
+        const theta = (i / knobSegs) * Math.PI * 2;
+        let r = knobR;
+        for (let f = 0; f < 8; f++) {
+          const fAng = (f * Math.PI * 2) / 8;
+          const dAng = theta - fAng;
+          const b = fluteCenterR * Math.cos(dAng);
+          const disc = b * b - (fluteCenterR * fluteCenterR - fluteR * fluteR);
+          if (disc > 0 && b > 0) {
+            const hitR = b - Math.sqrt(disc);
+            if (hitR < r) r = hitR;
+          }
+        }
+        const px = Math.cos(theta) * r;
+        const py = Math.sin(theta) * r;
+        if (i === 0) knobShape.moveTo(px, py);
+        else knobShape.lineTo(px, py);
       }
+      knobShape.closePath();
+
+      const knobGeo = new THREE.ExtrudeGeometry(knobShape, {
+        depth: knobH - 1.5,
+        bevelEnabled: true,
+        bevelThickness: 1.5,
+        bevelSize: 1.0,
+        bevelSegments: 2,
+      });
+      knobGeo.rotateX(-Math.PI / 2);
+      const knobBody = new THREE.Mesh(knobGeo, accentMat);
+      knobBody.position.y = plateTopH + 1.6;
+      lidGroup.add(knobBody);
+
+      // Subtle concentric V-groove accent ring on top of knob
+      const grooveRingMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(activeOrbitalAccentColor.hex).multiplyScalar(0.55),
+        roughness: 0.75,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+      });
+      const grooveRing = new THREE.Mesh(
+        new THREE.RingGeometry(knobD * 0.24, knobD * 0.28, 48),
+        grooveRingMat
+      );
+      grooveRing.rotation.x = -Math.PI / 2;
+      grooveRing.position.y = plateTopH + knobH + 1.65;
+      lidGroup.add(grooveRing);
 
       // Optional Flush Lid Text Inlay
       if (orbitalLidText.trim() !== '') {
@@ -4794,8 +4907,8 @@ Date: ${new Date().toISOString()}
                       type="button"
                       onClick={() => toggleChannelMode(true)}
                       className={`py-1.5 px-2 rounded text-xs font-bold border transition-all ${isEtsyMode
-                          ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]'
-                          : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'
+                        ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]'
+                        : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'
                         }`}
                     >
                       Etsy Preset Mode (?source=etsy)
@@ -4804,13 +4917,79 @@ Date: ${new Date().toISOString()}
                       type="button"
                       onClick={() => toggleChannelMode(false)}
                       className={`py-1.5 px-2 rounded text-xs font-bold border transition-all ${!isEtsyMode
-                          ? 'bg-[#38bdf8]/20 border-[#38bdf8] text-[#38bdf8]'
-                          : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'
+                        ? 'bg-[#38bdf8]/20 border-[#38bdf8] text-[#38bdf8]'
+                        : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'
                         }`}
                     >
                       Direct Custom Mode (Square)
                     </button>
                   </div>
+
+                  {isEtsyMode && (
+                    <div className="pt-2 border-t border-[#1e293b] space-y-2">
+                      <div className="text-[10px] font-bold text-[#fda4af] uppercase tracking-wider">
+                        Etsy Buyer View Simulator (Locked Links)
+                      </div>
+                      <div className="grid grid-cols-4 gap-1">
+                        {[
+                          { label: 'All Tabs', slug: null },
+                          { label: '/bench', slug: 'bench' },
+                          { label: '/cargo', slug: 'cargo' },
+                          { label: '/orbital', slug: 'orbital' },
+                        ].map((item) => {
+                          const isSelected = lockedProductSlug === item.slug && !lockedAmmoCategory;
+                          return (
+                            <button
+                              key={item.label}
+                              type="button"
+                              onClick={() => {
+                                setLockedProductSlug(item.slug);
+                                setLockedAmmoCategory(null);
+                                if (item.slug) setActiveTab(item.slug);
+                              }}
+                              className={`py-1 px-1.5 rounded text-[10px] font-bold border transition-all ${isSelected
+                                ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]'
+                                : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                                }`}
+                            >
+                              {item.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="text-[9px] text-[#94a3b8] uppercase tracking-wider">
+                        Ammo Category Locks (/ammo?cal=…)
+                      </div>
+                      <div className="grid grid-cols-4 gap-1">
+                        {[
+                          { label: 'Rimfire', cat: 'Rimfire', calId: '22lr' },
+                          { label: 'Pistol', cat: 'Pistol', calId: '9mm' },
+                          { label: 'Rifle', cat: 'Rifle', calId: '308win' },
+                          { label: 'Shotgun', cat: 'Shotgun', calId: '12ga' },
+                        ].map((item) => {
+                          const isSelected = lockedProductSlug === 'ammo' && lockedAmmoCategory === item.cat;
+                          return (
+                            <button
+                              key={item.cat}
+                              type="button"
+                              onClick={() => {
+                                setActiveTab('ammo');
+                                setLockedProductSlug('ammo');
+                                setLockedAmmoCategory(item.cat);
+                                handleSelectAmmoCaliber(item.calId);
+                              }}
+                              className={`py-1 px-1.5 rounded text-[10px] font-bold border transition-all ${isSelected
+                                ? 'bg-amber-500/20 border-amber-400 text-amber-200'
+                                : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                                }`}
+                            >
+                              {item.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -4939,8 +5118,8 @@ Date: ${new Date().toISOString()}
                         key={m.id}
                         onClick={() => setScadExportMode(m.id)}
                         className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${scadExportMode === m.id
-                            ? 'bg-[#f43f5e] text-white'
-                            : 'bg-[#151e31] text-[#94a3b8] hover:text-white border border-[#1e293b]'
+                          ? 'bg-[#f43f5e] text-white'
+                          : 'bg-[#151e31] text-[#94a3b8] hover:text-white border border-[#1e293b]'
                           }`}
                       >
                         {m.label}
@@ -5354,17 +5533,15 @@ Date: ${new Date().toISOString()}
           </div>
 
           {/* DYNAMIC PRODUCT CATALOG SELECTOR */}
-          {!window.location.pathname.match(/^\/(cargo|ammo|bench|orbital)$/) && (
+          {!lockedProductSlug && (
             <div className="grid grid-cols-2 gap-1.5 bg-[#090d16] p-1 rounded-lg border border-[#1e293b] mt-2.5">
-              {Object.values(PRODUCT_CATALOG)
-                .filter((prod) => !(isEtsyMode && prod.id === 'orbital'))
-                .map((prod) => (
+              {Object.values(PRODUCT_CATALOG).map((prod) => (
                   <button
                     key={prod.id}
                     onClick={() => setActiveTab(prod.id)}
                     className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-[11px] font-semibold whitespace-nowrap transition-all ${activeTab === prod.id
-                        ? 'bg-[#1e293b] text-[#38bdf8] border border-[#38bdf8]/40'
-                        : 'text-[#94a3b8] hover:text-white'
+                      ? 'bg-[#1e293b] text-[#38bdf8] border border-[#38bdf8]/40'
+                      : 'text-[#94a3b8] hover:text-white'
                       }`}
                   >
                     {prod.id === 'bench' ? (
@@ -5402,8 +5579,8 @@ Date: ${new Date().toISOString()}
                       key={presetKey}
                       onClick={() => applyBenchPreset(presetKey)}
                       className={`py-1.5 px-1 rounded-lg border text-xs font-bold transition-all ${sizePreset === presetKey
-                          ? 'bg-[#3b1526] border-[#f43f5e]/80 text-[#fecdd3] shadow'
-                          : 'bg-[#0f172a] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                        ? 'bg-[#3b1526] border-[#f43f5e]/80 text-[#fecdd3] shadow'
+                        : 'bg-[#0f172a] border-[#1e293b] text-[#94a3b8] hover:text-white'
                         }`}
                     >
                       {presetKey}
@@ -5467,8 +5644,8 @@ Date: ${new Date().toISOString()}
                             type="button"
                             onClick={mode.onClick}
                             className={`py-2 px-2 rounded-lg border text-[11px] font-bold transition-all ${mode.active
-                                ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3] shadow'
-                                : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                              ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3] shadow'
+                              : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
                               }`}
                           >
                             {mode.label}
@@ -5494,8 +5671,8 @@ Date: ${new Date().toISOString()}
                               type="button"
                               onClick={() => setBenchLidStyle(st.id)}
                               className={`py-1.5 px-2 rounded border text-[11px] font-bold transition-all ${benchLidStyle === st.id
-                                  ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]'
-                                  : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                                ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]'
+                                : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
                                 }`}
                             >
                               {st.label}
@@ -5523,8 +5700,8 @@ Date: ${new Date().toISOString()}
                                 type="button"
                                 onClick={() => setDrawersPerTier(c.cols)}
                                 className={`py-1.5 px-2 rounded border text-[11px] font-bold transition-all ${drawersPerTier === c.cols
-                                    ? 'bg-[#38bdf8]/20 border-[#38bdf8] text-[#38bdf8]'
-                                    : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                                  ? 'bg-[#38bdf8]/20 border-[#38bdf8] text-[#38bdf8]'
+                                  : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
                                   }`}
                               >
                                 {c.label}
@@ -5549,8 +5726,8 @@ Date: ${new Date().toISOString()}
                                     setHeight(hVal);
                                   }}
                                   className={`py-1.5 rounded border text-xs font-bold ${height === hVal
-                                      ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]'
-                                      : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8]'
+                                    ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]'
+                                    : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8]'
                                     }`}
                                 >
                                   {hVal}mm
@@ -5648,8 +5825,8 @@ Date: ${new Date().toISOString()}
                               type="button"
                               onClick={() => setBenchColorTab(tab.id)}
                               className={`px-2 py-1.5 rounded-lg border text-left transition-all ${isActive
-                                  ? 'bg-[#3b1526] border-[#f43f5e] text-white shadow'
-                                  : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                                ? 'bg-[#3b1526] border-[#f43f5e] text-white shadow'
+                                : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8] hover:text-white'
                                 }`}
                             >
                               <div className="flex items-center gap-1.5">
@@ -5677,8 +5854,8 @@ Date: ${new Date().toISOString()}
                             type="button"
                             onClick={() => activeTabObj.onSelect(col.id)}
                             className={`p-1 rounded border flex flex-col items-center gap-1 transition-colors ${activeTabObj.selectedId === col.id
-                                ? 'border-[#f43f5e] bg-[#3b1526]/60'
-                                : 'border-[#1e293b] bg-[#151e31] hover:border-slate-600'
+                              ? 'border-[#f43f5e] bg-[#3b1526]/60'
+                              : 'border-[#1e293b] bg-[#151e31] hover:border-slate-600'
                               }`}
                           >
                             <span
@@ -5817,36 +5994,35 @@ Date: ${new Date().toISOString()}
                     { id: 'Pistol', label: 'Pistol & Lever-Action (.357 / .44 / .45)' },
                     { id: 'Rifle', label: 'Centerfire Rifles' },
                     { id: 'Shotgun', label: 'Shotgun' }
-                  ].map((group) => {
-                    const groupCalibers = Object.values(AMMO_CALIBERS).filter(
-                      (cal) => cal.category === group.id
-                    );
-                    return (
-                      <div key={group.id} className="space-y-1.5">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#38bdf8] border-b border-[#1e293b] pb-1">
-                          {group.label}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {groupCalibers.map((cal) => (
-                            <button
-                              key={cal.id}
-                              onClick={() => handleSelectAmmoCaliber(cal.id)}
-                              disabled={isEtsyMode && cal.id !== '22lr'}
-                              className={`text-left p-2 rounded-lg border transition-all ${ammoCaliber === cal.id
+                  ]
+                    .filter((group) => !(isEtsyMode && lockedAmmoCategory && group.id !== lockedAmmoCategory))
+                    .map((group) => {
+                      const groupCalibers = Object.values(AMMO_CALIBERS).filter(
+                        (cal) => cal.category === group.id
+                      );
+                      return (
+                        <div key={group.id} className="space-y-1.5">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-[#38bdf8] border-b border-[#1e293b] pb-1">
+                            {group.label}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {groupCalibers.map((cal) => (
+                              <button
+                                key={cal.id}
+                                onClick={() => handleSelectAmmoCaliber(cal.id)}
+                                className={`text-left p-2 rounded-lg border transition-all ${ammoCaliber === cal.id
                                   ? 'bg-amber-500/15 border-amber-500/60 text-white'
-                                  : isEtsyMode && cal.id !== '22lr'
-                                    ? 'opacity-40 cursor-not-allowed border-[#1e293b]'
-                                    : 'bg-[#151e31] border-[#1e293b] text-slate-300 hover:border-slate-600'
-                                }`}
-                            >
-                              <div className="font-bold text-xs">{cal.short}</div>
-                              <div className="text-[9px] text-slate-500 mt-0.5 truncate">{cal.name}</div>
-                            </button>
-                          ))}
+                                  : 'bg-[#151e31] border-[#1e293b] text-slate-300 hover:border-slate-600'
+                                  }`}
+                              >
+                                <div className="font-bold text-xs">{cal.short}</div>
+                                <div className="text-[9px] text-slate-500 mt-0.5 truncate">{cal.name}</div>
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               </div>
 
@@ -5861,8 +6037,8 @@ Date: ${new Date().toISOString()}
                         key={preset.id}
                         onClick={() => handleSelectAmmoPreset(preset)}
                         className={`p-2 rounded-lg border text-center transition-all ${isActive
-                            ? 'bg-amber-500 text-slate-900 border-amber-400 font-bold shadow-md'
-                            : 'bg-[#151e31] border-[#1e293b] text-slate-300 hover:border-slate-500'
+                          ? 'bg-amber-500 text-slate-900 border-amber-400 font-bold shadow-md'
+                          : 'bg-[#151e31] border-[#1e293b] text-slate-300 hover:border-slate-500'
                           }`}
                       >
                         <div className="text-xs uppercase tracking-wider">{preset.label}</div>
@@ -5964,8 +6140,8 @@ Date: ${new Date().toISOString()}
                               type="button"
                               onClick={() => setAmmoColorTab(tab.id)}
                               className={`px-2 py-1.5 rounded-lg border text-left transition-all ${isActive
-                                  ? 'bg-[#3b1526] border-[#f43f5e] text-white shadow'
-                                  : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                                ? 'bg-[#3b1526] border-[#f43f5e] text-white shadow'
+                                : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8] hover:text-white'
                                 }`}
                             >
                               <div className="flex items-center gap-1.5">
@@ -5993,8 +6169,8 @@ Date: ${new Date().toISOString()}
                             type="button"
                             onClick={() => activeAmmoTabObj.onSelect(col.id)}
                             className={`p-1 rounded border flex flex-col items-center gap-1 transition-colors ${activeAmmoTabObj.selectedId === col.id
-                                ? 'border-[#f43f5e] bg-[#3b1526]/60'
-                                : 'border-[#1e293b] bg-[#151e31] hover:border-slate-600'
+                              ? 'border-[#f43f5e] bg-[#3b1526]/60'
+                              : 'border-[#1e293b] bg-[#151e31] hover:border-slate-600'
                               }`}
                           >
                             <span
@@ -6092,8 +6268,8 @@ Date: ${new Date().toISOString()}
                       key={presetKey}
                       onClick={() => applyCargoPreset(presetKey)}
                       className={`py-1.5 px-2 rounded-lg border text-xs font-bold transition-all ${cargoPreset === presetKey
-                          ? 'bg-[#3b1526] border-[#f43f5e]/80 text-[#fecdd3] shadow'
-                          : 'bg-[#0f172a] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                        ? 'bg-[#3b1526] border-[#f43f5e]/80 text-[#fecdd3] shadow'
+                        : 'bg-[#0f172a] border-[#1e293b] text-[#94a3b8] hover:text-white'
                         }`}
                     >
                       {presetKey}
@@ -6323,8 +6499,8 @@ Date: ${new Date().toISOString()}
                               type="button"
                               onClick={() => setCargoColorTab(tab.id)}
                               className={`px-2 py-1.5 rounded-lg border text-left transition-all ${isActive
-                                  ? 'bg-[#3b1526] border-[#f43f5e] text-white shadow'
-                                  : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                                ? 'bg-[#3b1526] border-[#f43f5e] text-white shadow'
+                                : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8] hover:text-white'
                                 }`}
                             >
                               <div className="flex items-center gap-1.5">
@@ -6352,8 +6528,8 @@ Date: ${new Date().toISOString()}
                             type="button"
                             onClick={() => activeCargoTabObj.onSelect(col.id)}
                             className={`p-1 rounded border flex flex-col items-center gap-1 transition-colors ${activeCargoTabObj.selectedId === col.id
-                                ? 'border-[#f43f5e] bg-[#3b1526]/60'
-                                : 'border-[#1e293b] bg-[#151e31] hover:border-slate-600'
+                              ? 'border-[#f43f5e] bg-[#3b1526]/60'
+                              : 'border-[#1e293b] bg-[#151e31] hover:border-slate-600'
                               }`}
                           >
                             <span
@@ -6401,8 +6577,8 @@ Date: ${new Date().toISOString()}
                               if (tier.size === 100) setOrbitalDividers(1);
                             }}
                             className={`py-1.5 px-2 rounded border text-left transition-all ${isActive
-                                ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]'
-                                : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                              ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]'
+                              : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
                               }`}
                           >
                             <div className="text-[11px] font-bold leading-tight">{tier.id}</div>
@@ -6430,10 +6606,10 @@ Date: ${new Date().toISOString()}
                             disabled={isDisabled}
                             onClick={() => !isDisabled && setOrbitalDividers(div.val)}
                             className={`py-1.5 px-2 rounded border text-[11px] font-bold transition-all ${isDisabled
-                                ? 'bg-[#090d16]/50 border-[#1e293b]/50 text-[#475569] cursor-not-allowed'
-                                : orbitalDividers === div.val
-                                  ? 'bg-[#38bdf8]/20 border-[#38bdf8] text-[#38bdf8]'
-                                  : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                              ? 'bg-[#090d16]/50 border-[#1e293b]/50 text-[#475569] cursor-not-allowed'
+                              : orbitalDividers === div.val
+                                ? 'bg-[#38bdf8]/20 border-[#38bdf8] text-[#38bdf8]'
+                                : 'bg-[#090d16] border-[#1e293b] text-[#94a3b8] hover:text-white'
                               }`}
                           >
                             {div.label}
@@ -6470,8 +6646,8 @@ Date: ${new Date().toISOString()}
                               type="button"
                               onClick={() => setOrbitalColorTab(tab.id)}
                               className={`px-2 py-1.5 rounded-lg border text-left transition-all ${activeObj.id === tab.id
-                                  ? 'bg-[#3b1526] border-[#f43f5e] text-white shadow'
-                                  : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8] hover:text-white'
+                                ? 'bg-[#3b1526] border-[#f43f5e] text-white shadow'
+                                : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8] hover:text-white'
                                 }`}
                             >
                               <div className="flex items-center gap-1.5">
@@ -6489,8 +6665,8 @@ Date: ${new Date().toISOString()}
                               type="button"
                               onClick={() => activeObj.onSelect(col.id)}
                               className={`p-1 rounded border flex flex-col items-center gap-1 transition-colors ${activeObj.selectedId === col.id
-                                  ? 'border-[#f43f5e] bg-[#3b1526]/60'
-                                  : 'border-[#1e293b] bg-[#151e31] hover:border-slate-600'
+                                ? 'border-[#f43f5e] bg-[#3b1526]/60'
+                                : 'border-[#1e293b] bg-[#151e31] hover:border-slate-600'
                                 }`}
                             >
                               <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
@@ -6559,7 +6735,9 @@ Date: ${new Date().toISOString()}
                       : `${sizePreset} ($${calculatePrice().toFixed(0)})`
                   : activeTab === 'ammo'
                     ? `${ammoTotalRounds} Rds ($${calculatePrice().toFixed(0)})`
-                    : `${cargoPreset} ($${calculatePrice().toFixed(0)})`}
+                    : activeTab === 'orbital'
+                      ? `${orbitalTierName} ($${calculatePrice().toFixed(0)})`
+                      : `${cargoPreset} ($${calculatePrice().toFixed(0)})`}
               </span>
             ) : (
               <span className="text-lg font-black text-[#38bdf8]">${calculatePrice().toFixed(2)}</span>
@@ -6782,8 +6960,8 @@ Date: ${new Date().toISOString()}
                       key={pose}
                       onClick={() => setAmmoTrayPose(pose)}
                       className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${ammoTrayPose === pose
-                          ? 'bg-amber-500 text-slate-900'
-                          : 'text-[#94a3b8] hover:text-white'
+                        ? 'bg-amber-500 text-slate-900'
+                        : 'text-[#94a3b8] hover:text-white'
                         }`}
                     >
                       {pose === 'seated' ? 'Seated' : pose === 'extracted' ? 'Extracted' : 'Bench'}
