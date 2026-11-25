@@ -148,16 +148,18 @@ module bench_shell() {
                 bay_center_x = -width/2 + wall + (bay_w/2) + i * (bay_w + wall);
                 for (side = [-1, 1]) {
                     rail_x = bay_center_x + side * (bay_w/2);
-                    translate([rail_x, -wall/2, 0])
+                    // Front setback 6.5mm behind shell face (clears 2.4mm faceplate + 2.0mm ungrooved drawer front + 1.6mm travel + 0.5mm margin)
+                    // Rear end seats directly on inner back wall (+depth/2 - 1.2) for zero-overhang back-wall printing
+                    translate([rail_x, 2.65, 0])
                         rotate([0, 45, 0])
-                        cube([2.6, depth - wall*2, 2.6], center=true);
+                        cube([2.6, depth - 7.7, 2.6], center=true);
                 }
 
-                // 0.35mm ramped front ceiling stop lip (45-deg self-supporting ramp on +Y side for back-wall printing)
+                // 0.55mm ramped front ceiling stop lip (45-deg self-supporting ramp on +Y side for back-wall printing)
                 hull() {
-                    translate([bay_center_x, -depth/2 + 8, height/2 - wall - 0.175])
-                        cube([max(12, bay_w - 14), 2.2, 0.35], center=true);
-                    translate([bay_center_x, -depth/2 + 8 + 1.45, height/2 - wall - 0.05])
+                    translate([bay_center_x, -depth/2 + 8, height/2 - wall - 0.275])
+                        cube([max(12, bay_w - 14), 2.2, 0.55], center=true);
+                    translate([bay_center_x, -depth/2 + 8 + 1.65, height/2 - wall - 0.05])
                         cube([max(12, bay_w - 14), 0.1, 0.1], center=true);
                 }
             }
@@ -204,7 +206,7 @@ drawer_w = bay_w - 0.8;
 drawer_d = shell_d - (wall * 2) - 0.4;
 drawer_h = shell_h - (wall * 2) - 1.2;
 d_wall = 3.6; 
-inner_wall = 1.6; 
+inner_wall = 1.68; // Exact 4x 0.42mm line width for solid gap-free Bambu walls
 
 track_w = min(80, face_w - 12);
 track_h = 16;
@@ -239,19 +241,20 @@ module drawer() {
     inner_d = drawer_d - 4.8;
     div_h = drawer_h - 2.4 - 2.0; 
     
+    // Embed dividers 0.6mm into outer walls and 0.4mm into floor so T-junctions fuse cleanly with zero coplanar seams
     if (div_cols > 1) {
         for (c = [1 : div_cols - 1]) {
             div_x = -inner_w/2 + c * (inner_w / div_cols);
-            translate([div_x, 0, 2.4 + div_h/2])
-                cube([inner_wall, inner_d, div_h], center=true);
+            translate([div_x, 0, 2.0 + (div_h + 0.4)/2])
+                cube([inner_wall, inner_d + 1.2, div_h + 0.4], center=true);
         }
     }
     
     if (div_rows > 1) {
         for (r = [1 : div_rows - 1]) {
             div_y = -inner_d/2 + r * (inner_d / div_rows);
-            translate([0, div_y, 2.4 + div_h/2])
-                cube([inner_w, inner_wall, div_h], center=true);
+            translate([0, div_y, 2.0 + (div_h + 0.4)/2])
+                cube([inner_w + 1.2, inner_wall, div_h + 0.4], center=true);
         }
     }
     
@@ -735,7 +738,7 @@ drawer_w = bay_w - 0.8;
 drawer_d = depth - (wall * 2) - 0.4;
 drawer_h = height - (wall * 2) - 1.2;
 d_wall = 3.6;
-inner_wall = 1.6;
+inner_wall = 1.68; // Exact 4x 0.42mm line width for solid gap-free Bambu walls
 track_w = min(80, face_w - 12);
 track_h = 16;
 track_depth = 5;
@@ -837,16 +840,18 @@ module bench_shell() {
                 bay_center_x = -width/2 + wall + (bay_w/2) + i * (bay_w + wall);
                 for (side = [-1, 1]) {
                   rail_x = bay_center_x + side * (bay_w/2);
-                  translate([rail_x, -wall/2, 0])
+                  // Front setback 6.5mm behind shell face (clears 2.4mm faceplate + 2.0mm ungrooved drawer front + 1.6mm travel + 0.5mm margin)
+                  // Rear end seats directly on inner back wall (+depth/2 - 1.2) for zero-overhang back-wall printing
+                  translate([rail_x, 2.65, 0])
                       rotate([0, 45, 0])
-                      cube([2.6, depth - wall*2, 2.6], center=true);
+                      cube([2.6, depth - 7.7, 2.6], center=true);
               }
 
-              // 0.35mm ramped front ceiling stop lip (45-deg self-supporting ramp on +Y side for back-wall printing)
+              // 0.55mm ramped front ceiling stop lip (45-deg self-supporting ramp on +Y side for back-wall printing)
               hull() {
-                  translate([bay_center_x, -depth/2 + 8, height/2 - wall - 0.175])
-                      cube([max(12, bay_w - 14), 2.2, 0.35], center=true);
-                  translate([bay_center_x, -depth/2 + 8 + 1.45, height/2 - wall - 0.05])
+                  translate([bay_center_x, -depth/2 + 8, height/2 - wall - 0.275])
+                      cube([max(12, bay_w - 14), 2.2, 0.55], center=true);
+                  translate([bay_center_x, -depth/2 + 8 + 1.65, height/2 - wall - 0.05])
                       cube([max(12, bay_w - 14), 0.1, 0.1], center=true);
               }
           }
@@ -879,16 +884,17 @@ module drawer(div_rows = 3, div_cols = 1) {
     inner_w = drawer_w - (d_wall * 2);
     inner_d = drawer_d - 4.8;
     div_h = drawer_h - 2.4 - 2.0;
+    // Embed dividers 0.6mm into outer walls and 0.4mm into floor so T-junctions fuse cleanly with zero coplanar seams
     if (div_cols > 1) {
         for (c = [1 : div_cols - 1]) {
             div_x = -inner_w/2 + c * (inner_w / div_cols);
-            translate([div_x, 0, 2.4 + div_h/2]) cube([inner_wall, inner_d, div_h], center=true);
+            translate([div_x, 0, 2.0 + (div_h + 0.4)/2]) cube([inner_wall, inner_d + 1.2, div_h + 0.4], center=true);
         }
     }
     if (div_rows > 1) {
         for (r = [1 : div_rows - 1]) {
             div_y = -inner_d/2 + r * (inner_d / div_rows);
-            translate([0, div_y, 2.4 + div_h/2]) cube([inner_w, inner_wall, div_h], center=true);
+            translate([0, div_y, 2.0 + (div_h + 0.4)/2]) cube([inner_w + 1.2, inner_wall, div_h + 0.4], center=true);
         }
     }
 

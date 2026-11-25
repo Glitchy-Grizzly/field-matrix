@@ -6,9 +6,9 @@
 // ==========================================================
 
 export function generateOrbitalSCAD({
-    boxSize = 180,          // 100 (Small Ready-to-Ship) | 180 (Large Custom)
-    binInnerDepth = 28.0,   // 28 (Standard) | 42 (Deep) | 56 (Tall)
-    trayDividers = 1,       // 1 (Open) | 2 (Split)
+    boxSize = 180,          // 100 (Trace) | 180 (Trail / Pursuit / Frontier)
+    binInnerDepth = 28.0,   // 28 (Trace/Trail) | 42 (Pursuit) | 56 (Frontier)
+    trayDividers = 1,       // 1 (Open) | 2 (Split — 180mm tiers only)
     lidText = '',           // Optional flush multi-color top lid text
     lidFont = 'Impact',
     plateColorHex = '#222222',
@@ -18,13 +18,15 @@ export function generateOrbitalSCAD({
     designCode = 'ORBITAL-CUSTOM',
 } = {}) {
     const knobD = boxSize >= 150 ? 34 : 26;
-    const safeDividers = trayDividers >= 2 ? 2 : 1;
+    const safeDividers = boxSize <= 100 ? 1 : (trayDividers >= 2 ? 2 : 1);
+    const tierName =
+        boxSize <= 100 ? 'Trace' : binInnerDepth >= 56 ? 'Frontier' : binInnerDepth >= 42 ? 'Pursuit' : 'Trail';
     const cleanText = String(lidText || '').trim().replace(/"/g, '\\"');
 
     return `/* ============================================================
    ORBITAL MATRIX V2.2 - Parametric Field Matrix Edition
    Design Code : ${designCode}
-   Footprint   : ${boxSize} x ${boxSize} mm | Bin Depth: ${binInnerDepth} mm
+   Size Tier   : ${tierName} (${boxSize} x ${boxSize} mm | Bin Depth: ${binInnerDepth} mm)
    Dividers    : ${safeDividers === 1 ? 'Open (1-Bin)' : 'Split (2-Bin)'}
    Export Mode : ${exportPart.toUpperCase()}
    ============================================================ */
