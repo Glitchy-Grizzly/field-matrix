@@ -4464,23 +4464,24 @@ Date: ${new Date().toISOString()}
       botMesh.position.y = 0.8;
       orbitalGroup.add(botMesh);
 
-      // 2. Kinematic 4-Tray Swing-Out Math (Exact V2.2 OpenSCAD equations)
+      // 2. Kinematic 4-Tray Swing-Out Math (Exact V2.2 OpenSCAD equations — Clockwise twist opens trays)
       const pinMargin = 7.0;
-      const pivX = pinMargin;
-      const pivY = half - pinMargin;
+      const pivX = half - pinMargin;
+      const pivY = pinMargin;
       const basePinX = half - pinMargin;
       const basePinY = half - pinMargin;
-      const L0 = basePinX - pivX;
+      const L0 = basePinY - pivY;
       const openRad = THREE.MathUtils.degToRad(orbitalOpenAngle);
+      const ang = -openRad;
 
-      const pxRot = pivX * Math.cos(openRad) - pivY * Math.sin(openRad);
-      const pyRot = pivX * Math.sin(openRad) + pivY * Math.cos(openRad);
+      const pxRot = pivX * Math.cos(ang) - pivY * Math.sin(ang);
+      const pyRot = pivX * Math.sin(ang) + pivY * Math.cos(ang);
       const vx = basePinX - pxRot;
       const vy = basePinY - pyRot;
       const dist = Math.sqrt(vx * vx + vy * vy);
       const phi = Math.atan2(vy, vx);
-      const dySlot = -Math.sqrt(Math.max(0, dist * dist - L0 * L0));
-      const alpha = Math.atan2(dySlot, L0);
+      const dxSlot = -Math.sqrt(Math.max(0, dist * dist - L0 * L0));
+      const alpha = Math.atan2(L0, dxSlot);
       const trayRot = phi - alpha;
 
       const buildSingleTray = () => {
@@ -4535,7 +4536,7 @@ Date: ${new Date().toISOString()}
       // 3. Top Lid + Recessed Tactical Frame + Optional Text + 8-Flute Knurled Knob
       const lidGroup = new THREE.Group();
       lidGroup.position.y = zLidBot;
-      lidGroup.rotation.y = openRad;
+      lidGroup.rotation.y = -openRad;
 
       const topGeo = new THREE.ExtrudeGeometry(makeChamferShape(size, size, chamf), {
         depth: plateTopH,

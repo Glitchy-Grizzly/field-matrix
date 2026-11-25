@@ -60,7 +60,7 @@ pad_inset = 12.0;
 
 /* [Mechanism & Tolerances (mm) - V2.2 Tested] */
 tol = 0.25;
-z_clear = 0.35;
+z_clear = 0.20; // 0.20mm per side (0.40mm total axial running clearance, eliminates plate rocking)
 shaft_d = 18.0;
 pin_d = 5.5;
 top_pin_h = 4.5;
@@ -90,8 +90,8 @@ tray_floor  = slot_depth + slot_ceiling;
 tray_height = bin_inner_depth + tray_floor;
 
 pin_margin = 7.0;
-piv_x = pin_margin;
-piv_y = half - pin_margin;
+piv_x = half - pin_margin;
+piv_y = pin_margin;
 base_pin_x = half - pin_margin;
 base_pin_y = half - pin_margin;
 
@@ -191,14 +191,14 @@ module bottom_base() {
             }
         }
         translate([0, 0, -1])
-            cylinder(d = shaft_stub_d + 2*tol, h = plate_thick_bot + 2);
+            cylinder(d = shaft_stub_d + 0.35, h = plate_thick_bot + 2);
         translate([0, 0, -0.01])
             cylinder(d = cap_recess_d, h = cap_recess_h + 0.02);
         translate([cap_recess_d / 2 - 1.0, -2.5, -0.01])
             cube([3.5, 5.0, 1.8]);
         translate([0, 0, cap_recess_h - 0.01])
-            cylinder(d1 = cap_recess_d, d2 = shaft_stub_d + 2*tol,
-                     h = (cap_recess_d - (shaft_stub_d + 2*tol)) / 2);
+            cylinder(d1 = cap_recess_d, d2 = shaft_stub_d + 0.35,
+                     h = (cap_recess_d - (shaft_stub_d + 0.35)) / 2);
         if (use_silicone_pads) {
             for (a = [0, 90, 180, 270]) {
                 rotate([0, 0, a])
@@ -213,7 +213,9 @@ module bottom_base() {
 // 2. TOP LID
 // ============================================================
 module top_lid() {
-    stub_len = plate_thick_bot - (cap_recess_h + 0.3);
+    // Extends into bottom_cap's 18.6mm hollow interior (stops 0.4mm above cap's 1.4mm solid face)
+    // leaving a solid support-free 45-deg flared retaining flange below the C-clip groove
+    stub_len = plate_thick_bot - 1.8;
 
     difference() {
         union() {
@@ -232,13 +234,20 @@ module top_lid() {
                 cylinder(d = shaft_stub_d, h = stub_len + 0.5);
         }
 
+        // C-clip retaining groove with support-free 45-deg lower transition cone (prints inverted)
         groove_from_base_top = plate_thick_bot - z_clip_top;
-        groove_z = -(shaft_main_len + groove_from_base_top + clip_thick + 0.25);
-        translate([0, 0, groove_z])
+        groove_h = clip_thick + 0.2;
+        groove_z = -(shaft_main_len + groove_from_base_top + groove_h);
+        chamf_h = (shaft_stub_d - clip_groove_d) / 2; // 1.5mm -> exact 45-deg self-supporting cone
         difference() {
-            cylinder(d = shaft_stub_d + 2, h = clip_thick + 0.3);
-            translate([0, 0, -0.5])
-                cylinder(d = clip_groove_d, h = clip_thick + 1.3);
+            translate([0, 0, groove_z - chamf_h])
+                cylinder(d = shaft_stub_d + 2, h = groove_h + chamf_h);
+            union() {
+                translate([0, 0, groove_z])
+                    cylinder(d = clip_groove_d, h = groove_h + 0.5);
+                translate([0, 0, groove_z - chamf_h - 0.01])
+                    cylinder(d1 = shaft_stub_d, d2 = clip_groove_d, h = chamf_h + 0.02);
+            }
         }
 
         hex_r = ((hex_stem_flat + tol) / 2) / cos(30);
@@ -310,7 +319,7 @@ module single_tray() {
             linear_extrude(slot_depth)
             hull() {
                 translate([base_pin_x, base_pin_y]) circle(d = slot_w);
-                translate([base_pin_x, base_pin_y - slot_len]) circle(d = slot_w);
+                translate([base_pin_x - slot_len, base_pin_y]) circle(d = slot_w);
             }
 
             rib_count = box_size >= 150 ? 6 : 4;
@@ -420,15 +429,16 @@ module bottom_cap() {
 module show_assembly() {
     color(plate_color) bottom_base();
 
-    L0 = base_pin_x - piv_x;
-    px_rot = piv_x * cos(open_angle) - piv_y * sin(open_angle);
-    py_rot = piv_x * sin(open_angle) + piv_y * cos(open_angle);
+    ang = -open_angle; // Clockwise knob twist opens trays
+    L0 = base_pin_y - piv_y;
+    px_rot = piv_x * cos(ang) - piv_y * sin(ang);
+    py_rot = piv_x * sin(ang) + piv_y * cos(ang);
     vx = base_pin_x - px_rot;
     vy = base_pin_y - py_rot;
     dist = sqrt(vx*vx + vy*vy);
     phi = atan2(vy, vx);
-    dy_slot = -sqrt(max(0, dist*dist - L0*L0));
-    alpha = atan2(dy_slot, L0);
+    dx_slot = -sqrt(max(0, dist*dist - L0*L0));
+    alpha = atan2(L0, dx_slot);
     tray_rot = phi - alpha;
 
     for (a = [0, 90, 180, 270]) {
@@ -441,14 +451,14 @@ module show_assembly() {
     }
 
     translate([0, 0, z_lid_bot + explode * 2])
-    rotate([0, 0, open_angle]) {
+    rotate([0, 0, ang]) {
         color(plate_color) top_lid();
         if (lid_text != "") color(accent_color) lid_inlay_3d();
     }
 
     color(accent_color)
     translate([0, 0, z_lid_bot + plate_thick_top + explode * 3])
-    rotate([0, 0, open_angle])
+    rotate([0, 0, ang])
         knurled_knob();
 
     color(accent_color)
