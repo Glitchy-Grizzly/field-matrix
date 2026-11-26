@@ -33,7 +33,7 @@ export function generateOrbitalSCAD({
 
 /* [Export & Preview] */
 part = "${exportPart}"; // ["assembly", "print_plate", "top_lid", "inlay_only", "bottom_base", "tray", "knob", "c_clip", "bottom_cap"]
-open_angle = 0; // [0:1:17]
+open_angle = 0; // [0:1:45]
 explode = 0; // [0:1:25]
 
 /* [Core Dimensions (mm)] */
@@ -63,8 +63,8 @@ tol = 0.25;
 z_clear = 0.20; // 0.20mm per side (0.40mm total axial running clearance, eliminates plate rocking)
 shaft_d = 18.0;
 pin_d = 5.5;
-top_pin_h = 4.5;
-base_pin_h = 3.5;
+top_pin_h = 6.5;
+base_pin_h = 4.5;
 slot_ceiling = 2.0;
 clip_thick = 1.5;
 clip_od = 17.5;
@@ -89,9 +89,12 @@ slot_depth  = base_pin_h + 0.8;
 tray_floor  = slot_depth + slot_ceiling;
 tray_height = bin_inner_depth + tray_floor;
 
+// Working-prototype zero-singularity layout:
+// Top lid pivot at (pin_margin, half - pin_margin), base pin at (half - pin_margin, half - pin_margin),
+// bottom cam-slot runs horizontally INWARD along the same top edge (0-deg starting pressure angle!)
 pin_margin = 7.0;
-piv_x = half - pin_margin;
-piv_y = pin_margin;
+piv_x = pin_margin;
+piv_y = half - pin_margin;
 base_pin_x = half - pin_margin;
 base_pin_y = half - pin_margin;
 
@@ -435,17 +438,13 @@ module bottom_cap() {
 module show_assembly() {
     color(plate_color) bottom_base();
 
-    ang = -open_angle; // Clockwise knob twist opens trays
-    L0 = base_pin_y - piv_y;
+    // Clockwise lid rotation pulls piv directly toward base_pin along the horizontal slot (0-deg pressure angle!)
+    ang = -open_angle;
     px_rot = piv_x * cos(ang) - piv_y * sin(ang);
     py_rot = piv_x * sin(ang) + piv_y * cos(ang);
     vx = base_pin_x - px_rot;
     vy = base_pin_y - py_rot;
-    dist = sqrt(vx*vx + vy*vy);
-    phi = atan2(vy, vx);
-    dx_slot = -sqrt(max(0, dist*dist - L0*L0));
-    alpha = atan2(L0, dx_slot);
-    tray_rot = phi - alpha;
+    tray_rot = atan2(vy, vx);
 
     for (a = [0, 90, 180, 270]) {
         color(tray_color)

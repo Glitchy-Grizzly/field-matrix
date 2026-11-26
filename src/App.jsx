@@ -184,7 +184,7 @@ const PRODUCT_CATALOG = {
     codePrefix: 'BENCH-',
     name: 'The Bench Matrix',
     subtitle: 'Modular V-Rail Workbench System',
-    etsyUrl: 'https://www.etsy.com/shop/GlitchyGrizzly',
+    etsyUrl: 'https://www.etsy.com/shop/FieldMatrix3D',
     squareUrl: SQUARE_CHECKOUT_URL,
     hasOpenScadGenerator: true
   },
@@ -193,7 +193,7 @@ const PRODUCT_CATALOG = {
     codePrefix: 'CARGO-',
     name: 'The Cargo Matrix',
     subtitle: 'Print-in-Place Hinged Clamshell Case',
-    etsyUrl: 'https://www.etsy.com/shop/GlitchyGrizzly',
+    etsyUrl: 'https://www.etsy.com/shop/FieldMatrix3D',
     squareUrl: SQUARE_CHECKOUT_URL,
     hasOpenScadGenerator: true
   },
@@ -202,7 +202,7 @@ const PRODUCT_CATALOG = {
     codePrefix: 'AMMO-',
     name: 'The Ammo Matrix',
     subtitle: 'Ballistic Vault Series',
-    etsyUrl: 'https://www.etsy.com/shop/GlitchyGrizzly',
+    etsyUrl: 'https://www.etsy.com/shop/FieldMatrix3D',
     squareUrl: SQUARE_CHECKOUT_URL,
     hasOpenScadGenerator: true
   },
@@ -211,7 +211,7 @@ const PRODUCT_CATALOG = {
     codePrefix: 'ORBITAL-',
     name: 'The Orbital Matrix',
     subtitle: '4-Tray Swing-Out Storage Box',
-    etsyUrl: 'https://www.etsy.com/shop/GlitchyGrizzly',
+    etsyUrl: 'https://www.etsy.com/shop/FieldMatrix3D',
     squareUrl: SQUARE_CHECKOUT_URL,
     hasOpenScadGenerator: true
   }
@@ -650,7 +650,7 @@ export default function App() {
 
   // <-- PASTE THE USEEFFECT RIGHT HERE -->
   useEffect(() => {
-    document.title = `FieldMatrix 3D - ${PRODUCT_CATALOG[activeTab]?.name || 'Configurator'}`;
+    document.title = `Field Matrix - ${PRODUCT_CATALOG[activeTab]?.name || 'Configurator'}`;
   }, [activeTab]);
   // <------------------------------------>
 
@@ -1391,7 +1391,7 @@ export default function App() {
     const magDepth = 2.15; // 2mm magnet + 0.15mm glue tolerance
 
     return `// ============================================================================
-// FIELDMATRIX 3D - AMMO MATRIX (FULL MULTI-PART PRODUCTION ASSEMBLY)
+// FIELD MATRIX 3D - AMMO MATRIX (FULL MULTI-PART PRODUCTION ASSEMBLY)
 // Design Code : ${designCode}
 // Caliber     : ${cal.name} (${cal.short}) - OAL: ${oal}mm
 // Capacity    : ${totalRounds} Rounds (${cols} Cols x ${rows} Rows)
@@ -1993,7 +1993,7 @@ if (export_part == "full") {
   };
   const generateSpecSheet = () => {
     let spec = `====================================================\n`;
-    spec += `    FIELDMATRIX 3D - PRINT & SHIP SPECIFICATION\n`;
+    spec += `    FIELD MATRIX 3D - PRINT & SHIP SPECIFICATION\n`;
     spec += `====================================================\n`;
     spec += `Design Code  : ${designCode || 'UNSAVED'}\n`;
     spec += `Order Channel: ${isEtsyMode ? 'ETSY PRESET ORDER' : 'DIRECT CUSTOM ORDER (SQUARE)'}\n`;
@@ -2113,7 +2113,7 @@ if (export_part == "full") {
     const numLatches = cargoWidth >= 130 ? 2 : 1;
 
     return `// =========================================================================
-// FIELDMATRIX 3D - THE CARGO MATRIX (TACTICAL BOLTED ASSEMBLY)
+// FIELD MATRIX 3D - THE CARGO MATRIX (TACTICAL BOLTED ASSEMBLY)
 // Design Code : ${designCode || 'CUSTOM'}
 // Preset Tier : ${cargoPreset}
 // Dimensions  : ${cargoWidth}mm (W) x ${cargoLength}mm (L) x ${totalZ}mm (Total H)
@@ -2642,7 +2642,7 @@ if (export_part == "full") {
 
   // ---> PASTE THE BUG REPORT HELPER HERE <---
   const getBugReportMailto = () => {
-    const recipient = "fieldmatrix@glitchygrizzly.com";
+    const recipient = "info@field-matrix.ca";
     const activeCode = designCode || "No Design Code";
     const activeProduct = PRODUCT_CATALOG[activeTab]?.name || "Field Matrix";
 
@@ -4536,13 +4536,12 @@ Date: ${new Date().toISOString()}
       botMesh.position.y = 0.8;
       orbitalGroup.add(botMesh);
 
-      // 2. Kinematic 4-Tray Swing-Out Math (Exact V2.2 OpenSCAD equations — Clockwise twist opens trays)
+      // 2. Kinematic 4-Tray Swing-Out Math (Working-prototype 0-deg pressure-angle collinear cam-slot)
       const pinMargin = 7.0;
-      const pivX = half - pinMargin;
-      const pivY = pinMargin;
+      const pivX = pinMargin;
+      const pivY = half - pinMargin;
       const basePinX = half - pinMargin;
       const basePinY = half - pinMargin;
-      const L0 = basePinY - pivY;
       const openRad = THREE.MathUtils.degToRad(orbitalOpenAngle);
       const ang = -openRad;
 
@@ -4550,11 +4549,7 @@ Date: ${new Date().toISOString()}
       const pyRot = pivX * Math.sin(ang) + pivY * Math.cos(ang);
       const vx = basePinX - pxRot;
       const vy = basePinY - pyRot;
-      const dist = Math.sqrt(vx * vx + vy * vy);
-      const phi = Math.atan2(vy, vx);
-      const dxSlot = -Math.sqrt(Math.max(0, dist * dist - L0 * L0));
-      const alpha = Math.atan2(L0, dxSlot);
-      const trayRot = phi - alpha;
+      const trayRot = Math.atan2(vy, vx);
 
       const buildSingleTray = () => {
         const tGroup = new THREE.Group();
@@ -4790,7 +4785,7 @@ Date: ${new Date().toISOString()}
           </div>
           <h1 className="text-xl font-black text-white uppercase tracking-wider">Payment Successful!</h1>
           <p className="text-xs text-[#94a3b8] leading-relaxed">
-            Thank you for your custom FieldMatrix order. Your payment has been processed successfully through Square, and your build specs have been logged for printing.
+            Thank you for your custom Field Matrix order. Your payment has been processed successfully through Square, and your build specs have been logged for printing.
           </p>
           <a
             href="/"
@@ -4857,7 +4852,7 @@ Date: ${new Date().toISOString()}
                       const email = result.user.email;
 
                       // PUT YOUR EXACT ADMIN GMAIL ADDRESS HERE:
-                      const AUTHORIZED_ADMINS = ['info@glitchygrizzly.com'];
+                      const AUTHORIZED_ADMINS = ['info@glitchygrizzly.com', 'info@field-matrix.ca'];
 
                       if (AUTHORIZED_ADMINS.includes(email)) {
                         setAdminUnlocked(true);
@@ -5507,7 +5502,7 @@ Date: ${new Date().toISOString()}
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-black tracking-wider text-sm text-white uppercase">
-                    FieldMatrix 3D
+                    Field Matrix 3D
                   </span>
                   {isEtsyMode && (
                     <span className="px-1.5 py-0.5 rounded bg-[#3b1526] border border-[#f43f5e]/50 text-[9px] font-bold text-[#fecdd3] uppercase">
@@ -5516,7 +5511,15 @@ Date: ${new Date().toISOString()}
                   )}
                 </div>
                 <p className="text-[11px] text-[#38bdf8] font-medium">
-                  Glitchy Grizzly • <span className="text-[#94a3b8]">You configure your Matrix. We print &amp; ship.</span>
+                  <a
+                    href="https://www.field-matrix.ca"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                  >
+                    Field Matrix
+                  </a>{' '}
+                  • <span className="text-[#94a3b8]">You configure your Matrix. We print &amp; ship.</span>
                 </p>
               </div>
             </div>
@@ -6855,12 +6858,12 @@ Date: ${new Date().toISOString()}
               ) : activeTab === 'orbital' ? (
                 <div className="flex items-center gap-2 bg-[#151e31] px-2.5 py-1 rounded-lg border border-emerald-500/40 shrink-0">
                   <span className="text-[11px] font-semibold tabular-nums min-w-[118px] text-emerald-300">
-                    Twist Knob ({Math.round((orbitalOpenAngle / 17) * 100)}%):
+                    Twist Knob ({Math.round((orbitalOpenAngle / 45) * 100)}%):
                   </span>
                   <input
                     type="range"
                     min="0"
-                    max="17"
+                    max="45"
                     step="0.5"
                     value={orbitalOpenAngle}
                     onChange={(e) => setOrbitalOpenAngle(parseFloat(e.target.value))}

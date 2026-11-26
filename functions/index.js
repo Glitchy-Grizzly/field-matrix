@@ -140,7 +140,7 @@ exports.createCheckoutLink = onRequest(
             lineItems: lineItems,
           },
           checkoutOptions: {
-            redirectUrl: "https://field-matrix.glitchygrizzly.com/success",
+            redirectUrl: "https://shop.field-matrix.ca/success",
             askForShippingAddress: true,
             shippingFee: {
               name: shippingLabel,
