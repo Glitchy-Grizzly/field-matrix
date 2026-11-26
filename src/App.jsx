@@ -3468,7 +3468,7 @@ Date: ${new Date().toISOString()}
           tierGroup.add(vWall);
         }
 
-        const latchZ = depth / 2 - 30;
+        const latchZ = 0; // Centered on side walls (aligned with carry handle)
         [-1, 1].forEach((side) => {
           [-14, 14].forEach((zOff) => {
             const rib = new THREE.Mesh(new THREE.BoxGeometry(8.5, height, 7), casingMat);
@@ -3640,7 +3640,7 @@ Date: ${new Date().toISOString()}
           lidGroup.add(gripBar);
         }
 
-        const latchZ = depth / 2 - 30;
+        const latchZ = 0; // Centered on side walls (aligned with carry handle)
         [-1, 1].forEach((side) => {
           [-14, 14].forEach((zOff) => {
             const rib = new THREE.Mesh(new THREE.BoxGeometry(8.5, lidH, 7), casingMat);
@@ -5536,26 +5536,26 @@ Date: ${new Date().toISOString()}
           {!lockedProductSlug && (
             <div className="grid grid-cols-2 gap-1.5 bg-[#090d16] p-1 rounded-lg border border-[#1e293b] mt-2.5">
               {Object.values(PRODUCT_CATALOG).map((prod) => (
-                  <button
-                    key={prod.id}
-                    onClick={() => setActiveTab(prod.id)}
-                    className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-[11px] font-semibold whitespace-nowrap transition-all ${activeTab === prod.id
-                      ? 'bg-[#1e293b] text-[#38bdf8] border border-[#38bdf8]/40'
-                      : 'text-[#94a3b8] hover:text-white'
-                      }`}
-                  >
-                    {prod.id === 'bench' ? (
-                      <Sliders size={13} />
-                    ) : prod.id === 'ammo' ? (
-                      <Shield size={13} className="text-amber-400" />
-                    ) : prod.id === 'orbital' ? (
-                      <Disc size={13} className="text-emerald-400" />
-                    ) : (
-                      <Box size={13} />
-                    )}{' '}
-                    {prod.name.replace('The ', '')}
-                  </button>
-                ))}
+                <button
+                  key={prod.id}
+                  onClick={() => setActiveTab(prod.id)}
+                  className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-[11px] font-semibold whitespace-nowrap transition-all ${activeTab === prod.id
+                    ? 'bg-[#1e293b] text-[#38bdf8] border border-[#38bdf8]/40'
+                    : 'text-[#94a3b8] hover:text-white'
+                    }`}
+                >
+                  {prod.id === 'bench' ? (
+                    <Sliders size={13} />
+                  ) : prod.id === 'ammo' ? (
+                    <Shield size={13} className="text-amber-400" />
+                  ) : prod.id === 'orbital' ? (
+                    <Disc size={13} className="text-emerald-400" />
+                  ) : (
+                    <Box size={13} />
+                  )}{' '}
+                  {prod.name.replace('The ', '')}
+                </button>
+              ))}
             </div>
           )}
         </div>

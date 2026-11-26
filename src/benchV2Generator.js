@@ -34,7 +34,7 @@ ear_t_bot = 6.5;      // Bottom ear thickness (holds 5.0mm self-tapping bite)
 ear_t_top = 10.5;     // Top ear thickness (4.0mm counterbore + 8.0mm seat)
 latch_boss_t = 8.5;   // Outward reach of hinge ears from box wall
 hole_offset_x = 4.8;  // M3 screw centerline (1.4mm open air behind latch pivot)
-latch_offset = depth/2 - 30; 
+latch_offset = 0;     // Centered on side walls (aligned directly under carry handle for balanced lift)
 
 bay_w = (width - (wall * (num_drawers + 1))) / num_drawers;
 
@@ -117,14 +117,20 @@ module bench_shell() {
     
             // 6. Standalone Support-Free Top Catch Hook + Flat-Rib Parking Detent
     for (side = [-1, 1]) {
-        // Catch Hook (45-deg self-supporting ramp on +Y underside)
+        // Catch Hook with 1.0mm Recessed Locking Notch (45-deg self-supporting ramp on +Y underside for back-wall printing)
+        // Main flat-bottom catch bar (Z = height/2 - 2.0 .. height/2 - 4.2)
         hull() {
-            translate([side * (width/2 + 3.25), -latch_offset, height/2 - 3.0])
+            translate([side * (width/2 + 3.25), -latch_offset, height/2 - 3.1])
                 cube([6.5, latch_w, 2.2], center=true);
-            translate([side * (width/2 + 0.1), -latch_offset + latch_w/2 + 6.5, height/2 - 3.0])
+            translate([side * (width/2 + 0.1), -latch_offset + latch_w/2 + 6.5, height/2 - 3.1])
                 cube([0.2, 0.2, 2.2], center=true);
-            translate([side * (width/2 + 0.1), -latch_offset, height/2 - 5.5])
-                cube([0.2, latch_w, 1.5], center=true);
+        }
+        // Outer 1.0mm downward locking barb (X = +4.7..+6.5, Z = height/2 - 4.2 .. height/2 - 5.2) creating a true snap-in notch behind it
+        hull() {
+            translate([side * (width/2 + 5.6), -latch_offset, height/2 - 4.7])
+                cube([1.8, latch_w, 1.0], center=true);
+            translate([side * (width/2 + 4.7), -latch_offset + latch_w/2 + 2.0, height/2 - 3.1])
+                cube([0.2, 0.2, 2.2], center=true);
         }
         // Crisp Parking Detent on the flat face of the Bottom Ear (12mm above pivot)
         translate([side * (width/2 + hole_offset_x + 1.2), -latch_offset + latch_w/2 + 0.1, -height/2 + 20])
@@ -357,7 +363,7 @@ ear_t_top = 10.5;     // Top ear thickness (4.0mm counterbore + 8.0mm seat)
 latch_boss_t = 8.5;   // Outward reach of hinge ears from box wall
 latch_cut_d = 6.0;    // Depth of the cutout for the latch
 hole_offset_x = 4.8;  // M3 screw centerline (1.4mm open air behind latch pivot)
-latch_offset = depth/2 - 30; 
+latch_offset = 0;     // Centered on side walls (aligned directly under carry handle for balanced lift)
 
 module bench_lid() {
     difference() {
@@ -539,49 +545,54 @@ module bench_latch() {
         union() {
             linear_extrude(height = latch_w, center = true) {
                 union() {
+                    // Upper pivot boss & angled neck stepping outward to clear the 6.5mm shell catch hook (+1.7mm past pivot)
                     hull() {
-                        circle(r = 3.4); 
-                        translate([1.2, -5.0]) circle(r = 3.2);
+                        circle(r = 3.4);
+                        translate([3.4, -6.0]) circle(r = 2.4);
                     }
-                    
+                    // Rigid outer spine (inner face at X = +2.0mm clears +1.7mm catch hook tip by 0.3mm)
                     hull() {
-                        translate([1.2, -5.0]) circle(r = 3.2);
-                        translate([1.2, -pivot_to_hook - 1.5]) circle(r = 3.0);
+                        translate([3.4, -6.0]) circle(r = 2.4);
+                        translate([3.6, -pivot_to_hook - 1.2]) circle(r = 2.2);
                     }
-                    
+                    // Mated upward-pointing locking tooth (sits cleanly inside shell's 1.0mm notch behind outer barb, zero collision)
                     polygon(points = [
-                        [2.0, -pivot_to_hook + 3.0],
-                        [-3.6, -pivot_to_hook + 0.2], 
-                        [-3.6, -pivot_to_hook - 1.8], 
-                        [1.5, -pivot_to_hook - 3.5],  
-                        [4.2, -pivot_to_hook + 1.0]
+                        [2.0, -13.4],
+                        [0.0, -13.4],
+                        [-0.5, -12.4],
+                        [-2.5, -12.4],
+                        [-2.5, -14.2],
+                        [1.8, -16.2],
+                        [4.8, -14.4]
                     ]);
-                    
+                    // Ergonomic lower thumb-pull lever
                     hull() {
-                        translate([1.2, -pivot_to_hook - 1.5]) circle(r = 3.0);
-                        translate([3.6, -pivot_to_hook - 4.5]) circle(r = 2.0);
+                        translate([3.6, -pivot_to_hook - 1.2]) circle(r = 2.2);
+                        translate([6.2, -pivot_to_hook - 4.4]) circle(r = 1.9);
                     }
                 }
             }
             // Tapered collar that tucks into the 45-deg ear to hide the screw
             translate([0, 0, latch_w / 2])
                 cylinder(h = 1.4, r1 = 2.6, r2 = 2.0, $fn = 32);
-        }    
-        
+        }
+
+        // M3 pivot clearance bore
         cylinder(h = latch_w + 4, r = 1.8, center = true);
-        
-        translate([-2.2, -pivot_to_hook + 2.2, 0])
-            rotate([0, 0, -38])
-            cube([4.5, 4.5, latch_w + 2], center = true);
-            
-        for (gy = [-5, -8.5, -12, -15.5]) {
-            translate([4.6, gy, 0])
+
+        // Clean inner pocket clearing the 1.0mm outer barb (X = -0.3..+2.0mm, Y = -9.4..-13.4mm) while preserving the upward tooth (X = -2.5..-0.5mm)
+        translate([0.85, -11.4, 0])
+            cube([2.3, 4.0, latch_w + 2], center = true);
+
+        // Tactile finger grip grooves along outer spine
+        for (gy = [-6.0, -9.2, -12.4, -15.6]) {
+            translate([6.1, gy, 0])
                 cylinder(h = latch_w + 2, r = 0.8, center = true);
         }
-        
-        // Deeper V-notch aligned directly with the flat-rib parking detent (X = +0.2, 12mm from pivot)
+
+        // Parking detent V-notch (engages shell detent when stowed up)
         for (side = [-1, 1]) {
-            translate([1.2, -12.0, side * (latch_w / 2)])
+            translate([3.4, -12.0, side * (latch_w / 2)])
                 rotate([45, 0, 0])
                 cube([2.4, 2.0, 2.0], center = true);
         }
@@ -730,7 +741,7 @@ ear_t_bot = 6.5;      // Bottom ear thickness (holds 5.0mm self-tapping bite)
 ear_t_top = 10.5;     // Top ear thickness (4.0mm counterbore + 8.0mm seat)
 latch_boss_t = 8.5;   // Outward reach of hinge ears from box wall
 hole_offset_x = 4.8;  // M3 screw centerline (1.4mm open air behind latch pivot)
-latch_offset = depth/2 - 30;
+latch_offset = 0;     // Centered on side walls (aligned directly under carry handle for balanced lift)
 
 bay_w = (width - (wall * (num_drawers + 1))) / num_drawers;
 face_w = bay_w - 0.4;
@@ -813,14 +824,18 @@ module bench_shell() {
         }
             // 6. Standalone Support-Free Top Catch Hook + Flat-Rib Parking Detent
             for (side = [-1, 1]) {
-                // Catch Hook (45-deg self-supporting ramp on +Y underside)
+                // Catch Hook with 1.0mm Recessed Locking Notch (45-deg self-supporting ramp on +Y underside for back-wall printing)
                 hull() {
-                    translate([side * (width/2 + 3.25), -latch_offset, height/2 - 3.0])
+                    translate([side * (width/2 + 3.25), -latch_offset, height/2 - 3.1])
                         cube([6.5, latch_w, 2.2], center=true);
-                    translate([side * (width/2 + 0.1), -latch_offset + latch_w/2 + 6.5, height/2 - 3.0])
+                    translate([side * (width/2 + 0.1), -latch_offset + latch_w/2 + 6.5, height/2 - 3.1])
                         cube([0.2, 0.2, 2.2], center=true);
-                    translate([side * (width/2 + 0.1), -latch_offset, height/2 - 5.5])
-                        cube([0.2, latch_w, 1.5], center=true);
+                }
+                hull() {
+                    translate([side * (width/2 + 5.6), -latch_offset, height/2 - 4.7])
+                        cube([1.8, latch_w, 1.0], center=true);
+                    translate([side * (width/2 + 4.7), -latch_offset + latch_w/2 + 2.0, height/2 - 3.1])
+                        cube([0.2, 0.2, 2.2], center=true);
                 }
                 // Crisp Parking Detent on the flat face of the Bottom Ear (12mm above pivot)
                 translate([side * (width/2 + hole_offset_x + 1.2), -latch_offset + latch_w/2 + 0.1, -height/2 + 20])
@@ -1073,13 +1088,17 @@ module bench_latch(lw = 17.2, p2h = 13.6) {
         union() {
             linear_extrude(height = lw, center = true) {
                 union() {
-                    hull() { circle(r = 3.4); translate([1.2, -5.0]) circle(r = 3.2); }
-                    hull() { translate([1.2, -5.0]) circle(r = 3.2); translate([1.2, -p2h - 1.5]) circle(r = 3.0); }
+                    // Upper pivot boss & angled neck stepping outward to clear the 6.5mm shell catch hook (+1.7mm past pivot)
+                    hull() { circle(r = 3.4); translate([3.4, -6.0]) circle(r = 2.4); }
+                    // Rigid outer spine (inner face at X = +2.0mm clears +1.7mm catch hook tip by 0.3mm)
+                    hull() { translate([3.4, -6.0]) circle(r = 2.4); translate([3.6, -p2h - 1.2]) circle(r = 2.2); }
+                    // Mated upward-pointing locking tooth (sits cleanly inside shell's 1.0mm notch behind outer barb, zero collision)
                     polygon(points = [
-                        [2.0, -p2h + 3.0], [-3.6, -p2h + 0.2], [-3.6, -p2h - 1.8],
-                        [1.5, -p2h - 3.5], [4.2, -p2h + 1.0]
+                        [2.0, -13.4], [0.0, -13.4], [-0.5, -12.4],
+                        [-2.5, -12.4], [-2.5, -14.2], [1.8, -16.2], [4.8, -14.4]
                     ]);
-                    hull() { translate([1.2, -p2h - 1.5]) circle(r = 3.0); translate([3.6, -p2h - 4.5]) circle(r = 2.0); }
+                    // Ergonomic lower thumb-pull lever
+                    hull() { translate([3.6, -p2h - 1.2]) circle(r = 2.2); translate([6.2, -p2h - 4.4]) circle(r = 1.9); }
                 }
             }
             // Tapered collar that tucks into the 45-deg ear to hide the screw
@@ -1087,15 +1106,15 @@ module bench_latch(lw = 17.2, p2h = 13.6) {
                 cylinder(h = 1.4, r1 = 2.6, r2 = 2.0, $fn = 32);
         }
         cylinder(h = lw + 8, r = 1.8, center = true);
-        translate([-2.2, -p2h + 2.2, 0]) rotate([0, 0, -38]) cube([4.5, 4.5, lw + 2], center = true);
-        for (gy = [-5, -8.5, -12, -15.5]) {
-            translate([4.6, gy, 0]) cylinder(h = lw + 2, r = 0.8, center = true);
+        translate([0.85, -11.4, 0]) cube([2.3, 4.0, lw + 2], center = true);
+        for (gy = [-6.0, -9.2, -12.4, -15.6]) {
+            translate([6.1, gy, 0]) cylinder(h = lw + 2, r = 0.8, center = true);
         }
-        // Deeper V-notch aligned directly with the flat-rib parking detent (X = +0.2, 12mm from pivot)
+        // Parking detent V-notch
         for (side = [-1, 1]) {
-                translate([1.2, -12.0, side * (lw / 2)])
-                    rotate([45, 0, 0])
-                    cube([2.4, 2.0, 2.0], center = true);
+            translate([3.4, -12.0, side * (lw / 2)])
+                rotate([45, 0, 0])
+                cube([2.4, 2.0, 2.0], center = true);
         }
     }
 }
