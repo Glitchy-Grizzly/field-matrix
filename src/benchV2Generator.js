@@ -315,12 +315,12 @@ module drawer() {
         }
     }
 
-    // 4. Mated Rear-Top Pull-Out Catch Tab (0.4mm ramped tab on rear wall, engages 0.35mm shell ceiling lip)
+    // 4. Mated Rear-Top Pull-Out Catch Tab (0.55mm ramped tab on rear wall, engages 0.55mm shell ceiling lip)
     catch_w = min(18, max(10, drawer_w - 20));
     hull() {
         translate([0, drawer_d/2 - 1.2, drawer_h - 0.1])
             cube([catch_w, 2.4, 0.2], center=true);
-        translate([0, drawer_d/2 - 1.2, drawer_h + 0.35])
+        translate([0, drawer_d/2 - 1.2, drawer_h + 0.50])
             cube([catch_w - 0.8, 1.4, 0.1], center=true);
     }
 }
@@ -555,20 +555,20 @@ module bench_latch() {
                         translate([3.4, -6.0]) circle(r = 2.4);
                         translate([3.6, -pivot_to_hook - 1.2]) circle(r = 2.2);
                     }
-                    // Mated upward-pointing locking tooth (sits cleanly inside shell's 1.0mm notch behind outer barb, zero collision)
+                    // Mated upward-pointing locking tooth (0.65mm positive vertical lock + gentler release bevel for smooth one-thumb unlatching)
                     polygon(points = [
                         [2.0, -13.4],
-                        [0.0, -13.4],
-                        [-0.5, -12.4],
-                        [-2.5, -12.4],
+                        [0.1, -13.4],
+                        [-0.6, -12.55],
+                        [-2.5, -12.55],
                         [-2.5, -14.2],
                         [1.8, -16.2],
                         [4.8, -14.4]
                     ]);
-                    // Ergonomic lower thumb-pull lever
+                    // Extended ergonomic lower thumb-pull lever (+25% release leverage between stacked tiers)
                     hull() {
                         translate([3.6, -pivot_to_hook - 1.2]) circle(r = 2.2);
-                        translate([6.2, -pivot_to_hook - 4.4]) circle(r = 1.9);
+                        translate([7.2, -pivot_to_hook - 6.0]) circle(r = 1.9);
                     }
                 }
             }
@@ -957,12 +957,12 @@ module drawer(div_rows = 3, div_cols = 1) {
         }
     }
 
-    // 4. Mated Rear-Top Pull-Out Catch Tab (0.4mm ramped tab on rear wall, engages 0.35mm shell ceiling lip)
+    // 4. Mated Rear-Top Pull-Out Catch Tab (0.55mm ramped tab on rear wall, engages 0.55mm shell ceiling lip)
     catch_w = min(18, max(10, drawer_w - 20));
     hull() {
         translate([0, drawer_d/2 - 1.2, drawer_h - 0.1])
             cube([catch_w, 2.4, 0.2], center=true);
-        translate([0, drawer_d/2 - 1.2, drawer_h + 0.35])
+        translate([0, drawer_d/2 - 1.2, drawer_h + 0.50])
             cube([catch_w - 0.8, 1.4, 0.1], center=true);
     }
 }
@@ -1092,13 +1092,13 @@ module bench_latch(lw = 17.2, p2h = 13.6) {
                     hull() { circle(r = 3.4); translate([3.4, -6.0]) circle(r = 2.4); }
                     // Rigid outer spine (inner face at X = +2.0mm clears +1.7mm catch hook tip by 0.3mm)
                     hull() { translate([3.4, -6.0]) circle(r = 2.4); translate([3.6, -p2h - 1.2]) circle(r = 2.2); }
-                    // Mated upward-pointing locking tooth (sits cleanly inside shell's 1.0mm notch behind outer barb, zero collision)
+                    // Mated upward-pointing locking tooth (0.65mm positive vertical lock + gentler release bevel for smooth one-thumb unlatching)
                     polygon(points = [
-                        [2.0, -13.4], [0.0, -13.4], [-0.5, -12.4],
-                        [-2.5, -12.4], [-2.5, -14.2], [1.8, -16.2], [4.8, -14.4]
+                        [2.0, -13.4], [0.1, -13.4], [-0.6, -12.55],
+                        [-2.5, -12.55], [-2.5, -14.2], [1.8, -16.2], [4.8, -14.4]
                     ]);
-                    // Ergonomic lower thumb-pull lever
-                    hull() { translate([3.6, -p2h - 1.2]) circle(r = 2.2); translate([6.2, -p2h - 4.4]) circle(r = 1.9); }
+                    // Extended ergonomic lower thumb-pull lever (+25% release leverage between stacked tiers)
+                    hull() { translate([3.6, -p2h - 1.2]) circle(r = 2.2); translate([7.2, -p2h - 6.0]) circle(r = 1.9); }
                 }
             }
             // Tapered collar that tucks into the 45-deg ear to hide the screw
