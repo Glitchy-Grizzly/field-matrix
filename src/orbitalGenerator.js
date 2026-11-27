@@ -60,7 +60,7 @@ pad_inset = 12.0;
 
 /* [Mechanism & Tolerances (mm) - V2.2 Tested] */
 tol = 0.25;
-z_clear = 0.20; // 0.20mm per side (0.40mm total axial running clearance, eliminates plate rocking)
+z_clear = 0.10; // 0.10mm per side (0.20mm total axial running clearance for snug zero-rocking fit)
 shaft_d = 18.0;
 pin_d = 5.5;
 top_pin_h = 6.5;
@@ -239,7 +239,7 @@ module top_lid() {
 
         // C-clip retaining groove with support-free 45-deg lower transition cone (prints inverted)
         groove_from_base_top = plate_thick_bot - z_clip_top;
-        groove_h = clip_thick + 0.2;
+        groove_h = clip_thick + 0.15;
         groove_z = -(shaft_main_len + groove_from_base_top + groove_h);
         chamf_h = (shaft_stub_d - clip_groove_d) / 2; // 1.5mm -> exact 45-deg self-supporting cone
         difference() {
