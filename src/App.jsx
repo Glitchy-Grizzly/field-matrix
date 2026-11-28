@@ -2019,100 +2019,191 @@ if (export_part == "full") {
 `;
   };
   const generateSpecSheet = () => {
+    const isFr = lang === 'fr';
+    const cName = (col) => colorName(col);
     let spec = `====================================================\n`;
-    spec += `    FIELD MATRIX 3D - PRINT & SHIP SPECIFICATION\n`;
+    spec += isFr
+      ? `    FIELD MATRIX 3D - FICHE DE CONFIGURATION\n`
+      : `    FIELD MATRIX 3D - PRINT & SHIP SPECIFICATION\n`;
     spec += `====================================================\n`;
-    spec += `Design Code  : ${designCode || 'UNSAVED'}\n`;
-    spec += `Order Channel: ${isEtsyMode ? 'ETSY PRESET ORDER' : 'DIRECT CUSTOM ORDER (SQUARE)'}\n`;
-    spec += `Product Line : ${currentProductMeta.name} (${currentProductMeta.subtitle})\n`;
+    spec += isFr
+      ? `Code de config. : ${designCode || 'NON ENREGISTRÉ'}\n`
+      : `Design Code  : ${designCode || 'UNSAVED'}\n`;
+    spec += isFr
+      ? `Canal commande  : ${isEtsyMode ? 'COMMANDE ETSY (FORMAT PRÉDÉFINI)' : 'COMMANDE DIRECTE SUR MESURE (SQUARE)'}\n`
+      : `Order Channel: ${isEtsyMode ? 'ETSY PRESET ORDER' : 'DIRECT CUSTOM ORDER (SQUARE)'}\n`;
+    spec += isFr
+      ? `Gamme produit   : ${currentProductMeta.name}\n`
+      : `Product Line : ${currentProductMeta.name} (${currentProductMeta.subtitle})\n`;
+
     if (isEtsyMode) {
       const etsyOptLabel =
         activeTab === 'bench'
-          ? `${sizePreset} (${tiers}T x ${drawersPerTier}D)`
+          ? `${sizePreset} (${tiers}${isFr ? 'É' : 'T'} x ${drawersPerTier}${isFr ? 'T' : 'D'})`
           : activeTab === 'ammo'
-            ? `${ammoTotalRounds} Rounds (${clampedAmmoCols}x${clampedAmmoRows} ${currentCalSpec.short})`
-            : `${cargoPreset} (${cargoWidth}x${cargoLength}x${cargoHeight * 2}mm)`;
-      spec += `Etsy Option  : ${etsyOptLabel}\n\n`;
+            ? `${ammoTotalRounds} ${isFr ? 'munitions' : 'Rounds'} (${clampedAmmoCols}x${clampedAmmoRows} ${currentCalSpec.short})`
+            : activeTab === 'orbital'
+              ? `${orbitalTierName} (${orbitalSize}x${orbitalSize}x${orbitalTotalHeightMm}mm)`
+              : `${cargoPreset} (${cargoWidth}x${cargoLength}x${cargoHeight * 2}mm)`;
+      spec += isFr ? `Option Etsy     : ${etsyOptLabel}\n\n` : `Etsy Option  : ${etsyOptLabel}\n\n`;
     } else {
-      spec += `Est. Price   : $${calculatePrice().toFixed(2)}\n\n`;
+      spec += isFr
+        ? `Prix estimé     : ${calculatePrice().toFixed(2)} $\n\n`
+        : `Est. Price   : $${calculatePrice().toFixed(2)}\n\n`;
     }
 
     if (activeTab === 'ammo') {
-      const getPetgName = (hex) => BAMBU_PETG_COLORS.find((c) => c.hex === hex)?.name || hex;
-      const magCount = Math.max(ammoShellX, ammoShellY) >= 150 ? 12 : 8; // <-- ADD THIS LINE
+      const magCount = Math.max(ammoShellX, ammoShellY) >= 150 ? 12 : 8;
 
-      spec += `[ 1. PRINT & SHIP SPECIFICATIONS — BALLISTIC VAULT ]\n`;
-      spec += `- Caliber           : ${currentCalSpec.name} (${currentCalSpec.short})\n`;
-      spec += `- Capacity          : ${ammoTotalRounds} Rounds (${clampedAmmoCols} Cols x ${clampedAmmoRows} Rows)\n`;
-      spec += `- Exterior Shell    : ${ammoShellX} x ${ammoShellY} x ${ammoShellZ} mm\n`;
-      spec += `- Standing Tray     : ${ammoTrayX} x ${ammoTrayY} x ${ammoTrayZ} mm\n`;
-      spec += `- Bore & Pitch      : Ø${currentCalSpec.holeDia} mm Hole / ${currentCalSpec.pitch} mm Pitch\n`;
-      spec += `- Hardware BOM      : 4x M3x20mm SHCS, 4x M3 Hex Nuts, ${magCount}x (${activeMagnetDia}x2mm) Magnets\n`;
-      spec += `- Base / Lid Color  : ${activeAmmoBaseColor.name} (${activeAmmoBaseColor.hex}) / ${activeAmmoLidColor.name} (${activeAmmoLidColor.hex})\n`;
-      spec += `- Tray / Accent     : ${activeAmmoTrayColor.name} (${activeAmmoTrayColor.hex}) / ${activeAmmoLatchColor.name} (${activeAmmoLatchColor.hex})\n`;
-      spec += `- Lid Inlay Text    : "${ammoLidTitle}"${showAmmoRoundCount ? ` / "${ammoTotalRounds} RDS"` : ' (Round Count Off)'}\n`;
+      if (isFr) {
+        spec += `[ 1. SPÉCIFICATIONS — AMMO MATRIX ]\n`;
+        spec += `- Calibre             : ${currentCalSpec.name} (${currentCalSpec.short})\n`;
+        spec += `- Capacité            : ${ammoTotalRounds} munitions (${clampedAmmoCols} col. x ${clampedAmmoRows} rang.)\n`;
+        spec += `- Boîtier extérieur   : ${ammoShellX} x ${ammoShellY} x ${ammoShellZ} mm\n`;
+        spec += `- Plateau amovible    : ${ammoTrayX} x ${ammoTrayY} x ${ammoTrayZ} mm\n`;
+        spec += `- Alésage / Pas       : Ø${currentCalSpec.holeDia} mm / pas ${currentCalSpec.pitch} mm\n`;
+        spec += `- Quincaillerie       : 4x vis M3x20mm, 4x écrous M3, ${magCount}x aimants (${activeMagnetDia}x2mm)\n`;
+        spec += `- Base / Couvercle    : ${cName(activeAmmoBaseColor)} (${activeAmmoBaseColor.hex}) / ${cName(activeAmmoLidColor)} (${activeAmmoLidColor.hex})\n`;
+        spec += `- Plateau / Accents   : ${cName(activeAmmoTrayColor)} (${activeAmmoTrayColor.hex}) / ${cName(activeAmmoLatchColor)} (${activeAmmoLatchColor.hex})\n`;
+        spec += `- Texte couvercle     : "${ammoLidTitle}"${showAmmoRoundCount ? ` / "${ammoTotalRounds} RDS"` : ' (Compteur masqué)'}\n`;
+      } else {
+        spec += `[ 1. PRINT & SHIP SPECIFICATIONS — BALLISTIC VAULT ]\n`;
+        spec += `- Caliber           : ${currentCalSpec.name} (${currentCalSpec.short})\n`;
+        spec += `- Capacity          : ${ammoTotalRounds} Rounds (${clampedAmmoCols} Cols x ${clampedAmmoRows} Rows)\n`;
+        spec += `- Exterior Shell    : ${ammoShellX} x ${ammoShellY} x ${ammoShellZ} mm\n`;
+        spec += `- Standing Tray     : ${ammoTrayX} x ${ammoTrayY} x ${ammoTrayZ} mm\n`;
+        spec += `- Bore & Pitch      : Ø${currentCalSpec.holeDia} mm Hole / ${currentCalSpec.pitch} mm Pitch\n`;
+        spec += `- Hardware BOM      : 4x M3x20mm SHCS, 4x M3 Hex Nuts, ${magCount}x (${activeMagnetDia}x2mm) Magnets\n`;
+        spec += `- Base / Lid Color  : ${activeAmmoBaseColor.name} (${activeAmmoBaseColor.hex}) / ${activeAmmoLidColor.name} (${activeAmmoLidColor.hex})\n`;
+        spec += `- Tray / Accent     : ${activeAmmoTrayColor.name} (${activeAmmoTrayColor.hex}) / ${activeAmmoLatchColor.name} (${activeAmmoLatchColor.hex})\n`;
+        spec += `- Lid Inlay Text    : "${ammoLidTitle}"${showAmmoRoundCount ? ` / "${ammoTotalRounds} RDS"` : ' (Round Count Off)'}\n`;
+      }
     } else if (activeTab === 'bench') {
-      const lidNames = {
-        0: '0. None (Expansion Add-On Tiers Only)',
-        1: '1. Stackable Worktop (18mm)',
-        2: '2. 4-Bin Organizer Tray (18mm)',
-        3: '3. Tactical Carry Handle (18mm)'
-      };
+      const lidNames = isFr
+        ? {
+          0: '0. Aucun (Étages d\'extension seulement)',
+          1: '1. Plan de travail empilable (18 mm)',
+          2: '2. Plateau organiseur 4 bacs (18 mm)',
+          3: '3. Poignée de transport tactique (18 mm)'
+        }
+        : {
+          0: '0. None (Expansion Add-On Tiers Only)',
+          1: '1. Stackable Worktop (18mm)',
+          2: '2. 4-Bin Organizer Tray (18mm)',
+          3: '3. Tactical Carry Handle (18mm)'
+        };
       const totalLatches = (tiers + (benchLidStyle === 0 ? 0 : 1)) * 2;
       const totalM3Bolts = totalLatches + (benchLidStyle === 3 ? 2 : 0);
 
-      spec += `[ 1. BENCH MATRIX V2 GEOMETRY & ARCHITECTURE ]\n`;
-      spec += `- Preset Tier        : ${sizePreset}\n`;
-      spec += `- Top Lid Style      : ${lidNames[benchLidStyle] || 'Style ' + benchLidStyle} (18mm Height)\n`;
-      spec += `- Stacked Shells     : ${tiers} Tiers x ${height}mm (${totalStackedHeightMm}mm Total Stack Height)\n`;
-      spec += `- Bays per Tier      : ${drawersPerTier} Columns (${tiers * drawersPerTier} Total V-Rail Drawers)\n`;
-      spec += `- Footprint          : ${width}mm (W) x ${depth}mm (D)\n`;
-      spec += `- Hardware BOM       : ${totalM3Bolts}x M3x30mm Self-Tapping Screws (${totalLatches} Cam-Latches${benchLidStyle === 3 ? ' + 2 Handle Pivots' : ''})\n\n`;
+      if (isFr) {
+        spec += `[ 1. ARCHITECTURE & DIMENSIONS BENCH MATRIX V2 ]\n`;
+        spec += `- Format prédéfini    : ${sizePreset}\n`;
+        spec += `- Style de couvercle  : ${lidNames[benchLidStyle] || 'Style ' + benchLidStyle}\n`;
+        spec += `- Étages empilés      : ${tiers} ${tiers === 1 ? 'étage' : 'étages'} x ${height} mm (Hauteur totale : ${totalStackedHeightMm} mm)\n`;
+        spec += `- Tiroirs par étage   : ${drawersPerTier} colonnes (${tiers * drawersPerTier} tiroirs au total)\n`;
+        spec += `- Empreinte au sol    : ${width} mm (L) x ${depth} mm (P)\n`;
+        spec += `- Quincaillerie       : ${totalM3Bolts}x vis M3x30mm (${totalLatches} loquets à came${benchLidStyle === 3 ? ' + 2 pivots de poignée' : ''})\n\n`;
 
-      spec += `[ 2. COLORS (BAMBU LAB PETG SWATCHES) ]\n`;
-      spec += `- Shells & Top Lid   : ${activeCasingColor.name} (${activeCasingColor.hex})\n`;
-      spec += `- V-Rail Drawers     : ${activeDrawerColor.name} (${activeDrawerColor.hex})\n`;
-      spec += `- Latches & Accents  : ${activeBenchLatchColor.name} (${activeBenchLatchColor.hex})\n\n`;
+        spec += `[ 2. COULEURS (BAMBU LAB PETG) ]\n`;
+        spec += `- Boîtiers & Couvercle: ${cName(activeCasingColor)} (${activeCasingColor.hex})\n`;
+        spec += `- Tiroirs             : ${cName(activeDrawerColor)} (${activeDrawerColor.hex})\n`;
+        spec += `- Loquets & Accents   : ${cName(activeBenchLatchColor)} (${activeBenchLatchColor.hex})\n\n`;
 
-      spec += `[ 3. PER-DRAWER FUSED GRIDS (ROWS x COLS) & U-TRACK LABELS ]\n`;
-      for (let t = tiers - 1; t >= 0; t--) {
-        spec += `--- Tier ${t + 1} ---\n`;
-        for (let b = 0; b < drawersPerTier; b++) {
-          const lbl = (labels[`tier_${t}_box_${b}`] || '').trim() || '(No Label)';
-          const div = getDividerForDrawer(t, b);
-          spec += `  Bay ${b + 1}: Grid [${div.h} Rows x ${div.v} Cols] | Label: "${lbl}"\n`;
+        spec += `[ 3. GRILLES INTERNES (RANG. x COL.) & ÉTIQUETTES ]\n`;
+        for (let tierIdx = tiers - 1; tierIdx >= 0; tierIdx--) {
+          spec += `--- Étage ${tierIdx + 1} ---\n`;
+          for (let b = 0; b < drawersPerTier; b++) {
+            const lbl = (labels[`tier_${tierIdx}_box_${b}`] || '').trim() || '(Sans étiquette)';
+            const div = getDividerForDrawer(tierIdx, b);
+            spec += `  Tiroir ${b + 1} : Grille [${div.h} rang. x ${div.v} col.] | Étiquette : "${lbl}"\n`;
+          }
+        }
+      } else {
+        spec += `[ 1. BENCH MATRIX V2 GEOMETRY & ARCHITECTURE ]\n`;
+        spec += `- Preset Tier        : ${sizePreset}\n`;
+        spec += `- Top Lid Style      : ${lidNames[benchLidStyle] || 'Style ' + benchLidStyle} (18mm Height)\n`;
+        spec += `- Stacked Shells     : ${tiers} Tiers x ${height}mm (${totalStackedHeightMm}mm Total Stack Height)\n`;
+        spec += `- Bays per Tier      : ${drawersPerTier} Columns (${tiers * drawersPerTier} Total V-Rail Drawers)\n`;
+        spec += `- Footprint          : ${width}mm (W) x ${depth}mm (D)\n`;
+        spec += `- Hardware BOM       : ${totalM3Bolts}x M3x30mm Self-Tapping Screws (${totalLatches} Cam-Latches${benchLidStyle === 3 ? ' + 2 Handle Pivots' : ''})\n\n`;
+
+        spec += `[ 2. COLORS (BAMBU LAB PETG SWATCHES) ]\n`;
+        spec += `- Shells & Top Lid   : ${activeCasingColor.name} (${activeCasingColor.hex})\n`;
+        spec += `- V-Rail Drawers     : ${activeDrawerColor.name} (${activeDrawerColor.hex})\n`;
+        spec += `- Latches & Accents  : ${activeBenchLatchColor.name} (${activeBenchLatchColor.hex})\n\n`;
+
+        spec += `[ 3. PER-DRAWER FUSED GRIDS (ROWS x COLS) & U-TRACK LABELS ]\n`;
+        for (let tierIdx = tiers - 1; tierIdx >= 0; tierIdx--) {
+          spec += `--- Tier ${tierIdx + 1} ---\n`;
+          for (let b = 0; b < drawersPerTier; b++) {
+            const lbl = (labels[`tier_${tierIdx}_box_${b}`] || '').trim() || '(No Label)';
+            const div = getDividerForDrawer(tierIdx, b);
+            spec += `  Bay ${b + 1}: Grid [${div.h} Rows x ${div.v} Cols] | Label: "${lbl}"\n`;
+          }
         }
       }
 
     } else if (activeTab === 'orbital') {
-      const divLabel = orbitalDividers >= 2 ? 'Split (2-Bin)' : 'Open (1-Bin)';
-      spec += `[ 1. ORBITAL MATRIX V2.2 SPECIFICATIONS ]\n`;
-      spec += `- Size Tier         : ${orbitalTierName} (${orbitalSize}x${orbitalSize}mm | ${orbitalDepth}mm Bin Depth)\n`;
-      spec += `- Assembled Size    : ${orbitalSize} x ${orbitalSize} x ${orbitalTotalHeightMm} mm\n`;
-      spec += `- Usable Bin Depth  : ${orbitalDepth} mm per tray (4 swing-out trays)\n`;
-      spec += `- Internal Dividers : ${divLabel}\n`;
-      spec += `- Silicone Pads     : 4x 10x3mm Pads (10.4x1.0mm dimples)\n\n`;
-      spec += `[ 2. COLORS (BAMBU LAB PETG) & LID INLAY ]\n`;
-      spec += `- Top & Base Plates : ${activeOrbitalPlateColor.name} (${activeOrbitalPlateColor.hex})\n`;
-      spec += `- Swing-Out Trays   : ${activeOrbitalTrayColor.name} (${activeOrbitalTrayColor.hex})\n`;
-      spec += `- Knurled Knob/Clip : ${activeOrbitalAccentColor.name} (${activeOrbitalAccentColor.hex})\n`;
-      spec += `- Custom Lid Text   : "${orbitalLidText.trim() || '(None)'}" (${orbitalLidFont})\n`;
+      if (isFr) {
+        const divLabel = orbitalDividers >= 2 ? 'Divisé (2 bacs)' : 'Ouvert (1 bac)';
+        spec += `[ 1. SPÉCIFICATIONS ORBITAL MATRIX V2.2 ]\n`;
+        spec += `- Format              : ${orbitalTierName} (${orbitalSize}x${orbitalSize} mm | Bac ${orbitalDepth} mm)\n`;
+        spec += `- Dimensions totales  : ${orbitalSize} x ${orbitalSize} x ${orbitalTotalHeightMm} mm\n`;
+        spec += `- Profondeur utile    : ${orbitalDepth} mm par plateau (4 plateaux pivotants)\n`;
+        spec += `- Séparateurs internes: ${divLabel}\n`;
+        spec += `- Patins en silicone  : 4x patins 10x3 mm\n\n`;
+        spec += `[ 2. COULEURS (BAMBU LAB PETG) & TEXTE ]\n`;
+        spec += `- Plaques haut & bas  : ${cName(activeOrbitalPlateColor)} (${activeOrbitalPlateColor.hex})\n`;
+        spec += `- 4 Plateaux pivotants: ${cName(activeOrbitalTrayColor)} (${activeOrbitalTrayColor.hex})\n`;
+        spec += `- Bouton & Inlay      : ${cName(activeOrbitalAccentColor)} (${activeOrbitalAccentColor.hex})\n`;
+        spec += `- Texte couvercle     : "${orbitalLidText.trim() || '(Aucun)'}" (${orbitalLidFont})\n`;
+      } else {
+        const divLabel = orbitalDividers >= 2 ? 'Split (2-Bin)' : 'Open (1-Bin)';
+        spec += `[ 1. ORBITAL MATRIX V2.2 SPECIFICATIONS ]\n`;
+        spec += `- Size Tier         : ${orbitalTierName} (${orbitalSize}x${orbitalSize}mm | ${orbitalDepth}mm Bin Depth)\n`;
+        spec += `- Assembled Size    : ${orbitalSize} x ${orbitalSize} x ${orbitalTotalHeightMm} mm\n`;
+        spec += `- Usable Bin Depth  : ${orbitalDepth} mm per tray (4 swing-out trays)\n`;
+        spec += `- Internal Dividers : ${divLabel}\n`;
+        spec += `- Silicone Pads     : 4x 10x3mm Pads (10.4x1.0mm dimples)\n\n`;
+        spec += `[ 2. COLORS (BAMBU LAB PETG) & LID INLAY ]\n`;
+        spec += `- Top & Base Plates : ${activeOrbitalPlateColor.name} (${activeOrbitalPlateColor.hex})\n`;
+        spec += `- Swing-Out Trays   : ${activeOrbitalTrayColor.name} (${activeOrbitalTrayColor.hex})\n`;
+        spec += `- Knurled Knob/Clip : ${activeOrbitalAccentColor.name} (${activeOrbitalAccentColor.hex})\n`;
+        spec += `- Custom Lid Text   : "${orbitalLidText.trim() || '(None)'}" (${orbitalLidFont})\n`;
+      }
 
     } else {
-      spec += `[ 1. CARGO MATRIX DIMENSIONS & GRID ]\n`;
-      spec += `- Preset Size        : ${cargoPreset}\n`;
-      spec += `- Box Width (X)      : ${cargoWidth} mm\n`;
-      spec += `- Box Length (Y)     : ${cargoLength} mm\n`;
-      spec += `- Half Height (Z)    : ${cargoHeight} mm (${cargoHeight * 2} mm Closed Total)\n`;
-      spec += `- Compartment Grid   : ${cargoCompX} Columns (X) x ${cargoCompY} Rows (Y) (${cargoCompX * cargoCompY} Compartments)\n\n`;
+      if (isFr) {
+        spec += `[ 1. DIMENSIONS & GRILLE CARGO MATRIX ]\n`;
+        spec += `- Format prédéfini    : ${cargoPreset}\n`;
+        spec += `- Largeur (X)         : ${cargoWidth} mm\n`;
+        spec += `- Profondeur (Y)      : ${cargoLength} mm\n`;
+        spec += `- Hauteur totale (Z)  : ${cargoHeight * 2} mm (Couvercle 12 mm, Base ${cargoHeight * 2 - 12} mm)\n`;
+        spec += `- Compartiments       : ${cargoCompX} colonnes (X) x ${cargoCompY} rangées (Y) (${cargoCompX * cargoCompY} compartiments)\n\n`;
 
-      spec += `[ 2. FILAMENT COLORS & LID INLAY ]\n`;
-      spec += `- Box Body & Hinges  : ${activeCargoBoxColor.name} (${activeCargoBoxColor.hex})\n`;
-      spec += `- Lid Text & Border  : ${activeCargoTextColor.name} (${activeCargoTextColor.hex})\n`;
-      spec += `- Cam Latches        : ${activeCargoLatchColor.name} (${activeCargoLatchColor.hex})\n`;
-      spec += `- Custom Lid Text    : "${cargoText.trim() || '(None)'}"\n`;
-      spec += `- Lid Font Style     : ${cargoFont}\n`;
-      spec += `- Lid Border Inlay   : ${cargoBorder ? 'YES (Flush Inlay Frame)' : 'NO'}\n`;
+        spec += `[ 2. COULEURS (BAMBU LAB PETG) & TEXTE ]\n`;
+        spec += `- Boîtier & Charnières: ${cName(activeCargoBoxColor)} (${activeCargoBoxColor.hex})\n`;
+        spec += `- Texte & Cadre       : ${cName(activeCargoTextColor)} (${activeCargoTextColor.hex})\n`;
+        spec += `- Loquets à came      : ${cName(activeCargoLatchColor)} (${activeCargoLatchColor.hex})\n`;
+        spec += `- Texte couvercle     : "${cargoText.trim() || '(Aucun)'}"\n`;
+        spec += `- Police              : ${cargoFont}\n`;
+        spec += `- Cadre incrusté      : ${cargoBorder ? 'OUI (Cadre affleurant)' : 'NON'}\n`;
+      } else {
+        spec += `[ 1. CARGO MATRIX DIMENSIONS & GRID ]\n`;
+        spec += `- Preset Size        : ${cargoPreset}\n`;
+        spec += `- Box Width (X)      : ${cargoWidth} mm\n`;
+        spec += `- Box Length (Y)     : ${cargoLength} mm\n`;
+        spec += `- Half Height (Z)    : ${cargoHeight} mm (${cargoHeight * 2} mm Closed Total)\n`;
+        spec += `- Compartment Grid   : ${cargoCompX} Columns (X) x ${cargoCompY} Rows (Y) (${cargoCompX * cargoCompY} Compartments)\n\n`;
+
+        spec += `[ 2. FILAMENT COLORS & LID INLAY ]\n`;
+        spec += `- Box Body & Hinges  : ${activeCargoBoxColor.name} (${activeCargoBoxColor.hex})\n`;
+        spec += `- Lid Text & Border  : ${activeCargoTextColor.name} (${activeCargoTextColor.hex})\n`;
+        spec += `- Cam Latches        : ${activeCargoLatchColor.name} (${activeCargoLatchColor.hex})\n`;
+        spec += `- Custom Lid Text    : "${cargoText.trim() || '(None)'}"\n`;
+        spec += `- Lid Font Style     : ${cargoFont}\n`;
+        spec += `- Lid Border Inlay   : ${cargoBorder ? 'YES (Flush Inlay Frame)' : 'NO'}\n`;
+      }
     }
     return spec;
   };
@@ -5097,7 +5188,7 @@ Date: ${new Date().toISOString()}
                     className={`pb-2 px-3 text-xs font-bold border-b-2 transition-colors ${modalTab === 'spec' ? 'border-[#38bdf8] text-[#38bdf8]' : 'border-transparent text-[#94a3b8]'
                       }`}
                   >
-                    Customer Spec Summary
+                    {lang === 'fr' ? 'Résumé de configuration' : 'Customer Spec Summary'}
                   </button>
                   <button
                     onClick={() => setModalTab('scad')}
