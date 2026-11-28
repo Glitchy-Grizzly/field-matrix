@@ -473,39 +473,54 @@ module bench_lid() {
 }
 
 module carry_handle() {
+    // 11.6mm thick (+/-5.8mm around screw axis at Z = lid_h/2 + 6.0) so handle lays dead-flat at +/-90 deg on either side!
+    // Pillar cutout clears R = 10.3mm pillar corner with >1.2mm margin across full -90..+90 deg swing; M3 outer cheeks countersunk.
+    h_thick = 11.6;
     difference() {
         union() {
             hull() {
                 for (side = [-1, 1]) {
-                    translate([side * 52, 26, 0])
-                        cylinder(h = 14, r = 8, center=true, $fn=64);
+                    translate([side * 52, 30, 0])
+                        cylinder(h = h_thick, r = 8, center=true, $fn=64);
                     translate([side * 52, 0, 0])
-                        cylinder(h = 14, r = 8, center=true, $fn=64);
+                        cylinder(h = h_thick, r = 7, center=true, $fn=64);
                 }
             }
         }
         
+        // Center Finger Opening (30mm tall x 71mm wide clear of lid pillars)
         hull() {
             for (side = [-1, 1]) {
-                translate([side * 38.5, 14, 0])
-                    cylinder(h = 20, r = 4, center=true, $fn=32);
-                translate([side * 38.5, -10, 0])
-                    cylinder(h = 20, r = 4, center=true, $fn=32);
+                translate([side * 34.5, 19, 0])
+                    cylinder(h = h_thick + 6, r = 4, center=true, $fn=32);
+                translate([side * 34.5, -10, 0])
+                    cylinder(h = h_thick + 6, r = 4, center=true, $fn=32);
             }
         }
         
         for (side = [-1, 1]) {
-            translate([side * 44, -2, 0])
-                cube([17, 22, 20], center=true);
+            // Deepened Pillar Swing Cutout (X = +/-35.5..+/-52.5, clears sloped pillar base up to Y=+15.0mm for zero-collision +/-90 deg fold)
+            translate([side * 44, 0.5, 0])
+                cube([17.0, 29.0, h_thick + 6], center=true);
                 
-            translate([side * 50, 0, 0])
+            // M3 Pivot Clearance Bore (3.3mm dia through outer cheek)
+            translate([side * 55, 0, 0])
                 rotate([0, 90, 0])
-                cylinder(h = 30, r = 1.65, center=true, $fn=32);
+                cylinder(h = 16, r = 1.65, center=true, $fn=32);
+
+            // Countersunk / Counterbored M3 Screw Head Pocket (6.4mm dia x 3.4mm deep from outer face at X = +/-59..60mm)
+            translate([side * 58.5, 0, 0])
+                rotate([0, 90, 0])
+                cylinder(h = 4.6, r = 3.2, center=true, $fn=32);
+            translate([side * 55.7, 0, 0])
+                rotate([0, side * 90, 0])
+                cylinder(h = 1.6, r1 = 1.65, r2 = 3.2, center=true, $fn=32);
         }
         
+        // Ergonomic Finger Grooves along underside of grip bar
         for (fg = [-27, -9, 9, 27]) {
-            translate([fg, 10.5, 0])
-                cylinder(h = 20, r = 9.5, center=true, $fn=64);
+            translate([fg, 15.5, 0])
+                cylinder(h = h_thick + 6, r = 9.0, center=true, $fn=64);
         }
     }
 }
@@ -514,7 +529,7 @@ rotate([-90, 0, 0])
     bench_lid();
 
 if (lid_style == 3 && show_handle) {
-    translate([0, -65, 7])
+    translate([0, -65, 5.8])
         carry_handle();
 }
 `;
@@ -555,20 +570,20 @@ module bench_latch() {
                         translate([3.4, -6.0]) circle(r = 2.4);
                         translate([3.6, -pivot_to_hook - 1.2]) circle(r = 2.2);
                     }
-                    // Mated upward-pointing locking tooth (0.65mm positive vertical lock + gentler release bevel for smooth one-thumb unlatching)
+                    // Mated upward-pointing locking tooth (0.65mm positive vertical lock + gentler release bevel)
                     polygon(points = [
                         [2.0, -13.4],
                         [0.1, -13.4],
                         [-0.6, -12.55],
                         [-2.5, -12.55],
                         [-2.5, -14.2],
-                        [1.8, -16.2],
+                        [1.8, -16.0],
                         [4.8, -14.4]
                     ]);
-                    // Extended ergonomic lower thumb-pull lever (+25% release leverage between stacked tiers)
+                    // Compact outward-flared thumb-pull tab (total vertical reach 16.6mm -> clears 35mm Trace stowed/closed latches & never wedges behind catch)
                     hull() {
-                        translate([3.6, -pivot_to_hook - 1.2]) circle(r = 2.2);
-                        translate([7.2, -pivot_to_hook - 6.0]) circle(r = 1.9);
+                        translate([3.6, -pivot_to_hook - 1.0]) circle(r = 2.0);
+                        translate([8.2, -pivot_to_hook - 1.2]) circle(r = 1.8);
                     }
                 }
             }
@@ -585,7 +600,7 @@ module bench_latch() {
             cube([2.3, 4.0, latch_w + 2], center = true);
 
         // Tactile finger grip grooves along outer spine
-        for (gy = [-6.0, -9.2, -12.4, -15.6]) {
+        for (gy = [-6.0, -9.0, -12.0]) {
             translate([6.1, gy, 0])
                 cylinder(h = latch_w + 2, r = 0.8, center = true);
         }
@@ -1059,25 +1074,28 @@ module bench_lid() {
 }
 
 module carry_handle() {
+    h_thick = 11.6;
     difference() {
         hull() {
             for (side = [-1, 1]) {
-                translate([side * 52, 26, 0]) cylinder(h = 14, r = 8, center=true);
-                translate([side * 52, 0, 0]) cylinder(h = 14, r = 8, center=true);
+                translate([side * 52, 30, 0]) cylinder(h = h_thick, r = 8, center=true);
+                translate([side * 52, 0, 0]) cylinder(h = h_thick, r = 7, center=true);
             }
         }
         hull() {
             for (side = [-1, 1]) {
-                translate([side * 38.5, 14, 0]) cylinder(h = 20, r = 4, center=true);
-                translate([side * 38.5, -10, 0]) cylinder(h = 20, r = 4, center=true);
+                translate([side * 34.5, 19, 0]) cylinder(h = h_thick + 6, r = 4, center=true);
+                translate([side * 34.5, -10, 0]) cylinder(h = h_thick + 6, r = 4, center=true);
             }
         }
         for (side = [-1, 1]) {
-            translate([side * 44, -2, 0]) cube([17, 22, 20], center=true);
-            translate([side * 50, 0, 0]) rotate([0, 90, 0]) cylinder(h = 30, r = 1.65, center=true);
+            translate([side * 44, 0.5, 0]) cube([17.0, 29.0, h_thick + 6], center=true);
+            translate([side * 55, 0, 0]) rotate([0, 90, 0]) cylinder(h = 16, r = 1.65, center=true);
+            translate([side * 58.5, 0, 0]) rotate([0, 90, 0]) cylinder(h = 4.6, r = 3.2, center=true);
+            translate([side * 55.7, 0, 0]) rotate([0, side * 90, 0]) cylinder(h = 1.6, r1 = 1.65, r2 = 3.2, center=true);
         }
         for (fg = [-27, -9, 9, 27]) {
-            translate([fg, 10.5, 0]) cylinder(h = 20, r = 9.5, center=true);
+            translate([fg, 15.5, 0]) cylinder(h = h_thick + 6, r = 9.0, center=true);
         }
     }
 }
@@ -1092,13 +1110,13 @@ module bench_latch(lw = 17.2, p2h = 13.6) {
                     hull() { circle(r = 3.4); translate([3.4, -6.0]) circle(r = 2.4); }
                     // Rigid outer spine (inner face at X = +2.0mm clears +1.7mm catch hook tip by 0.3mm)
                     hull() { translate([3.4, -6.0]) circle(r = 2.4); translate([3.6, -p2h - 1.2]) circle(r = 2.2); }
-                    // Mated upward-pointing locking tooth (0.65mm positive vertical lock + gentler release bevel for smooth one-thumb unlatching)
+                    // Mated upward-pointing locking tooth (0.65mm positive vertical lock + gentler release bevel)
                     polygon(points = [
                         [2.0, -13.4], [0.1, -13.4], [-0.6, -12.55],
-                        [-2.5, -12.55], [-2.5, -14.2], [1.8, -16.2], [4.8, -14.4]
+                        [-2.5, -12.55], [-2.5, -14.2], [1.8, -16.0], [4.8, -14.4]
                     ]);
-                    // Extended ergonomic lower thumb-pull lever (+25% release leverage between stacked tiers)
-                    hull() { translate([3.6, -p2h - 1.2]) circle(r = 2.2); translate([7.2, -p2h - 6.0]) circle(r = 1.9); }
+                    // Compact outward-flared thumb-pull tab (16.6mm vertical reach -> clears 35mm Trace stowed/closed latches)
+                    hull() { translate([3.6, -p2h - 1.0]) circle(r = 2.0); translate([8.2, -p2h - 1.2]) circle(r = 1.8); }
                 }
             }
             // Tapered collar that tucks into the 45-deg ear to hide the screw
@@ -1107,7 +1125,7 @@ module bench_latch(lw = 17.2, p2h = 13.6) {
         }
         cylinder(h = lw + 8, r = 1.8, center = true);
         translate([0.85, -11.4, 0]) cube([2.3, 4.0, lw + 2], center = true);
-        for (gy = [-6.0, -9.2, -12.4, -15.6]) {
+        for (gy = [-6.0, -9.0, -12.0]) {
             translate([6.1, gy, 0]) cylinder(h = lw + 2, r = 0.8, center = true);
         }
         // Parking detent V-notch
@@ -1146,7 +1164,7 @@ if (layout_mode == "print_plate") {
             color(shell_color) bench_lid();
 
         if (lid_style == 3) {
-            translate([0, -height - 95, 7])
+            translate([0, -height - 95, 5.8])
                 color(latch_color) carry_handle();
         }
     }
