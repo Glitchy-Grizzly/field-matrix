@@ -42,6 +42,7 @@ import {
 } from './benchV2Generator';
 
 import { generateOrbitalSCAD } from './orbitalGenerator';
+import { TRANSLATIONS } from './i18n';
 
 // ==========================================
 // 1. FIREBASE, APP CHECK & CHECKOUT CONFIGURATION
@@ -595,6 +596,32 @@ function createDrawerContourPoints(hw, hd, cornerR, notchR, openSide, handlePos,
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('bench');
+  const [lang, setLang] = useState(() => {
+    if (typeof window === 'undefined') return 'en';
+    const params = new URLSearchParams(window.location.search);
+    const qLang = (params.get('lang') || '').toLowerCase();
+    if (qLang === 'fr' || qLang === 'en') return qLang;
+    try {
+      const saved = localStorage.getItem('fm_lang');
+      if (saved === 'fr' || saved === 'en') return saved;
+    } catch (e) {}
+    return navigator.language?.toLowerCase().startsWith('fr') ? 'fr' : 'en';
+  });
+  const toggleLang = useCallback((nextLang) => {
+    setLang(nextLang);
+    try { localStorage.setItem('fm_lang', nextLang); } catch (e) {}
+  }, []);
+  useEffect(() => {
+    if (typeof document !== 'undefined') document.documentElement.lang = lang;
+  }, [lang]);
+  const t = useCallback(
+    (key) => TRANSLATIONS[lang]?.[key] ?? TRANSLATIONS.en[key] ?? key,
+    [lang]
+  );
+  const colorName = useCallback(
+    (col) => (col ? (TRANSLATIONS[lang]?.[`color_${col.id}`] ?? col.name) : ''),
+    [lang]
+  );
   const [lockedProductSlug, setLockedProductSlug] = useState(null); // 'bench' | 'cargo' | 'ammo' | 'orbital' | null
   const [lockedAmmoCategory, setLockedAmmoCategory] = useState(null); // 'Rimfire' | 'Pistol' | 'Rifle' | 'Shotgun' | null
   const [isSuccessPage, setIsSuccessPage] = useState(false);
@@ -3656,10 +3683,10 @@ Date: ${new Date().toISOString()}
       }
 
       if (showDimensions) {
-        const wSprite = createDimensionSprite(`${width} mm W`);
+        const wSprite = createDimensionSprite(`${width} mm ${t('dimW')}`);
         wSprite.position.set(0, 6, depth / 2 + 28);
         group.add(wSprite);
-        const hSprite = createDimensionSprite(`${totalStackedHeightMm} mm Stack`);
+        const hSprite = createDimensionSprite(`${totalStackedHeightMm} mm ${t('dimStack')}`);
         hSprite.position.set(width / 2 + 42, totalStackedHeightMm / 2, depth / 2);
         group.add(hSprite);
       }
@@ -4221,10 +4248,10 @@ Date: ${new Date().toISOString()}
 
 
       if (showDimensions) {
-        const wSprite = createDimensionSprite(`${ammoShellX} mm W`);
+        const wSprite = createDimensionSprite(`${ammoShellX} mm ${t('dimW')}`);
         wSprite.position.set(0, 10, ammoShellY / 2 + 20);
         group.add(wSprite);
-        const lSprite = createDimensionSprite(`${ammoShellY} mm L`);
+        const lSprite = createDimensionSprite(`${ammoShellY} mm ${t('dimL')}`);
         lSprite.position.set(ammoShellX / 2 + 20, 10, 0);
         group.add(lSprite);
       }
@@ -4470,15 +4497,15 @@ Date: ${new Date().toISOString()}
       group.add(cargoGroup);
 
       if (showDimensions) {
-        const wSprite = createDimensionSprite(`${cargoWidth} mm W`);
+        const wSprite = createDimensionSprite(`${cargoWidth} mm ${t('dimW')}`);
         wSprite.position.set(0, 8, cargoLength / 2 + 20);
         group.add(wSprite);
 
-        const lSprite = createDimensionSprite(`${cargoLength} mm L`);
+        const lSprite = createDimensionSprite(`${cargoLength} mm ${t('dimL')}`);
         lSprite.position.set(cargoWidth / 2 + 36, 8, 0);
         group.add(lSprite);
 
-        const hSprite = createDimensionSprite(`${totalZ} mm H`);
+        const hSprite = createDimensionSprite(`${totalZ} mm ${t('dimH')}`);
         hSprite.position.set(-cargoWidth / 2 - 36, totalZ / 2, 0);
         group.add(hSprite);
       }
@@ -4689,7 +4716,7 @@ Date: ${new Date().toISOString()}
         const wSprite = createDimensionSprite(`${size} × ${size} mm`);
         wSprite.position.set(0, 8, half + 24);
         group.add(wSprite);
-        const hSprite = createDimensionSprite(`${orbitalTotalHeightMm} mm H`);
+        const hSprite = createDimensionSprite(`${orbitalTotalHeightMm} mm ${t('dimH')}`);
         hSprite.position.set(half + 32, orbitalTotalHeightMm / 2, 0);
         group.add(hSprite);
       }
@@ -4764,7 +4791,8 @@ Date: ${new Date().toISOString()}
     activeOrbitalTrayColor,
     activeOrbitalAccentColor,
     orbitalOpenAngle,
-    orbitalTotalHeightMm
+    orbitalTotalHeightMm,
+    t
   ]);
 
   useEffect(() => {
@@ -4783,15 +4811,15 @@ Date: ${new Date().toISOString()}
           <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
             ✓
           </div>
-          <h1 className="text-xl font-black text-white uppercase tracking-wider">Payment Successful!</h1>
+          <h1 className="text-xl font-black text-white uppercase tracking-wider">{t('paymentSuccessTitle')}</h1>
           <p className="text-xs text-[#94a3b8] leading-relaxed">
-            Thank you for your custom Field Matrix order. Your payment has been processed successfully through Square, and your build specs have been logged for printing.
+            {t('paymentSuccessBody')}
           </p>
           <a
             href="/"
             className="block w-full py-2.5 rounded-lg bg-[#38bdf8] text-[#0b0f19] font-bold text-xs uppercase tracking-wider hover:bg-[#7dd3fc] transition-all"
           >
-            Create Another Matrix
+            {t('createAnotherMatrix')}
           </a>
         </div>
       </div>
@@ -5045,13 +5073,15 @@ Date: ${new Date().toISOString()}
                 </h3>
                 <p className="text-[11px] text-[#94a3b8]">
                   {isEtsyMode
-                    ? `Select the "${activeTab === 'bench'
+                    ? `${t('modalEtsySubPrefix')} "${activeTab === 'bench'
                       ? sizePreset
                       : activeTab === 'ammo'
-                        ? `${ammoTotalRounds} Rds (${currentCalSpec.short})`
-                        : cargoPreset
-                    }" option on Etsy and paste your Design Code in the personalization box.`
-                    : `Review your custom build below, add more builds to your cart, or proceed to Square Checkout.`}
+                        ? `${ammoTotalRounds} ${t('rdsLabel')} (${currentCalSpec.short})`
+                        : activeTab === 'orbital'
+                          ? orbitalTierName
+                          : cargoPreset
+                    }" ${t('modalEtsySubSuffix')}`
+                    : t('modalDirectSub')}
                 </p>
               </div>
               <button onClick={() => setShowModal(false)} className="text-[#94a3b8] hover:text-white text-sm font-bold px-2">
@@ -5165,36 +5195,36 @@ Date: ${new Date().toISOString()}
                         : { w: cargoWidth, d: cargoLength, h: cargoHeight * 2 };
 
                 const lidStyleNames = {
-                  0: 'None (Add-On Tier)',
-                  1: 'Stackable Worktop',
-                  2: '4-Bin Organizer Tray',
-                  3: 'Tactical Carry Handle',
+                  0: t('lidName0'),
+                  1: t('lidName1'),
+                  2: t('lidName2'),
+                  3: t('lidName3'),
                 };
 
                 const colorChips =
                   activeTab === 'bench'
                     ? [
-                      { label: 'Shells & Lid', color: activeCasingColor },
-                      ...(tiers > 0 ? [{ label: 'Drawers', color: activeDrawerColor }] : []),
-                      { label: 'Accents', color: activeBenchLatchColor },
+                      { label: t('partShellsLid'), color: activeCasingColor },
+                      ...(tiers > 0 ? [{ label: t('partDrawers'), color: activeDrawerColor }] : []),
+                      { label: t('partAccents'), color: activeBenchLatchColor },
                     ]
                     : activeTab === 'ammo'
                       ? [
-                        { label: 'Base Shell', color: activeAmmoBaseColor },
-                        { label: 'Vault Lid', color: activeAmmoLidColor },
-                        { label: 'Ammo Tray', color: activeAmmoTrayColor },
-                        { label: 'Latches & Inlay', color: activeAmmoLatchColor },
+                        { label: t('partBaseShell'), color: activeAmmoBaseColor },
+                        { label: t('partVaultLid'), color: activeAmmoLidColor },
+                        { label: t('partAmmoTray'), color: activeAmmoTrayColor },
+                        { label: t('partLatchesInlay'), color: activeAmmoLatchColor },
                       ]
                       : activeTab === 'orbital'
                         ? [
-                          { label: 'Plates', color: activeOrbitalPlateColor },
-                          { label: '4 Trays', color: activeOrbitalTrayColor },
-                          { label: 'Knob & Inlay', color: activeOrbitalAccentColor },
+                          { label: t('partPlates'), color: activeOrbitalPlateColor },
+                          { label: t('part4Trays'), color: activeOrbitalTrayColor },
+                          { label: t('partKnobInlay'), color: activeOrbitalAccentColor },
                         ]
                         : [
-                          { label: 'Body', color: activeCargoBoxColor },
-                          { label: 'Lid Inlay', color: activeCargoTextColor },
-                          { label: 'Latches', color: activeCargoLatchColor },
+                          { label: t('partBody'), color: activeCargoBoxColor },
+                          { label: t('partLidInlay'), color: activeCargoTextColor },
+                          { label: t('partLatches'), color: activeCargoLatchColor },
                         ];
 
                 return (
@@ -5208,11 +5238,13 @@ Date: ${new Date().toISOString()}
                         <div className="text-[11px] text-[#94a3b8] mt-0.5">
                           {activeTab === 'bench'
                             ? tiers === 0
-                              ? `Standalone Lid • ${lidStyleNames[benchLidStyle]}`
-                              : `${sizePreset} • ${tiers} ${tiers === 1 ? 'Tier' : 'Tiers'} (${tiers * drawersPerTier} Drawers)`
+                              ? `${t('standaloneLid')} • ${lidStyleNames[benchLidStyle]}`
+                              : `${sizePreset} • ${tiers} ${tiers === 1 ? t('tierSingular') : t('tierPlural')} (${tiers * drawersPerTier} ${t('drawersWord')})`
                             : activeTab === 'ammo'
-                              ? `${currentCalSpec.name} • ${ammoTotalRounds} Rounds (${clampedAmmoCols}×${clampedAmmoRows})`
-                              : `${cargoPreset} Case • ${cargoCompX}×${cargoCompY} Grid (${cargoCompX * cargoCompY} Compartments)`}
+                              ? `${currentCalSpec.name} • ${ammoTotalRounds} ${t('roundsWord')} (${clampedAmmoCols}×${clampedAmmoRows})`
+                              : activeTab === 'orbital'
+                                ? `${orbitalTierName} • ${t('trays4')} (${orbitalDepth} mm)`
+                                : `${cargoPreset} ${t('caseWord')} • ${t('gridWord')} ${cargoCompX}×${cargoCompY} (${cargoCompX * cargoCompY} ${t('compartmentsWord')})`}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
@@ -5229,34 +5261,39 @@ Date: ${new Date().toISOString()}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <div className="p-3 rounded-lg bg-[#111827] border border-[#1e293b]">
                         <div className="text-[10px] font-bold uppercase tracking-wider text-[#38bdf8] mb-1">
-                          Assembled Dimensions
+                          {t('assembledDimensions')}
                         </div>
                         <div className="font-mono font-bold text-white">
                           {dims.w} × {dims.d} × {dims.h} mm
                         </div>
                         <div className="text-[11px] text-[#94a3b8] mt-0.5">
-                          {toIn(dims.w)}" W × {toIn(dims.d)}" D × {toIn(dims.h)}" H
+                          {toIn(dims.w)}{t('inchUnit')} {t('dimW')} × {toIn(dims.d)}{t('inchUnit')} {t('dimD')} × {toIn(dims.h)}{t('inchUnit')} {t('dimH')}
                         </div>
                       </div>
 
                       <div className="p-3 rounded-lg bg-[#111827] border border-[#1e293b]">
                         <div className="text-[10px] font-bold uppercase tracking-wider text-[#38bdf8] mb-1">
-                          Build Details
+                          {t('buildDetails')}
                         </div>
                         {activeTab === 'bench' ? (
                           <div className="space-y-0.5 text-[11px] text-[#cbd5e1]">
-                            <div>Top Lid: <span className="text-white font-semibold">{lidStyleNames[benchLidStyle]}</span></div>
-                            <div>Labels: <span className="text-white font-semibold">{enableLabelSlot && tiers > 0 ? 'Slide-In Embossed' : 'None'}</span></div>
+                            <div>{t('topLidLabel')} <span className="text-white font-semibold">{lidStyleNames[benchLidStyle]}</span></div>
+                            <div>{t('labelsColon')} <span className="text-white font-semibold">{enableLabelSlot && tiers > 0 ? t('slideInEmbossed') : t('noneWord')}</span></div>
                           </div>
                         ) : activeTab === 'ammo' ? (
                           <div className="space-y-0.5 text-[11px] text-[#cbd5e1]">
-                            <div>Lid Text: <span className="text-white font-semibold">{ammoLidTitle.trim() || '(None)'}</span></div>
-                            <div>Round Count: <span className="text-white font-semibold">{showAmmoRoundCount ? `${ammoTotalRounds} RDS` : 'Hidden'}</span></div>
+                            <div>{t('lidTextColon')} <span className="text-white font-semibold">{ammoLidTitle.trim() || `(${t('noneWord')})`}</span></div>
+                            <div>{t('roundCountColon')} <span className="text-white font-semibold">{showAmmoRoundCount ? `${ammoTotalRounds} ${t('rdsShort')}` : t('hiddenWord')}</span></div>
+                          </div>
+                        ) : activeTab === 'orbital' ? (
+                          <div className="space-y-0.5 text-[11px] text-[#cbd5e1]">
+                            <div>{t('lidTextColon')} <span className="text-white font-semibold">{orbitalLidText.trim() || `(${t('noneWord')})`}</span></div>
+                            <div>{t('orbitalDividersTitle').replace('2. ', '')}: <span className="text-white font-semibold">{orbitalDividers === 2 ? t('split2Bin') : t('open1Bin')}</span></div>
                           </div>
                         ) : (
                           <div className="space-y-0.5 text-[11px] text-[#cbd5e1]">
-                            <div>Lid Text: <span className="text-white font-semibold">{cargoText.trim() || '(None)'}</span></div>
-                            <div>Border Inlay: <span className="text-white font-semibold">{cargoBorder ? 'Yes' : 'No'}</span></div>
+                            <div>{t('lidTextColon')} <span className="text-white font-semibold">{cargoText.trim() || `(${t('noneWord')})`}</span></div>
+                            <div>{t('borderInlayColon')} <span className="text-white font-semibold">{cargoBorder ? t('yesWord') : t('noWord')}</span></div>
                           </div>
                         )}
                       </div>
@@ -5265,7 +5302,7 @@ Date: ${new Date().toISOString()}
                     {/* PETG Color Palette Summary */}
                     <div className="p-3 rounded-lg bg-[#111827] border border-[#1e293b]">
                       <div className="text-[10px] font-bold uppercase tracking-wider text-[#38bdf8] mb-2">
-                        Selected PETG Colors
+                        {t('selectedPetgColors')}
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {colorChips.map((chip) => (
@@ -5280,7 +5317,7 @@ Date: ${new Date().toISOString()}
                             <div>
                               <div className="text-[9px] text-[#94a3b8] leading-none">{chip.label}</div>
                               <div className="text-[11px] font-semibold text-white leading-tight mt-0.5">
-                                {chip.color?.name}
+                                {colorName(chip.color)}
                               </div>
                             </div>
                           </div>
@@ -5292,14 +5329,14 @@ Date: ${new Date().toISOString()}
                     {activeTab === 'bench' && tiers > 0 && (
                       <div className="p-3 rounded-lg bg-[#111827] border border-[#1e293b]">
                         <div className="text-[10px] font-bold uppercase tracking-wider text-[#38bdf8] mb-2">
-                          Drawer Grids &amp; Labels
+                          {t('drawerGridsLabels')}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                           {Array.from({ length: tiers }).map((_, tRev) => {
-                            const t = tiers - 1 - tRev;
+                            const tierIdx = tiers - 1 - tRev;
                             return Array.from({ length: drawersPerTier }).map((__, b) => {
-                              const key = `tier_${t}_box_${b}`;
-                              const div = getDividerForDrawer(t, b);
+                              const key = `tier_${tierIdx}_box_${b}`;
+                              const div = getDividerForDrawer(tierIdx, b);
                               const lbl = enableLabelSlot ? (labels[key] || '').trim() : '';
                               return (
                                 <div
@@ -5307,9 +5344,9 @@ Date: ${new Date().toISOString()}
                                   className="flex items-center justify-between px-2.5 py-1.5 rounded bg-[#0b0f19] border border-[#1e293b] text-[11px]"
                                 >
                                   <span className="text-[#94a3b8]">
-                                    T{t + 1}·B{b + 1}:{' '}
+                                    T{tierIdx + 1}·B{b + 1}:{' '}
                                     <span className="text-white font-semibold">
-                                      {lbl || 'Blank'}
+                                      {lbl || t('blankWord')}
                                     </span>
                                   </span>
                                   <span className="font-mono text-[10px] text-[#38bdf8]">
@@ -5368,7 +5405,7 @@ Date: ${new Date().toISOString()}
                     className="px-3.5 py-2 rounded-lg bg-[#38bdf8]/15 border border-[#38bdf8]/50 hover:bg-[#38bdf8]/25 text-[#38bdf8] font-bold text-xs flex items-center gap-1.5"
                   >
                     {codeCopied ? <CheckCircle size={15} className="text-emerald-400" /> : <Copy size={15} />}
-                    {codeCopied ? `Copied Code (${designCode})!` : `Copy Code: ${designCode}`}
+                    {codeCopied ? `${t('copiedCode')} (${designCode})!` : `${t('copyCode')}: ${designCode}`}
                   </button>
                   <button
                     onClick={() => {
@@ -5379,7 +5416,7 @@ Date: ${new Date().toISOString()}
                     className="px-3.5 py-2 rounded-lg bg-[#1e293b] hover:bg-[#334155] text-white font-bold text-xs flex items-center gap-1.5"
                   >
                     {copied ? <CheckCircle size={15} className="text-emerald-400" /> : <Copy size={15} />}
-                    {copied ? 'Copied Full Spec!' : 'Copy Spec Sheet'}
+                    {copied ? t('copiedSpec') : t('copySpec')}
                   </button>
                 </div>
 
@@ -5395,17 +5432,21 @@ Date: ${new Date().toISOString()}
                     className="px-5 py-2 rounded-lg bg-[#f43f5e] hover:bg-[#fb7185] text-white font-bold text-xs flex items-center gap-1.5"
                   >
                     {codeCopied
-                      ? `Code Copied! Select "${activeTab === 'bench'
+                      ? `${t('codeCopiedSelectOnEtsy')} "${activeTab === 'bench'
                         ? sizePreset
                         : activeTab === 'ammo'
                           ? `${ammoTotalRounds} Rds (${currentCalSpec.short})`
-                          : cargoPreset
-                      }" on Etsy`
-                      : `Copy Code & Finish on Etsy (${activeTab === 'bench'
+                          : activeTab === 'orbital'
+                            ? orbitalTierName
+                            : cargoPreset
+                      }" ${t('onEtsy')}`
+                      : `${t('copyAndFinishEtsy')} (${activeTab === 'bench'
                         ? sizePreset
                         : activeTab === 'ammo'
                           ? `${ammoTotalRounds} Rds`
-                          : cargoPreset
+                          : activeTab === 'orbital'
+                            ? orbitalTierName
+                            : cargoPreset
                       })`}{' '}
                     <ExternalLink size={14} />
                   </a>
@@ -5414,8 +5455,8 @@ Date: ${new Date().toISOString()}
                   <div className="flex items-start gap-2 w-full text-xs text-slate-400 bg-slate-800/50 p-2.5 rounded-lg border border-slate-700/50">
                     <span className="text-blue-400 text-sm leading-none">💡</span>
                     <p>
-                      <strong className="text-slate-300">Ordering multiple different builds on Etsy?</strong><br />
-                      Copy this code, add it to your Etsy cart, then come back here to design your next one. We'll generate a fresh code for each new item!
+                      <strong className="text-slate-300">{t('etsyMultiTitle')}</strong><br />
+                      {t('etsyMultiBody')}
                     </p>
                   </div>
                 </div>
@@ -5424,7 +5465,7 @@ Date: ${new Date().toISOString()}
                   {/* Mini Cart Summary Pills (shows when 1 or more items are in the cart) */}
                   {cart.length > 0 && (
                     <div className="flex flex-wrap items-center justify-end gap-1.5 bg-slate-900/90 border border-slate-700 px-3 py-1.5 rounded-lg text-xs text-slate-200 shadow-md">
-                      <span className="font-semibold text-slate-400 mr-1">Cart:</span>
+                      <span className="font-semibold text-slate-400 mr-1">{t('cartColon')}</span>
                       {cart.map((item) => (
                         <div
                           key={item.designCode}
@@ -5436,7 +5477,7 @@ Date: ${new Date().toISOString()}
                             type="button"
                             onClick={() => handleUpdateCartQty(item.designCode, -1)}
                             className="px-1.5 hover:bg-slate-700 rounded text-slate-300 font-bold"
-                            title="Decrease quantity"
+                            title={t('decreaseQty')}
                           >
                             -
                           </button>
@@ -5445,7 +5486,7 @@ Date: ${new Date().toISOString()}
                             type="button"
                             onClick={() => handleUpdateCartQty(item.designCode, 1)}
                             className="px-1.5 hover:bg-slate-700 rounded text-slate-300 font-bold"
-                            title="Increase quantity"
+                            title={t('increaseQty')}
                           >
                             +
                           </button>
@@ -5461,7 +5502,7 @@ Date: ${new Date().toISOString()}
                       onClick={handleAddToCart}
                       className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow"
                     >
-                      + Add Current Build (${calculatePrice().toFixed(2)})
+                      {t('addCurrentBuild')} (${calculatePrice().toFixed(2)})
                     </button>
 
                     <button
@@ -5471,12 +5512,12 @@ Date: ${new Date().toISOString()}
                       className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold flex items-center gap-2 transition-all shadow-lg"
                     >
                       {isCheckingOut
-                        ? 'Redirecting to Square...'
+                        ? t('redirectingSquare')
                         : cart.length > 0
-                          ? `Checkout Cart (${cart.reduce((s, i) => s + i.quantity, 0)} items — $${cart
+                          ? `${t('checkoutCart')} (${cart.reduce((s, i) => s + i.quantity, 0)} ${cart.reduce((s, i) => s + i.quantity, 0) === 1 ? t('item') : t('items')} — $${cart
                             .reduce((s, i) => s + i.price * i.quantity, 0)
                             .toFixed(2)})`
-                          : `Buy Current Build ($${calculatePrice().toFixed(2)})`}{' '}
+                          : `${t('buyCurrentBuild')} ($${calculatePrice().toFixed(2)})`}{' '}
                       <ExternalLink size={14} />
                     </button>
                   </div>
@@ -5506,7 +5547,7 @@ Date: ${new Date().toISOString()}
                   </span>
                   {isEtsyMode && (
                     <span className="px-1.5 py-0.5 rounded bg-[#3b1526] border border-[#f43f5e]/50 text-[9px] font-bold text-[#fecdd3] uppercase">
-                      Etsy Customizer
+                      {t('etsyBadge')}
                     </span>
                   )}
                 </div>
@@ -5519,20 +5560,40 @@ Date: ${new Date().toISOString()}
                   >
                     Field Matrix
                   </a>{' '}
-                  • <span className="text-[#94a3b8]">You configure your Matrix. We print &amp; ship.</span>
+                  • <span className="text-[#94a3b8]">{t('tagline')}</span>
                 </p>
               </div>
             </div>
 
-            {adminUnlocked && (
-              <button
-                onClick={() => setAdminMode(true)}
-                className="px-3 py-1.5 bg-slate-800 text-amber-400 rounded-lg shadow hover:bg-slate-700 transition border border-amber-500/40 flex items-center gap-1.5 text-xs font-medium"
-              >
-                <span>🔑</span>
-                <span>Admin</span>
-              </button>
-            )}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* EN | FR Language Toggle */}
+              <div className="inline-flex rounded-lg bg-[#090d16] border border-[#1e293b] p-0.5 text-[10px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => toggleLang('en')}
+                  className={`px-1.5 py-1 rounded transition-colors ${lang === 'en' ? 'bg-[#38bdf8] text-[#0b0f19]' : 'text-[#94a3b8] hover:text-white'}`}
+                >
+                  EN
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleLang('fr')}
+                  className={`px-1.5 py-1 rounded transition-colors ${lang === 'fr' ? 'bg-[#38bdf8] text-[#0b0f19]' : 'text-[#94a3b8] hover:text-white'}`}
+                >
+                  FR
+                </button>
+              </div>
+
+              {adminUnlocked && (
+                <button
+                  onClick={() => setAdminMode(true)}
+                  className="px-2.5 py-1.5 bg-slate-800 text-amber-400 rounded-lg shadow hover:bg-slate-700 transition border border-amber-500/40 flex items-center gap-1 text-xs font-medium"
+                >
+                  <span>🔑</span>
+                  <span>Admin</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* DYNAMIC PRODUCT CATALOG SELECTOR */}
@@ -5570,10 +5631,10 @@ Date: ${new Date().toISOString()}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-[11px] text-[#94a3b8] px-0.5">
                   <span className="font-bold uppercase tracking-wider text-[#38bdf8]">
-                    {isEtsyMode ? 'Select Etsy Size Tier:' : 'Preset Starting Sizes:'}
+                    {isEtsyMode ? t('selectEtsyTier') : t('presetStartingSizes')}
                   </span>
                   <span className="text-[#fecdd3] font-semibold">
-                    {BENCH_PRESETS[sizePreset]?.summary || 'Custom Build'}
+                    {BENCH_PRESETS[sizePreset] ? t(`benchPreset${sizePreset}`) : t('customBuild')}
                   </span>
                 </div>
                 <div className="grid grid-cols-5 gap-1.5">
@@ -5599,7 +5660,7 @@ Date: ${new Date().toISOString()}
                   className="w-full px-3.5 py-2.5 flex items-center justify-between text-[11px] font-bold tracking-widest uppercase text-[#38bdf8] border-b border-[#1e293b]"
                 >
                   <span className="flex items-center gap-1.5">
-                    <Sliders size={13} /> Bench Matrix Architecture
+                    <Sliders size={13} /> {t('benchArch')}
                   </span>
                   {openSections.config ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
@@ -5608,13 +5669,13 @@ Date: ${new Date().toISOString()}
                     {/* 1. BUILD MODE SELECTOR (VISIBLE IN BOTH ETSY & DIRECT MODES!) */}
                     <div>
                       <div className="text-xs font-semibold mb-1.5 text-[#38bdf8]">
-                        1. Select Build Type
+                        {t('selectBuildType')}
                       </div>
                       <div className="grid grid-cols-3 gap-1.5">
                         {[
                           {
                             id: 'stack',
-                            label: 'Full Stack',
+                            label: t('fullStack'),
                             active: tiers > 0 && benchLidStyle > 0,
                             onClick: () => {
                               if (tiers === 0) setTiers(BENCH_PRESETS[sizePreset]?.tiers || 2);
@@ -5623,7 +5684,7 @@ Date: ${new Date().toISOString()}
                           },
                           {
                             id: 'addon',
-                            label: '+1 Add-On Tier',
+                            label: t('addonTier'),
                             active: tiers > 0 && benchLidStyle === 0,
                             onClick: () => {
                               setSizePreset('AddOn');
@@ -5633,7 +5694,7 @@ Date: ${new Date().toISOString()}
                           },
                           {
                             id: 'lidonly',
-                            label: 'Lid Only',
+                            label: t('lidOnly'),
                             active: tiers === 0,
                             onClick: () => {
                               setSizePreset('LidOnly');
@@ -5661,13 +5722,13 @@ Date: ${new Date().toISOString()}
                     {benchLidStyle > 0 && (
                       <div>
                         <div className="text-xs font-semibold mb-1.5">
-                          Interchangeable Top Lid Style
+                          {t('topLidStyle')}
                         </div>
                         <div className="grid grid-cols-3 gap-1.5">
                           {[
-                            { id: 1, label: 'Worktop Lid' },
-                            { id: 2, label: 'Organizer Lid' },
-                            { id: 3, label: 'Carry Handle' }
+                            { id: 1, label: t('worktopLid') },
+                            { id: 2, label: t('organizerLid') },
+                            { id: 3, label: t('carryHandle') }
                           ].map((st) => (
                             <button
                               key={st.id}
@@ -5690,13 +5751,13 @@ Date: ${new Date().toISOString()}
                       <>
                         <div>
                           <div className="text-xs font-semibold mb-1.5">
-                            Drawer Bays per Tier (Columns)
+                            {t('drawerBaysPerTier')}
                           </div>
                           <div className="grid grid-cols-3 gap-1.5">
                             {[
-                              { cols: 1, label: '1 Full Bay' },
-                              { cols: 2, label: '2 Split Bays' },
-                              { cols: 3, label: '3 Triple Bays' }
+                              { cols: 1, label: t('bay1') },
+                              { cols: 2, label: t('bay2') },
+                              { cols: 3, label: t('bay3') }
                             ].map((c) => (
                               <button
                                 key={c.cols}
@@ -5717,7 +5778,7 @@ Date: ${new Date().toISOString()}
                         {(!isEtsyMode || benchLidStyle === 0) && (
                           <div>
                             <div className="text-xs font-semibold mb-1.5">
-                              Tier Shell Height (mm)
+                              {t('tierShellHeight')}
                             </div>
                             <div className="grid grid-cols-4 gap-1.5">
                               {[35, 50, 70, 100].map((hVal) => (
@@ -5745,10 +5806,10 @@ Date: ${new Date().toISOString()}
                           <div>
                             <div className="flex justify-between text-xs mb-1">
                               <span className="font-semibold">
-                                {benchLidStyle === 0 ? 'Expansion Tiers to Add' : 'Stacked Shell Tiers'}
+                                {benchLidStyle === 0 ? t('expansionTiersToAdd') : t('stackedShellTiers')}
                               </span>
                               <span className="text-[#fecdd3] font-bold">
-                                {tiers} {tiers === 1 ? 'Tier' : 'Tiers'} ({totalStackedHeightMm}mm Total)
+                                {tiers} {tiers === 1 ? t('tierSingular') : t('tierPlural')} ({totalStackedHeightMm}mm {t('total')})
                               </span>
                             </div>
                             <input
@@ -5777,7 +5838,7 @@ Date: ${new Date().toISOString()}
                   className="w-full px-3.5 py-2.5 flex items-center justify-between text-[11px] font-bold tracking-widest uppercase text-[#38bdf8] border-b border-[#1e293b]"
                 >
                   <span className="flex items-center gap-1.5">
-                    <Palette size={13} /> Colors
+                    <Palette size={13} /> {t('colorsTitle')}
                   </span>
                   {openSections.colors ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
@@ -5785,7 +5846,7 @@ Date: ${new Date().toISOString()}
                   const colorTabs = [
                     {
                       id: 'casing',
-                      label: 'Shells & Lid',
+                      label: t('partShellsLid'),
                       activeColor: activeCasingColor,
                       selectedId: casingColorId,
                       onSelect: setCasingColorId,
@@ -5794,7 +5855,7 @@ Date: ${new Date().toISOString()}
                       ? [
                         {
                           id: 'drawer',
-                          label: 'Drawers',
+                          label: t('partDrawers'),
                           activeColor: activeDrawerColor,
                           selectedId: drawerColorId,
                           onSelect: setDrawerColorId,
@@ -5803,7 +5864,7 @@ Date: ${new Date().toISOString()}
                       : []),
                     {
                       id: 'latch',
-                      label: 'Accents',
+                      label: t('partAccents'),
                       activeColor: activeBenchLatchColor,
                       selectedId: benchLatchColorId,
                       onSelect: setBenchLatchColorId,
@@ -5811,7 +5872,7 @@ Date: ${new Date().toISOString()}
                   ];
 
                   const activeTabObj =
-                    colorTabs.find((t) => t.id === benchColorTab) || colorTabs[0];
+                    colorTabs.find((tabItem) => tabItem.id === benchColorTab) || colorTabs[0];
 
                   return (
                     <div className="p-3.5 space-y-3">
@@ -5842,7 +5903,7 @@ Date: ${new Date().toISOString()}
                                 </span>
                               </div>
                               <div className="text-[9px] text-[#cbd5e1] truncate mt-0.5 pl-4">
-                                {tab.activeColor.name}
+                                {colorName(tab.activeColor)}
                               </div>
                             </button>
                           );
@@ -5866,7 +5927,7 @@ Date: ${new Date().toISOString()}
                               style={{ backgroundColor: col.hex }}
                             />
                             <span className="text-[9px] truncate w-full text-center">
-                              {col.name}
+                              {colorName(col)}
                             </span>
                           </button>
                         ))}
@@ -5881,7 +5942,7 @@ Date: ${new Date().toISOString()}
                 <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-[#38bdf8] flex items-center gap-1.5">
-                      <Tag size={13} /> Labels
+                      <Tag size={13} /> {t('labelsTitle')}
                     </span>
                     <button
                       type="button"
@@ -5894,9 +5955,9 @@ Date: ${new Date().toISOString()}
 
 
                   <div className="bg-[#151e31] p-2.5 rounded-lg border border-[#1e293b] flex items-center justify-between text-xs">
-                    <span className="text-[11px] font-semibold text-[#38bdf8]">Batch Grid (Rows × Cols):</span>
+                    <span className="text-[11px] font-semibold text-[#38bdf8]">{t('batchGridLabel')}</span>
                     <div className="flex items-center gap-1">
-                      <span className="text-[10px] text-[#94a3b8]">R:</span>
+                      <span className="text-[10px] text-[#94a3b8]">{t('rowShort')}</span>
                       {[1, 2, 3, 4].map((n) => (
                         <button
                           key={`bh_${n}`}
@@ -5906,7 +5967,7 @@ Date: ${new Date().toISOString()}
                           {n}
                         </button>
                       ))}
-                      <span className="text-[10px] text-[#94a3b8] ml-2">C:</span>
+                      <span className="text-[10px] text-[#94a3b8] ml-2">{t('colShort')}</span>
                       {[1, 2, 3, 4].map((n) => (
                         <button
                           key={`bv_${n}`}
@@ -5921,21 +5982,21 @@ Date: ${new Date().toISOString()}
 
                   <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                     {Array.from({ length: tiers }).map((_, tRev) => {
-                      const t = tiers - 1 - tRev;
+                      const tierIdx = tiers - 1 - tRev;
                       return (
-                        <div key={t} className="space-y-1.5">
-                          <div className="text-[10px] font-bold text-[#38bdf8]">Tier {t + 1}</div>
-                          {Array.from({ length: drawersPerTier }).map((_, b) => {
-                            const key = `tier_${t}_box_${b}`;
-                            const div = getDividerForDrawer(t, b);
+                        <div key={tierIdx} className="space-y-1.5">
+                          <div className="text-[10px] font-bold text-[#38bdf8]">{t('tierSingular')} {tierIdx + 1}</div>
+                          {Array.from({ length: drawersPerTier }).map((__, b) => {
+                            const key = `tier_${tierIdx}_box_${b}`;
+                            const div = getDividerForDrawer(tierIdx, b);
                             return (
                               <div key={b} className="p-2 rounded bg-[#151e31] border border-[#1e293b] space-y-1">
                                 <div className="flex items-center gap-1.5">
-                                  <span className="text-[10px] text-[#94a3b8] w-10">Bay {b + 1}:</span>
+                                  <span className="text-[10px] text-[#94a3b8] w-12">{t('bayLabel')} {b + 1}:</span>
                                   <input
                                     type="text"
                                     maxLength={benchMaxLabelChars}
-                                    placeholder={`LABEL (MAX ${benchMaxLabelChars})`}
+                                    placeholder={`${t('labelPlaceholderPrefix')} ${benchMaxLabelChars})`}
                                     value={labels[key] || ''}
                                     onChange={(e) =>
                                       setLabels((p) => ({
@@ -5946,13 +6007,13 @@ Date: ${new Date().toISOString()}
                                     className="flex-1 bg-[#0b0f19] border border-[#1e293b] rounded px-2 py-1 text-xs text-white font-mono"
                                   />
                                 </div>
-                                <div className="flex items-center justify-between pl-10 text-[10px]">
+                                <div className="flex items-center justify-between pl-12 text-[10px]">
                                   <div className="flex items-center gap-1">
-                                    <span className="text-[#64748b]">Rows:</span>
+                                    <span className="text-[#64748b]">{t('rowsLabel')}</span>
                                     {[1, 2, 3, 4].map((n) => (
                                       <button
                                         key={n}
-                                        onClick={() => setDividerForDrawer(t, b, 'h', n)}
+                                        onClick={() => setDividerForDrawer(tierIdx, b, 'h', n)}
                                         className={`w-4 h-4 rounded ${div.h === n ? 'bg-[#f43f5e] text-white' : 'bg-[#0b0f19] text-[#64748b]'}`}
                                       >
                                         {n}
@@ -5960,11 +6021,11 @@ Date: ${new Date().toISOString()}
                                     ))}
                                   </div>
                                   <div className="flex items-center gap-1">
-                                    <span className="text-[#64748b]">Cols:</span>
+                                    <span className="text-[#64748b]">{t('colsLabel')}</span>
                                     {[1, 2, 3, 4].map((n) => (
                                       <button
                                         key={n}
-                                        onClick={() => setDividerForDrawer(t, b, 'v', n)}
+                                        onClick={() => setDividerForDrawer(tierIdx, b, 'v', n)}
                                         className={`w-4 h-4 rounded ${div.v === n ? 'bg-[#f43f5e] text-white' : 'bg-[#0b0f19] text-[#64748b]'}`}
                                       >
                                         {n}
@@ -5988,15 +6049,15 @@ Date: ${new Date().toISOString()}
               {/* 1. CALIBER SELECTOR (GROUPED BY CATEGORY) */}
               <div className="bg-[#0f172a] p-3 rounded-xl border border-[#1e293b]">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">1. Caliber Spec</span>
-                  <span className="text-[10px] font-mono text-amber-400">{currentCalSpec?.category === 'Pistol' ? 'Pistol / Lever' : currentCalSpec?.category}</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{t('caliberSpec')}</span>
+                  <span className="text-[10px] font-mono text-amber-400">{currentCalSpec?.category ? t(`cat${currentCalSpec.category}`) : ''}</span>
                 </div>
                 <div className="space-y-3 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
                   {[
-                    { id: 'Rimfire', label: 'Rimfire' },
-                    { id: 'Pistol', label: 'Pistol & Lever-Action (.357 / .44 / .45)' },
-                    { id: 'Rifle', label: 'Centerfire Rifles' },
-                    { id: 'Shotgun', label: 'Shotgun' }
+                    { id: 'Rimfire', label: t('rimfireGroup') },
+                    { id: 'Pistol', label: t('pistolGroup') },
+                    { id: 'Rifle', label: t('rifleGroup') },
+                    { id: 'Shotgun', label: t('shotgunGroup') }
                   ]
                     .filter((group) => !(isEtsyMode && lockedAmmoCategory && group.id !== lockedAmmoCategory))
                     .map((group) => {
@@ -6031,7 +6092,7 @@ Date: ${new Date().toISOString()}
 
               {/* 2. PRESET SIZES & SLIDERS */}
               <div className="bg-[#0f172a] p-3 rounded-xl border border-[#1e293b]">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">2. Box Capacity</div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">{t('boxCapacity')}</div>
                 <div className="grid grid-cols-3 gap-2">
                   {activeAmmoPresets.map((preset) => {
                     const isActive = clampedAmmoCols === preset.cols && clampedAmmoRows === preset.rows;
@@ -6053,8 +6114,8 @@ Date: ${new Date().toISOString()}
                 {!isEtsyMode && (
                   <div className="mt-4 pt-3 border-t border-[#1e293b] space-y-3">
                     <div className="flex justify-between text-xs text-amber-400 font-mono">
-                      <span>Cols: {clampedAmmoCols}</span>
-                      <span>Rows: {clampedAmmoRows}</span>
+                      <span>{t('colsLabel')} {clampedAmmoCols}</span>
+                      <span>{t('rowsLabel')} {clampedAmmoRows}</span>
                     </div>
                     <input
                       type="range"
@@ -6093,35 +6154,35 @@ Date: ${new Date().toISOString()}
               {/* 3. COLORS & LID TEXT */}
               <div className="bg-[#0f172a] p-3 rounded-xl border border-[#1e293b] space-y-3.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">3. Colors & Text</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{t('ammoColorsText')}</span>
                 </div>
 
                 {(() => {
                   const ammoColorTabs = [
                     {
                       id: 'base',
-                      label: 'Base Shell',
+                      label: t('partBaseShell'),
                       activeColor: activeAmmoBaseColor,
                       selectedId: ammoBaseColorId,
                       onSelect: setAmmoBaseColorId,
                     },
                     {
                       id: 'lid',
-                      label: 'Vault Lid',
+                      label: t('partVaultLid'),
                       activeColor: activeAmmoLidColor,
                       selectedId: ammoLidColorId,
                       onSelect: setAmmoLidColorId,
                     },
                     {
                       id: 'tray',
-                      label: 'Ammo Tray',
+                      label: t('partAmmoTray'),
                       activeColor: activeAmmoTrayColor,
                       selectedId: ammoTrayColorId,
                       onSelect: setAmmoTrayColorId,
                     },
                     {
                       id: 'latch',
-                      label: 'Latches & Inlay',
+                      label: t('partLatchesInlay'),
                       activeColor: activeAmmoLatchColor,
                       selectedId: ammoLatchColorId,
                       onSelect: setAmmoLatchColorId,
@@ -6129,7 +6190,7 @@ Date: ${new Date().toISOString()}
                   ];
 
                   const activeAmmoTabObj =
-                    ammoColorTabs.find((t) => t.id === ammoColorTab) || ammoColorTabs[0];
+                    ammoColorTabs.find((tabItem) => tabItem.id === ammoColorTab) || ammoColorTabs[0];
 
                   return (
                     <div className="space-y-3">
@@ -6157,7 +6218,7 @@ Date: ${new Date().toISOString()}
                                 </span>
                               </div>
                               <div className="text-[9px] text-[#cbd5e1] truncate mt-0.5 pl-4">
-                                {tab.activeColor?.name}
+                                {colorName(tab.activeColor)}
                               </div>
                             </button>
                           );
@@ -6181,7 +6242,7 @@ Date: ${new Date().toISOString()}
                               style={{ backgroundColor: col.hex }}
                             />
                             <span className="text-[9px] truncate w-full text-center">
-                              {col.name}
+                              {colorName(col)}
                             </span>
                           </button>
                         ))}
@@ -6193,9 +6254,9 @@ Date: ${new Date().toISOString()}
                 {/* Custom Lid Text & Font Selector */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-[10px] mb-1">
-                    <label className="text-slate-400">Custom Lid Text &amp; Font</label>
+                    <label className="text-slate-400">{t('customLidTextFont')}</label>
                     <span className="font-mono text-amber-400">
-                      {ammoLidTitle.trim().length} / {ammoMaxLidChars} chars
+                      {ammoLidTitle.trim().length} / {ammoMaxLidChars} {t('chars')}
                     </span>
                   </div>
                   <div className="flex gap-2">
@@ -6208,7 +6269,7 @@ Date: ${new Date().toISOString()}
                         // If they delete everything, pass a single space to prevent 3D/CAD engine crashes!
                         setAmmoLidTitle(val === '' ? ' ' : val);
                       }}
-                      placeholder={`LID TITLE (MAX ${ammoMaxLidChars})`}
+                      placeholder={`${t('lidTitlePlaceholder')} ${ammoMaxLidChars})`}
                       className="flex-1 bg-[#151e31] border border-[#1e293b] rounded p-2 text-xs text-white font-mono"
                     />
                     <select
@@ -6227,7 +6288,7 @@ Date: ${new Date().toISOString()}
                 {/* Auto Round Counter Toggle */}
                 <label className="flex items-center justify-between p-2 bg-[#151e31] rounded border border-[#1e293b] cursor-pointer">
                   <span className="text-xs text-slate-300">
-                    Auto Round Count <span className="text-amber-400 font-mono">({ammoTotalRounds} RDS)</span>
+                    {t('autoRoundCount')} <span className="text-amber-400 font-mono">({ammoTotalRounds} {t('rdsShort')})</span>
                   </span>
                   <input
                     type="checkbox"
@@ -6245,7 +6306,7 @@ Date: ${new Date().toISOString()}
                     className="form-checkbox h-4 w-4 text-[#f43f5e] rounded bg-[#090d16] border-[#1e293b] focus:ring-[#f43f5e] focus:ring-offset-[#0f172a]"
                   />
                   <span className="text-xs text-[#cbd5e1] font-medium tracking-wide">
-                    Draw Accent Border on Lid
+                    {t('drawAccentBorder')}
                   </span>
                 </div>
               </div>
@@ -6259,10 +6320,10 @@ Date: ${new Date().toISOString()}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-[11px] text-[#94a3b8] px-0.5">
                   <span className="font-bold uppercase tracking-wider text-[#38bdf8]">
-                    {isEtsyMode ? 'Select Etsy Case Size:' : 'Preset Case Sizes:'}
+                    {isEtsyMode ? t('selectEtsyCaseSize') : t('presetCaseSizes')}
                   </span>
                   <span className="text-[#fecdd3] font-semibold">
-                    {CARGO_PRESETS[cargoPreset]?.summary || 'Custom Size'}
+                    {CARGO_PRESETS[cargoPreset] ? `${CARGO_PRESETS[cargoPreset].width}×${CARGO_PRESETS[cargoPreset].length}×${CARGO_PRESETS[cargoPreset].height * 2}mm` : t('customSize')}
                   </span>
                 </div>
                 <div className="grid grid-cols-4 gap-1.5">
@@ -6285,22 +6346,22 @@ Date: ${new Date().toISOString()}
               <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-widest text-[#38bdf8] flex items-center gap-1.5">
-                    <Tag size={13} /> Custom Lid Text &amp; Frame
+                    <Tag size={13} /> {t('customLidTextFrame')}
                   </span>
                   <button
                     type="button"
                     onClick={() => setFoldAngle(foldAngle > 45 ? 0 : 110)}
                     className="px-2 py-0.5 rounded bg-[#3b1526] border border-[#f43f5e]/50 text-[10px] font-bold text-[#fecdd3]"
                   >
-                    {foldAngle > 45 ? 'Close Lid (0°)' : 'Open Box (110°)'}
+                    {foldAngle > 45 ? t('closeLid0') : t('openBox110')}
                   </button>
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between text-xs font-semibold mb-1">
-                    <label>Lid Inlay Text</label>
+                    <label>{t('lidInlayText')}</label>
                     <span className="text-[10px] font-mono text-[#38bdf8]">
-                      {cargoText.length} / {cargoMaxLidChars} chars
+                      {cargoText.length} / {cargoMaxLidChars} {t('chars')}
                     </span>
                   </div>
                   <input
@@ -6308,13 +6369,13 @@ Date: ${new Date().toISOString()}
                     maxLength={cargoMaxLidChars}
                     value={cargoText}
                     onChange={(e) => setCargoText(e.target.value.slice(0, cargoMaxLidChars))}
-                    placeholder={`Enter custom lid text (max ${cargoMaxLidChars} chars)...`}
+                    placeholder={`${t('cargoTextPlaceholder')} ${cargoMaxLidChars} ${t('chars')})...`}
                     className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#38bdf8]"
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold">Font Family</span>
+                  <span className="text-xs font-semibold">{t('fontFamily')}</span>
                   <select
                     value={cargoFont}
                     onChange={(e) => setCargoFont(e.target.value)}
@@ -6329,10 +6390,10 @@ Date: ${new Date().toISOString()}
 
                 <div className="flex items-center justify-between pt-1 border-t border-[#1e293b]">
                   <span className="text-xs font-semibold flex items-center">
-                    Lid Rectangular Border Frame
+                    {t('lidBorderFrame')}
                     <InfoPopover
-                      title="Flush Inlay Border Frame"
-                      text="Adds a 2mm wide rectangular border around the outer lid perimeter using the same flush multi-color inlay as your text."
+                      title={t('lidBorderPopoverTitle')}
+                      text={t('lidBorderPopoverText')}
                     />
                   </span>
                   <button
@@ -6352,21 +6413,21 @@ Date: ${new Date().toISOString()}
               {/* DIMENSIONS & COMPARTMENTS */}
               <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3.5">
                 <div className="text-[11px] font-bold uppercase tracking-widest text-[#38bdf8] flex items-center gap-1.5">
-                  <Box size={13} /> {isEtsyMode ? 'Interior Compartment Grid' : 'Dimensions & Compartments'}
+                  <Box size={13} /> {isEtsyMode ? t('interiorCompGrid') : t('dimsAndComps')}
                 </div>
 
                 {isEtsyMode ? (
                   <div className="p-2.5 rounded-lg bg-[#151e31] border border-[#1e293b] text-[11px] text-[#cbd5e1] flex items-center justify-between">
-                    <span>Preset Case ({cargoPreset}):</span>
+                    <span>{t('presetCase')} ({cargoPreset}):</span>
                     <span className="font-mono font-bold text-[#38bdf8]">
-                      {cargoWidth}W × {cargoLength}L × {cargoHeight * 2}H mm
+                      {cargoWidth}{t('dimW')} × {cargoLength}{t('dimL')} × {cargoHeight * 2}{t('dimH')} mm
                     </span>
                   </div>
                 ) : (
                   <>
                     <div>
                       <div className="flex justify-between text-xs mb-1">
-                        <span className="font-semibold">↔ Box Width (X)</span>
+                        <span className="font-semibold">↔ {t('boxWidthX')}</span>
                         <span className="text-[#fecdd3] font-bold">{cargoWidth} mm</span>
                       </div>
                       <input
@@ -6384,7 +6445,7 @@ Date: ${new Date().toISOString()}
 
                     <div>
                       <div className="flex justify-between text-xs mb-1">
-                        <span className="font-semibold">↗ Box Length (Y)</span>
+                        <span className="font-semibold">↗ {t('boxLengthY')}</span>
                         <span className="text-[#fecdd3] font-bold">{cargoLength} mm</span>
                       </div>
                       <input
@@ -6402,8 +6463,8 @@ Date: ${new Date().toISOString()}
 
                     <div>
                       <div className="flex justify-between text-xs mb-1">
-                        <span className="font-semibold">↕ Total Case Height (Z)</span>
-                        <span className="text-[#fecdd3] font-bold">{cargoHeight * 2} mm (12mm Lid, {cargoHeight * 2 - 12}mm Base)</span>
+                        <span className="font-semibold">↕ {t('totalCaseHeightZ')}</span>
+                        <span className="text-[#fecdd3] font-bold">{cargoHeight * 2} mm (12mm {t('lidLabel')}, {cargoHeight * 2 - 12}mm {t('baseLabel')})</span>
                       </div>
                       <input
                         type="range"
@@ -6425,7 +6486,7 @@ Date: ${new Date().toISOString()}
                 <div className="grid grid-cols-2 gap-3 pt-1 border-t border-[#1e293b]">
                   <div>
                     <div className="flex justify-between text-xs mb-1">
-                      <span className="font-semibold">Columns (X)</span>
+                      <span className="font-semibold">{t('columnsX')}</span>
                       <span className="text-[#38bdf8] font-bold">{cargoCompX}</span>
                     </div>
                     <input
@@ -6439,7 +6500,7 @@ Date: ${new Date().toISOString()}
                   </div>
                   <div>
                     <div className="flex justify-between text-xs mb-1">
-                      <span className="font-semibold">Rows (Y)</span>
+                      <span className="font-semibold">{t('rowsY')}</span>
                       <span className="text-[#38bdf8] font-bold">{cargoCompY}</span>
                     </div>
                     <input
@@ -6458,7 +6519,7 @@ Date: ${new Date().toISOString()}
               <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-widest text-[#38bdf8] flex items-center gap-1.5">
-                    <Palette size={13} /> Colors Swatches
+                    <Palette size={13} /> {t('colorsSwatches')}
                   </span>
                 </div>
 
@@ -6466,21 +6527,21 @@ Date: ${new Date().toISOString()}
                   const cargoColorTabs = [
                     {
                       id: 'box',
-                      label: 'Body',
+                      label: t('partBody'),
                       activeColor: activeCargoBoxColor,
                       selectedId: cargoBoxColorId,
                       onSelect: setCargoBoxColorId,
                     },
                     {
                       id: 'text',
-                      label: 'Lid Inlay',
+                      label: t('partLidInlay'),
                       activeColor: activeCargoTextColor,
                       selectedId: cargoTextColorId,
                       onSelect: setCargoTextColorId,
                     },
                     {
                       id: 'latch',
-                      label: 'Latches',
+                      label: t('partLatches'),
                       activeColor: activeCargoLatchColor,
                       selectedId: cargoLatchColorId,
                       onSelect: setCargoLatchColorId,
@@ -6488,7 +6549,7 @@ Date: ${new Date().toISOString()}
                   ];
 
                   const activeCargoTabObj =
-                    cargoColorTabs.find((t) => t.id === cargoColorTab) || cargoColorTabs[0];
+                    cargoColorTabs.find((tabItem) => tabItem.id === cargoColorTab) || cargoColorTabs[0];
 
                   return (
                     <div className="space-y-3">
@@ -6516,7 +6577,7 @@ Date: ${new Date().toISOString()}
                                 </span>
                               </div>
                               <div className="text-[9px] text-[#cbd5e1] truncate mt-0.5 pl-4">
-                                {tab.activeColor?.name}
+                                {colorName(tab.activeColor)}
                               </div>
                             </button>
                           );
@@ -6540,7 +6601,7 @@ Date: ${new Date().toISOString()}
                               style={{ backgroundColor: col.hex }}
                             />
                             <span className="text-[9px] truncate w-full text-center">
-                              {col.name}
+                              {colorName(col)}
                             </span>
                           </button>
                         ))}
@@ -6560,14 +6621,14 @@ Date: ${new Date().toISOString()}
                 <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3">
                   <div>
                     <div className="text-xs font-semibold mb-1.5 text-[#38bdf8]">
-                      1. Matrix Size Tier
+                      {t('orbitalTierTitle')}
                     </div>
                     <div className="grid grid-cols-2 gap-1.5">
                       {[
-                        { id: 'Trace', size: 100, depth: 28, sub: '100mm • 28mm Bin' },
-                        { id: 'Trail', size: 180, depth: 28, sub: '180mm • 28mm Bin' },
-                        { id: 'Pursuit', size: 180, depth: 42, sub: '180mm • 42mm Bin' },
-                        { id: 'Frontier', size: 180, depth: 56, sub: '180mm • 56mm Bin' },
+                        { id: 'Trace', size: 100, depth: 28, sub: `100mm • 28mm ${t('orbitalBinLabel')}` },
+                        { id: 'Trail', size: 180, depth: 28, sub: `180mm • 28mm ${t('orbitalBinLabel')}` },
+                        { id: 'Pursuit', size: 180, depth: 42, sub: `180mm • 42mm ${t('orbitalBinLabel')}` },
+                        { id: 'Frontier', size: 180, depth: 56, sub: `180mm • 56mm ${t('orbitalBinLabel')}` },
                       ].map((tier) => {
                         const isActive = orbitalSize === tier.size && orbitalDepth === tier.depth;
                         return (
@@ -6594,12 +6655,12 @@ Date: ${new Date().toISOString()}
 
                   <div>
                     <div className="text-xs font-semibold mb-1.5 text-[#38bdf8]">
-                      2. Internal Tray Dividers (All 4 Trays)
+                      {t('orbitalDividersTitle')}
                     </div>
                     <div className="grid grid-cols-2 gap-1.5">
                       {[
-                        { val: 1, label: 'Open (1-Bin)' },
-                        { val: 2, label: 'Split (2-Bin)' },
+                        { val: 1, label: t('open1Bin') },
+                        { val: 2, label: t('split2Bin') },
                       ].map((div) => {
                         const isDisabled = orbitalSize === 100 && div.val > 1;
                         return (
@@ -6622,7 +6683,7 @@ Date: ${new Date().toISOString()}
                     </div>
                     {orbitalSize === 100 && (
                       <p className="text-[10px] text-[#94a3b8] mt-1.5">
-                        Trace (100mm) uses Open (1-Bin) trays to keep full finger access.
+                        {t('traceOpenNote')}
                       </p>
                     )}
                   </div>
@@ -6631,15 +6692,15 @@ Date: ${new Date().toISOString()}
                 {/* 3. 3-ZONE PETG COLOR PICKER */}
                 <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-3">
                   <div className="text-[11px] font-bold uppercase tracking-widest text-[#38bdf8] flex items-center gap-1.5">
-                    <Palette size={13} /> 3. PETG Colorway
+                    <Palette size={13} /> {t('orbitalColorway')}
                   </div>
                   {(() => {
                     const tabs = [
-                      { id: 'plate', label: 'Plates', activeColor: activeOrbitalPlateColor, selectedId: orbitalPlateColorId, onSelect: setOrbitalPlateColorId },
-                      { id: 'tray', label: '4 Trays', activeColor: activeOrbitalTrayColor, selectedId: orbitalTrayColorId, onSelect: setOrbitalTrayColorId },
-                      { id: 'accent', label: 'Knob & Inlay', activeColor: activeOrbitalAccentColor, selectedId: orbitalAccentColorId, onSelect: setOrbitalAccentColorId },
+                      { id: 'plate', label: t('partPlates'), activeColor: activeOrbitalPlateColor, selectedId: orbitalPlateColorId, onSelect: setOrbitalPlateColorId },
+                      { id: 'tray', label: t('part4Trays'), activeColor: activeOrbitalTrayColor, selectedId: orbitalTrayColorId, onSelect: setOrbitalTrayColorId },
+                      { id: 'accent', label: t('partKnobInlay'), activeColor: activeOrbitalAccentColor, selectedId: orbitalAccentColorId, onSelect: setOrbitalAccentColorId },
                     ];
-                    const activeObj = tabs.find((t) => t.id === orbitalColorTab) || tabs[0];
+                    const activeObj = tabs.find((tabItem) => tabItem.id === orbitalColorTab) || tabs[0];
                     return (
                       <div className="space-y-3">
                         <div className="grid grid-cols-3 gap-1.5">
@@ -6657,7 +6718,7 @@ Date: ${new Date().toISOString()}
                                 <span className="w-2.5 h-2.5 rounded-full border border-white/30 shrink-0" style={{ backgroundColor: tab.activeColor.hex }} />
                                 <span className="text-[10px] font-bold truncate">{tab.label}</span>
                               </div>
-                              <div className="text-[9px] text-[#cbd5e1] truncate mt-0.5 pl-4">{tab.activeColor.name}</div>
+                              <div className="text-[9px] text-[#cbd5e1] truncate mt-0.5 pl-4">{colorName(tab.activeColor)}</div>
                             </button>
                           ))}
                         </div>
@@ -6673,7 +6734,7 @@ Date: ${new Date().toISOString()}
                                 }`}
                             >
                               <span className="w-full h-3.5 rounded-sm" style={{ backgroundColor: col.hex }} />
-                              <span className="text-[9px] truncate w-full text-center">{col.name}</span>
+                              <span className="text-[9px] truncate w-full text-center">{colorName(col)}</span>
                             </button>
                           ))}
                         </div>
@@ -6685,7 +6746,7 @@ Date: ${new Date().toISOString()}
                 {/* 4. OPTIONAL FLUSH LID TEXT */}
                 <div className="bg-[#0f172a]/90 border border-[#1e293b] rounded-xl p-3.5 space-y-2">
                   <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-[#38bdf8]">
-                    <span className="flex items-center gap-1.5"><Tag size={13} /> Optional Lid Text (+$3)</span>
+                    <span className="flex items-center gap-1.5"><Tag size={13} /> {t('optionalLidText')}</span>
                     <span className="font-mono text-[10px] text-[#94a3b8]">{orbitalLidText.length}/16</span>
                   </div>
                   <div className="flex gap-2">
@@ -6694,7 +6755,7 @@ Date: ${new Date().toISOString()}
                       maxLength={16}
                       value={orbitalLidText}
                       onChange={(e) => setOrbitalLidText(e.target.value.toUpperCase().slice(0, 16))}
-                      placeholder="BLANK (NO TEXT)"
+                      placeholder={t('blankNoText')}
                       className="flex-1 bg-[#0b0f19] border border-[#1e293b] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
                     />
                     <select
@@ -6719,25 +6780,25 @@ Date: ${new Date().toISOString()}
             <span className="text-[#94a3b8]">
               {activeTab === 'bench'
                 ? tiers === 0
-                  ? `Lid Only (Style ${benchLidStyle}) • 2 Cam-Latches`
-                  : `${tiers} Tiers • ${tiers * drawersPerTier} Drawers${benchLidStyle === 0 ? ' (No Lid)' : ''}`
+                  ? `${t('lidOnly')} (${t('styleWord')} ${benchLidStyle}) • ${t('camLatches2')}`
+                  : `${tiers} ${tiers === 1 ? t('tierSingular') : t('tierPlural')} • ${tiers * drawersPerTier} ${t('drawersWord')}${benchLidStyle === 0 ? ` ${t('noLidNote')}` : ''}`
                 : activeTab === 'ammo'
-                  ? `${ammoShellX}×${ammoShellY}×${ammoShellZ}mm • ${ammoTotalRounds} Rds (${currentCalSpec.short})`
+                  ? `${ammoShellX}×${ammoShellY}×${ammoShellZ}mm • ${ammoTotalRounds} ${t('rdsLabel')} (${currentCalSpec.short})`
                   : activeTab === 'orbital'
-                    ? `${orbitalSize}×${orbitalSize}×${orbitalTotalHeightMm}mm • 4 Trays (${orbitalDepth}mm)`
-                    : `${cargoWidth}×${cargoLength}×${cargoHeight * 2}mm • ${cargoCompX * cargoCompY} Cells`}
+                    ? `${orbitalSize}×${orbitalSize}×${orbitalTotalHeightMm}mm • ${t('trays4')} (${orbitalDepth}mm)`
+                    : `${cargoWidth}×${cargoLength}×${cargoHeight * 2}mm • ${cargoCompX * cargoCompY} ${t('cellsWord')}`}
             </span>
             {isEtsyMode ? (
               <span className="px-2.5 py-0.5 rounded bg-[#3b1526] border border-[#f43f5e]/60 text-xs font-bold text-[#fecdd3]">
                 Etsy:{' '}
                 {activeTab === 'bench'
                   ? tiers === 0
-                    ? `Lid Only ($${calculatePrice().toFixed(0)})`
+                    ? `${t('lidOnly')} ($${calculatePrice().toFixed(0)})`
                     : benchLidStyle === 0
-                      ? `+1 Add-On ${height}mm ($${calculatePrice().toFixed(0)})`
+                      ? `${t('addonShort')} ${height}mm ($${calculatePrice().toFixed(0)})`
                       : `${sizePreset} ($${calculatePrice().toFixed(0)})`
                   : activeTab === 'ammo'
-                    ? `${ammoTotalRounds} Rds ($${calculatePrice().toFixed(0)})`
+                    ? `${ammoTotalRounds} ${t('rdsLabel')} ($${calculatePrice().toFixed(0)})`
                     : activeTab === 'orbital'
                       ? `${orbitalTierName} ($${calculatePrice().toFixed(0)})`
                       : `${cargoPreset} ($${calculatePrice().toFixed(0)})`}
@@ -6758,8 +6819,8 @@ Date: ${new Date().toISOString()}
             >
               <span className="flex items-center gap-1.5">
                 <ShoppingCart size={14} />
-                View Cart ({cart.reduce((s, i) => s + i.quantity, 0)}{' '}
-                {cart.reduce((s, i) => s + i.quantity, 0) === 1 ? 'item' : 'items'})
+                {t('viewCart')} ({cart.reduce((s, i) => s + i.quantity, 0)}{' '}
+                {cart.reduce((s, i) => s + i.quantity, 0) === 1 ? t('item') : t('items')})
               </span>
               <span className="font-mono text-white">
                 ${cart.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2)}
@@ -6772,13 +6833,15 @@ Date: ${new Date().toISOString()}
           >
             <FileText size={15} />{' '}
             {isEtsyMode
-              ? `Get Etsy Design Code (${activeTab === 'bench'
+              ? `${t('getEtsyCode')} (${activeTab === 'bench'
                 ? sizePreset
                 : activeTab === 'ammo'
                   ? `${ammoTotalRounds} Rds ${currentCalSpec.short}`
-                  : cargoPreset
+                  : activeTab === 'orbital'
+                    ? orbitalTierName
+                    : cargoPreset
               })`
-              : `Review Order & Checkout ($${calculatePrice().toFixed(2)})`}
+              : `${t('reviewCheckout')} ($${calculatePrice().toFixed(2)})`}
           </button>
         </div>
       </aside>
@@ -6817,7 +6880,7 @@ Date: ${new Date().toISOString()}
             <a
               href={getBugReportMailto()}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700 rounded-lg transition-colors cursor-pointer"
-              title="Report an issue or bug with this configuration or this page"
+              title={t('reportBugTitle')}
             >
               <svg
                 className="w-3.5 h-3.5 text-amber-400"
@@ -6827,7 +6890,7 @@ Date: ${new Date().toISOString()}
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <span className="hidden sm:inline">Report a Bug</span>
+              <span className="hidden sm:inline">{t('reportBug')}</span>
             </a>
 
           </div>
@@ -6836,14 +6899,14 @@ Date: ${new Date().toISOString()}
           <div className="flex items-center gap-3 overflow-x-auto whitespace-nowrap pb-1 w-full scrollbar-thin scrollbar-thumb-[#1e293b]">
 
             <span className="text-xs font-bold uppercase tracking-wider text-[#38bdf8] flex items-center gap-1.5 whitespace-nowrap shrink-0">
-              <Sparkles size={14} /> 3D Preview
+              <Sparkles size={14} /> {t('preview3d')}
             </span>
 
             {activeTab !== 'ammo' && (
               activeTab === 'bench' ? (
                 <div className="flex items-center gap-2 bg-[#151e31] px-2.5 py-1 rounded-lg border border-[#1e293b] shrink-0">
                   <span className="text-[11px] font-semibold tabular-nums min-w-[115px]">
-                    Slide Drawers ({Math.round(swingOpenAmount * 100)}%):
+                    {t('slideDrawers')} ({Math.round(swingOpenAmount * 100)}%):
                   </span>
                   <input
                     type="range"
@@ -6858,7 +6921,7 @@ Date: ${new Date().toISOString()}
               ) : activeTab === 'orbital' ? (
                 <div className="flex items-center gap-2 bg-[#151e31] px-2.5 py-1 rounded-lg border border-emerald-500/40 shrink-0">
                   <span className="text-[11px] font-semibold tabular-nums min-w-[118px] text-emerald-300">
-                    Twist Knob ({Math.round((orbitalOpenAngle / 45) * 100)}%):
+                    {t('twistKnob')} ({Math.round((orbitalOpenAngle / 45) * 100)}%):
                   </span>
                   <input
                     type="range"
@@ -6873,7 +6936,7 @@ Date: ${new Date().toISOString()}
               ) : (
                 <div className="flex items-center gap-2 bg-[#151e31] px-2.5 py-1 rounded-lg border border-[#1e293b] shrink-0">
                   <span className="text-[11px] font-semibold tabular-nums min-w-[98px]">
-                    Lid Hinge ({foldAngle}°):
+                    {t('lidHinge')} ({foldAngle}°):
                   </span>
                   <input
                     type="range"
@@ -6898,14 +6961,14 @@ Date: ${new Date().toISOString()}
                   className={`px-2 py-1 rounded text-xs border shrink-0 ${explodedView ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]' : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'
                     }`}
                 >
-                  Exploded
+                  {t('exploded')}
                 </button>
                 <button
                   onClick={() => setXrayMode(!xrayMode)}
                   className={`px-2 py-1 rounded text-xs border shrink-0 ${xrayMode ? 'bg-[#3b1526] border-[#f43f5e] text-[#fecdd3]' : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'
                     }`}
                 >
-                  X-Ray
+                  {t('xray')}
                 </button>
               </>
             )}
@@ -6915,14 +6978,14 @@ Date: ${new Date().toISOString()}
               className={`px-2 py-1 rounded text-xs border flex items-center gap-1 shrink-0 ${showDimensions ? 'bg-[#38bdf8]/15 border-[#38bdf8] text-[#38bdf8]' : 'bg-[#151e31] border-[#1e293b] text-[#94a3b8]'
                 }`}
             >
-              <Eye size={12} /> Dimensions
+              <Eye size={12} /> {t('dimensions')}
             </button>
 
             <button
               onClick={fitCameraToModel}
               className="px-2 py-1 rounded text-xs bg-[#151e31] border border-[#1e293b] text-[#e2e8f0] flex items-center gap-1 shrink-0"
             >
-              <Maximize2 size={12} /> Fit
+              <Maximize2 size={12} /> {t('fit')}
             </button>
 
             <button
@@ -6936,14 +6999,14 @@ Date: ${new Date().toISOString()}
               }}
               className="px-2 py-1 rounded text-xs bg-[#151e31] border border-[#1e293b] text-[#94a3b8] flex items-center gap-1 shrink-0"
             >
-              <RotateCcw size={12} /> Reset
+              <RotateCcw size={12} /> {t('reset')}
             </button>
 
             {activeTab === 'ammo' && (
               <>
                 <div className="flex items-center gap-2 px-3 py-1 rounded border bg-[#151e31] border-[#1e293b] text-xs text-[#94a3b8] shrink-0">
                   <span className="uppercase tracking-wider text-[10px] font-bold tabular-nums min-w-[102px]">
-                    Lid Hinge ({ammoHingeAngle}°)
+                    {t('lidHinge')} ({ammoHingeAngle}°)
                   </span>
                   <input
                     type="range"
@@ -6957,7 +7020,7 @@ Date: ${new Date().toISOString()}
                 </div>
 
                 <div className="flex items-center gap-1 px-1 py-1 rounded border bg-[#151e31] border-[#1e293b] shrink-0">
-                  <span className="text-[#94a3b8] text-[10px] uppercase font-bold tracking-wider px-2">Tray:</span>
+                  <span className="text-[#94a3b8] text-[10px] uppercase font-bold tracking-wider px-2">{t('tray')}:</span>
                   {['seated', 'extracted', 'bench'].map((pose) => (
                     <button
                       key={pose}
@@ -6967,7 +7030,7 @@ Date: ${new Date().toISOString()}
                         : 'text-[#94a3b8] hover:text-white'
                         }`}
                     >
-                      {pose === 'seated' ? 'Seated' : pose === 'extracted' ? 'Extracted' : 'Bench'}
+                      {pose === 'seated' ? t('poseSeated') : pose === 'extracted' ? t('poseExtracted') : t('poseBench')}
                     </button>
                   ))}
                 </div>
@@ -6979,7 +7042,7 @@ Date: ${new Date().toISOString()}
                     onChange={(e) => setShowAmmoRounds(e.target.checked)}
                     className="accent-amber-500"
                   />
-                  <span className="text-amber-400 text-[10px] font-bold uppercase tracking-wider">Show Rounds</span>
+                  <span className="text-amber-400 text-[10px] font-bold uppercase tracking-wider">{t('showRounds')}</span>
                 </label>
 
                 <label className="flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded border bg-[#151e31] border-[#1e293b] shrink-0">
@@ -6989,7 +7052,7 @@ Date: ${new Date().toISOString()}
                     onChange={(e) => setShowMagnetXray(e.target.checked)}
                     className="accent-cyan-500"
                   />
-                  <span className="text-cyan-400 text-[10px] font-bold uppercase tracking-wider">Magnet X-Ray</span>
+                  <span className="text-cyan-400 text-[10px] font-bold uppercase tracking-wider">{t('magnetXray')}</span>
                 </label>
               </>
             )}
@@ -7018,13 +7081,13 @@ Date: ${new Date().toISOString()}
             return (
               <div className="pointer-events-none absolute top-3 left-3 z-10 px-3 py-2 rounded-lg bg-[#0f172a]/85 backdrop-blur-sm border border-[#1e293b] shadow-lg">
                 <div className="text-[9px] font-bold uppercase tracking-wider text-[#38bdf8]">
-                  Assembled Size
+                  {t('assembledSize')}
                 </div>
                 <div className="text-xs font-mono font-bold text-white leading-snug">
                   {d.w} × {d.l} × {d.h} mm
                 </div>
                 <div className="text-[10px] font-mono text-[#94a3b8]">
-                  {toIn(d.w)}" W × {toIn(d.l)}" D × {toIn(d.h)}" H
+                  {toIn(d.w)}{t('inchUnit')} {t('dimW')} × {toIn(d.l)}{t('inchUnit')} {t('dimD')} × {toIn(d.h)}{t('inchUnit')} {t('dimH')}
                 </div>
               </div>
             );
@@ -7035,15 +7098,13 @@ Date: ${new Date().toISOString()}
             <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 z-10 max-w-[92%]">
               <div className="pointer-events-auto flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-[#0f172a]/85 backdrop-blur-sm border border-[#38bdf8]/30 text-[11px] text-[#cbd5e1] shadow-lg whitespace-nowrap">
                 <span>
-                  {activeTab === 'bench'
-                    ? 'Drag to rotate • Scroll to zoom • Click any drawer to open'
-                    : 'Drag to rotate • Scroll to zoom • Right-drag to pan'}
+                  {activeTab === 'bench' ? t('hintBench') : t('hintDefault')}
                 </span>
                 <button
                   type="button"
                   onClick={() => setShowViewportHint(false)}
                   className="text-[#94a3b8] hover:text-white font-bold leading-none pl-1"
-                  title="Dismiss hint"
+                  title={t('dismissHint')}
                 >
                   ✕
                 </button>
