@@ -81,10 +81,13 @@ module bench_shell() {
         }
 
         // 4b. Recessed Bottom Silicone Foot Pockets (10.6mm dia x 1.2mm deep, inboard of stacking pegs)
+        //     + Matching Top Relief Pockets (11.4mm dia x 1.9mm deep -> 0.5mm skin) so stacked tiers' silicone feet drop in with zero compression/bowing!
         for (x = [-width/2 + 32, width/2 - 32]) {
             for (y = [-depth/2 + 28, depth/2 - 28]) {
                 translate([x, y, -height/2 - 0.05])
                     cylinder(h = 1.25, d = 10.6, $fn = 48);
+                translate([x, y, height/2 - 1.9])
+                    cylinder(h = 1.95, d = 11.4, $fn = 48);
             }
         }
 
@@ -563,27 +566,27 @@ module bench_latch() {
                     // Upper pivot boss & angled neck stepping outward to clear the 6.5mm shell catch hook (+1.7mm past pivot)
                     hull() {
                         circle(r = 3.4);
-                        translate([3.4, -6.0]) circle(r = 2.4);
+                        translate([3.4, -6.0]) circle(r = 1.9);
                     }
-                    // Rigid outer spine (inner face at X = +2.0mm clears +1.7mm catch hook tip by 0.3mm)
+                    // Springy 3.6mm outer spine (inner face clears +1.7mm catch hook tip by 0.3mm; flexes cleanly for fingertip release)
                     hull() {
-                        translate([3.4, -6.0]) circle(r = 2.4);
-                        translate([3.6, -pivot_to_hook - 1.2]) circle(r = 2.2);
+                        translate([3.4, -6.0]) circle(r = 1.9);
+                        translate([3.6, -pivot_to_hook - 1.0]) circle(r = 1.8);
                     }
-                    // Mated upward-pointing locking tooth (0.65mm positive vertical lock + gentler release bevel)
+                    // Mated upward-pointing locking tooth (0.35mm crisp snap-over lock + 35-deg release bevel for effortless fingertip unlatching)
                     polygon(points = [
                         [2.0, -13.4],
-                        [0.1, -13.4],
-                        [-0.6, -12.55],
-                        [-2.5, -12.55],
-                        [-2.5, -14.2],
+                        [0.2, -13.4],
+                        [-0.6, -12.85],
+                        [-2.4, -12.85],
+                        [-2.4, -14.2],
                         [1.8, -16.0],
                         [4.8, -14.4]
                     ]);
                     // Compact outward-flared thumb-pull tab (total vertical reach 16.6mm -> clears 35mm Trace stowed/closed latches & never wedges behind catch)
                     hull() {
-                        translate([3.6, -pivot_to_hook - 1.0]) circle(r = 2.0);
-                        translate([8.2, -pivot_to_hook - 1.2]) circle(r = 1.8);
+                        translate([3.6, -pivot_to_hook - 1.0]) circle(r = 1.8);
+                        translate([8.4, -pivot_to_hook - 1.2]) circle(r = 1.8);
                     }
                 }
             }
@@ -601,8 +604,8 @@ module bench_latch() {
 
         // Tactile finger grip grooves along outer spine
         for (gy = [-6.0, -9.0, -12.0]) {
-            translate([6.1, gy, 0])
-                cylinder(h = latch_w + 2, r = 0.8, center = true);
+            translate([5.6, gy, 0])
+                cylinder(h = latch_w + 2, r = 0.7, center = true);
         }
 
         // Parking detent V-notch (engages shell detent when stowed up)
@@ -805,10 +808,13 @@ module bench_shell() {
             }
         }
         // 4b. Recessed Bottom Silicone Foot Pockets (10.6mm dia x 1.2mm deep, inboard of stacking pegs)
+        //     + Matching Top Relief Pockets (11.4mm dia x 1.9mm deep -> 0.5mm skin) so stacked tiers' silicone feet drop in with zero compression/bowing!
         for (x = [-width/2 + 32, width/2 - 32]) {
             for (y = [-depth/2 + 28, depth/2 - 28]) {
                 translate([x, y, -height/2 - 0.05])
                     cylinder(h = 1.25, d = 10.6, $fn = 48);
+                translate([x, y, height/2 - 1.9])
+                    cylinder(h = 1.95, d = 11.4, $fn = 48);
             }
         }
             // 5. Clean M3x30mm Clearance Bore, Counterbore & Self-Tapping Blind Socket
@@ -1106,17 +1112,16 @@ module bench_latch(lw = 17.2, p2h = 13.6) {
         union() {
             linear_extrude(height = lw, center = true) {
                 union() {
-                    // Upper pivot boss & angled neck stepping outward to clear the 6.5mm shell catch hook (+1.7mm past pivot)
-                    hull() { circle(r = 3.4); translate([3.4, -6.0]) circle(r = 2.4); }
-                    // Rigid outer spine (inner face at X = +2.0mm clears +1.7mm catch hook tip by 0.3mm)
-                    hull() { translate([3.4, -6.0]) circle(r = 2.4); translate([3.6, -p2h - 1.2]) circle(r = 2.2); }
-                    // Mated upward-pointing locking tooth (0.65mm positive vertical lock + gentler release bevel)
+                    // Upper pivot boss & springy outer spine (clears +1.7mm catch hook tip, flexes cleanly for fingertip release)
+                    hull() { circle(r = 3.4); translate([3.4, -6.0]) circle(r = 1.9); }
+                    hull() { translate([3.4, -6.0]) circle(r = 1.9); translate([3.6, -p2h - 1.0]) circle(r = 1.8); }
+                    // Mated upward-pointing locking tooth (0.35mm crisp snap-over lock + 35-deg release bevel for effortless fingertip unlatching)
                     polygon(points = [
-                        [2.0, -13.4], [0.1, -13.4], [-0.6, -12.55],
-                        [-2.5, -12.55], [-2.5, -14.2], [1.8, -16.0], [4.8, -14.4]
+                        [2.0, -13.4], [0.2, -13.4], [-0.6, -12.85],
+                        [-2.4, -12.85], [-2.4, -14.2], [1.8, -16.0], [4.8, -14.4]
                     ]);
                     // Compact outward-flared thumb-pull tab (16.6mm vertical reach -> clears 35mm Trace stowed/closed latches)
-                    hull() { translate([3.6, -p2h - 1.0]) circle(r = 2.0); translate([8.2, -p2h - 1.2]) circle(r = 1.8); }
+                    hull() { translate([3.6, -p2h - 1.0]) circle(r = 1.8); translate([8.4, -p2h - 1.2]) circle(r = 1.8); }
                 }
             }
             // Tapered collar that tucks into the 45-deg ear to hide the screw
@@ -1126,7 +1131,7 @@ module bench_latch(lw = 17.2, p2h = 13.6) {
         cylinder(h = lw + 8, r = 1.8, center = true);
         translate([0.85, -11.4, 0]) cube([2.3, 4.0, lw + 2], center = true);
         for (gy = [-6.0, -9.0, -12.0]) {
-            translate([6.1, gy, 0]) cylinder(h = lw + 2, r = 0.8, center = true);
+            translate([5.6, gy, 0]) cylinder(h = lw + 2, r = 0.7, center = true);
         }
         // Parking detent V-notch
         for (side = [-1, 1]) {
